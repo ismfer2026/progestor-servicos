@@ -21,8 +21,13 @@ export default function Login() {
     setIsLoading(true);
     
     try {
-      await login(email, password);
-      navigate('/');
+      const { error } = await login(email, password);
+      if (error) {
+        console.error('Login error:', error);
+        // You can add toast notification here
+      } else {
+        navigate('/');
+      }
     } catch (error) {
       console.error('Login error:', error);
     } finally {

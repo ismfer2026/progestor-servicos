@@ -1,4 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { User as SupabaseUser, Session } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface User {
   id: string;
@@ -11,8 +14,10 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  session: Session | null;
+  login: (email: string, password: string) => Promise<{ error?: string }>;
+  signup: (email: string, password: string, name: string) => Promise<{ error?: string }>;
+  logout: () => Promise<void>;
   isLoading: boolean;
   trialDaysLeft: number | null;
   isTrialActive: boolean;
@@ -22,47 +27,106 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(5); // Mock trial
+  const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(5);
   const [isTrialActive, setIsTrialActive] = useState(true);
+  const { toast } = useToast();
 
-  // Mock authentication for demo
   useEffect(() => {
-    // Simulate checking for existing session
-    const mockUser = localStorage.getItem('progestor-user');
-    if (mockUser) {
-      setUser(JSON.parse(mockUser));
-    }
-    setIsLoading(false);
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setSession(session);
+        
+        if (session?.user) {
+          // Fetch user profile from usuarios table
+          const { data: userProfile } = await supabase
+            .from('usuarios')
+            .select('*')
+            .eq('email', session.user.email)
+            .single();
+
+          if (userProfile) {
+            setUser({
+              id: userProfile.id,
+              name: userProfile.nome,
+              email: userProfile.email,
+              role: userProfile.permissao as any,
+              empresa_id: userProfile.empresa_id,
+              avatar_url: undefined
+            });
+          }
+        } else {
+          setUser(null);
+        }
+        
+        setIsLoading(false);
+      }
+    );
+
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (!session) {
+        setIsLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const login = async (email: string, password: string) => {
-    setIsLoading(true);
-    
-    // Mock login - replace with Supabase auth
-    const mockUser: User = {
-      id: '1',
-      name: 'João Silva',
-      email: email,
-      role: 'admin',
-      empresa_id: '1',
-      avatar_url: undefined
-    };
-    
-    setUser(mockUser);
-    localStorage.setItem('progestor-user', JSON.stringify(mockUser));
-    setIsLoading(false);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        return { error: error.message };
+      }
+
+      return {};
+    } catch (error) {
+      return { error: 'Erro inesperado ao fazer login' };
+    }
   };
 
-  const logout = () => {
+  const signup = async (email: string, password: string, name: string) => {
+    try {
+      const redirectUrl = `${window.location.origin}/`;
+      
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: redirectUrl
+        }
+      });
+
+      if (error) {
+        return { error: error.message };
+      }
+
+      return {};
+    } catch (error) {
+      return { error: 'Erro inesperado ao criar conta' };
+    }
+  };
+
+  const logout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
-    localStorage.removeItem('progestor-user');
+    setSession(null);
   };
 
   return (
     <AuthContext.Provider value={{
       user,
+      session,
       login,
+      signup,
       logout,
       isLoading,
       trialDaysLeft,
