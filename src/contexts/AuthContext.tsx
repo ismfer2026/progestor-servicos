@@ -17,6 +17,8 @@ interface AuthContextType {
   session: Session | null;
   login: (email: string, password: string) => Promise<{ error?: string }>;
   signup: (email: string, password: string, name: string) => Promise<{ error?: string }>;
+  signInWithMagicLink: (email: string) => Promise<{ error?: string }>;
+  resetPassword: (email: string) => Promise<{ error?: string }>;
   logout: () => Promise<void>;
   isLoading: boolean;
   trialDaysLeft: number | null;
@@ -115,6 +117,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const signInWithMagicLink = async (email: string) => {
+    try {
+      const redirectUrl = `${window.location.origin}/`;
+      
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: redirectUrl
+        }
+      });
+
+      if (error) {
+        return { error: error.message };
+      }
+
+      return {};
+    } catch (error) {
+      return { error: 'Erro inesperado ao enviar link mágico' };
+    }
+  };
+
+  const resetPassword = async (email: string) => {
+    try {
+      const redirectUrl = `${window.location.origin}/`;
+      
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: redirectUrl
+      });
+
+      if (error) {
+        return { error: error.message };
+      }
+
+      return {};
+    } catch (error) {
+      return { error: 'Erro inesperado ao enviar reset de senha' };
+    }
+  };
+
   const logout = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -127,6 +168,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       session,
       login,
       signup,
+      signInWithMagicLink,
+      resetPassword,
       logout,
       isLoading,
       trialDaysLeft,
