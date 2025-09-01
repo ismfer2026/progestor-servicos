@@ -246,6 +246,48 @@ export type Database = {
           },
         ]
       }
+      logs_envio: {
+        Row: {
+          criado_em: string
+          data_envio: string
+          destinatario: string
+          empresa_id: string
+          enviado_por: string | null
+          id: string
+          mensagem_erro: string | null
+          orcamento_id: string
+          status: string
+          tipo_envio: string
+          updated_at: string
+        }
+        Insert: {
+          criado_em?: string
+          data_envio?: string
+          destinatario: string
+          empresa_id: string
+          enviado_por?: string | null
+          id?: string
+          mensagem_erro?: string | null
+          orcamento_id: string
+          status?: string
+          tipo_envio: string
+          updated_at?: string
+        }
+        Update: {
+          criado_em?: string
+          data_envio?: string
+          destinatario?: string
+          empresa_id?: string
+          enviado_por?: string | null
+          id?: string
+          mensagem_erro?: string | null
+          orcamento_id?: string
+          status?: string
+          tipo_envio?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       orcamentos: {
         Row: {
           cliente_id: string | null
