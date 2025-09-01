@@ -9,6 +9,8 @@ import { Layout } from "@/components/layout/Layout";
 import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
+import { Orcamentos } from "@/pages/Orcamentos";
+import { NovoOrcamento } from "@/pages/NovoOrcamento";
 
 const queryClient = new QueryClient();
 
@@ -69,10 +71,15 @@ const App = () => (
                 path="/orcamentos" 
                 element={
                   <ProtectedRoute>
-                    <div className="p-8 text-center">
-                      <h1 className="text-2xl font-bold mb-4">Orçamentos</h1>
-                      <p className="text-muted-foreground">Módulo em desenvolvimento</p>
-                    </div>
+                    <Orcamentos />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/orcamentos/novo" 
+                element={
+                  <ProtectedRoute>
+                    <NovoOrcamento />
                   </ProtectedRoute>
                 } 
               />
