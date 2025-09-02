@@ -38,32 +38,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         setSession(session);
+        setIsLoading(false);
         
         if (session?.user) {
-          // Fetch user profile from usuarios table
-          const { data: userProfile } = await supabase
-            .from('usuarios')
-            .select('*')
-            .eq('email', session.user.email)
-            .single();
+          // Defer Supabase call with setTimeout to prevent deadlock
+          setTimeout(async () => {
+            try {
+              // Fetch user profile from usuarios table
+              const { data: userProfile } = await supabase
+                .from('usuarios')
+                .select('*')
+                .eq('email', session.user.email)
+                .single();
 
-          if (userProfile) {
-            setUser({
-              id: userProfile.id,
-              name: userProfile.nome,
-              email: userProfile.email,
-              role: userProfile.permissao as any,
-              empresa_id: userProfile.empresa_id,
-              avatar_url: undefined
-            });
-          }
+              if (userProfile) {
+                setUser({
+                  id: userProfile.id,
+                  name: userProfile.nome,
+                  email: userProfile.email,
+                  role: userProfile.permissao as any,
+                  empresa_id: userProfile.empresa_id,
+                  avatar_url: undefined
+                });
+              } else {
+                // If no user profile, create a default user from auth data
+                setUser({
+                  id: session.user.id,
+                  name: session.user.user_metadata?.name || session.user.email || 'Usuário',
+                  email: session.user.email || '',
+                  role: 'operacional',
+                  empresa_id: '',
+                  avatar_url: undefined
+                });
+              }
+            } catch (error) {
+              console.error('Error fetching user profile:', error);
+              // Fallback to auth user data
+              setUser({
+                id: session.user.id,
+                name: session.user.user_metadata?.name || session.user.email || 'Usuário',
+                email: session.user.email || '',
+                role: 'operacional',
+                empresa_id: '',
+                avatar_url: undefined
+              });
+            }
+          }, 0);
         } else {
           setUser(null);
         }
-        
-        setIsLoading(false);
       }
     );
 
