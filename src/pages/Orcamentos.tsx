@@ -84,10 +84,10 @@ export function Orcamentos() {
         `)
         .order("criado_em", { ascending: false });
 
-      if (filtroStatus) {
+      if (filtroStatus && filtroStatus !== "all") {
         query = query.eq("status", filtroStatus);
       }
-      if (filtroResponsavel) {
+      if (filtroResponsavel && filtroResponsavel !== "all") {
         query = query.eq("usuario_id", filtroResponsavel);
       }
       if (filtroDataInicio) {
@@ -189,8 +189,8 @@ export function Orcamentos() {
   };
 
   const limparFiltros = () => {
-    setFiltroStatus("");
-    setFiltroResponsavel("");
+    setFiltroStatus("all");
+    setFiltroResponsavel("all");
     setFiltroDataInicio(undefined);
     setFiltroDataFim(undefined);
   };
@@ -228,7 +228,7 @@ export function Orcamentos() {
                   <SelectValue placeholder="Todos os status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos os status</SelectItem>
+                  <SelectItem value="all">Todos os status</SelectItem>
                   {statusOptions.map((status) => (
                     <SelectItem key={status.value} value={status.value}>
                       {status.label}
@@ -245,7 +245,7 @@ export function Orcamentos() {
                   <SelectValue placeholder="Todos os responsáveis" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos os responsáveis</SelectItem>
+                  <SelectItem value="all">Todos os responsáveis</SelectItem>
                   {usuarios.map((usuario) => (
                     <SelectItem key={usuario.id} value={usuario.id}>
                       {usuario.nome}
