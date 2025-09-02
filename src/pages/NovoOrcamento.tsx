@@ -135,10 +135,18 @@ export function NovoOrcamento() {
       return;
     }
 
+    if (!user?.empresa_id) {
+      toast.error("Erro: usuário não está associado a uma empresa");
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from("clientes")
-        .insert([novoCliente])
+        .insert([{
+          ...novoCliente,
+          empresa_id: user.empresa_id
+        }])
         .select()
         .single();
 
