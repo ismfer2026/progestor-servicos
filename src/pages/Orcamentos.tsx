@@ -5,7 +5,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { CalendarIcon, Filter, Plus, FileText, Send, FileCheck, Eye } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -58,6 +60,13 @@ export function Orcamentos() {
   const [filtroResponsavel, setFiltroResponsavel] = useState<string>("");
   const [filtroDataInicio, setFiltroDataInicio] = useState<Date>();
   const [filtroDataFim, setFiltroDataFim] = useState<Date>();
+
+  // Estados do dialog de envio
+  const [orcamentoParaEnvio, setOrcamentoParaEnvio] = useState<Orcamento | null>(null);
+  const [emailDestinatario, setEmailDestinatario] = useState("");
+  const [mensagemAdicional, setMensagemAdicional] = useState("");
+  const [enviandoEmail, setEnviandoEmail] = useState(false);
+  const [dialogEnvioAberto, setDialogEnvioAberto] = useState(false);
 
   useEffect(() => {
     fetchOrcamentos();
@@ -124,13 +133,39 @@ export function Orcamentos() {
     }
   };
 
-  const handleEnviar = async (orcamentoId: string) => {
+  const handleAbrirDialogEnvio = (orcamento: Orcamento) => {
+    setOrcamentoParaEnvio(orcamento);
+    setEmailDestinatario(orcamento.clientes?.email || "");
+    setMensagemAdicional("");
+    setDialogEnvioAberto(true);
+  };
+
+  const handleEnviarEmail = async () => {
+    if (!orcamentoParaEnvio || !emailDestinatario.trim()) {
+      toast.error("Por favor, preencha o email do destinatário");
+      return;
+    }
+
+    setEnviandoEmail(true);
     try {
-      // Implementar envio por email/WhatsApp
+      const { data, error } = await supabase.functions.invoke('enviar-orcamento', {
+        body: {
+          orcamento_id: orcamentoParaEnvio.id,
+          email_destinatario: emailDestinatario,
+          mensagem_adicional: mensagemAdicional || undefined
+        }
+      });
+
+      if (error) throw error;
+
       toast.success("Orçamento enviado com sucesso!");
-    } catch (error) {
+      setDialogEnvioAberto(false);
+      fetchOrcamentos(); // Atualizar a lista
+    } catch (error: any) {
       console.error("Erro ao enviar orçamento:", error);
-      toast.error("Erro ao enviar orçamento");
+      toast.error(error.message || "Erro ao enviar orçamento");
+    } finally {
+      setEnviandoEmail(false);
     }
   };
 
@@ -357,7 +392,7 @@ export function Orcamentos() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleEnviar(orcamento.id)}
+                          onClick={() => handleAbrirDialogEnvio(orcamento)}
                         >
                           <Send className="h-4 w-4" />
                         </Button>
@@ -377,6 +412,78 @@ export function Orcamentos() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Dialog de Envio por Email */}
+      <Dialog open={dialogEnvioAberto} onOpenChange={setDialogEnvioAberto}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Enviar Orçamento por Email</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="cliente">Cliente</Label>
+              <Input
+                id="cliente"
+                value={orcamentoParaEnvio?.clientes?.nome || ""}
+                disabled
+                className="bg-muted"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="email-destinatario">Email do Destinatário</Label>
+              <Input
+                id="email-destinatario"
+                type="email"
+                placeholder="cliente@email.com"
+                value={emailDestinatario}
+                onChange={(e) => setEmailDestinatario(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="valor-total">Valor Total</Label>
+              <Input
+                id="valor-total"
+                value={new Intl.NumberFormat("pt-BR", {
+                  style: "currency",
+                  currency: "BRL",
+                }).format(orcamentoParaEnvio?.valor_total || 0)}
+                disabled
+                className="bg-muted"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="mensagem-adicional">Mensagem Adicional (Opcional)</Label>
+              <Textarea
+                id="mensagem-adicional"
+                placeholder="Digite uma mensagem personalizada para o cliente..."
+                value={mensagemAdicional}
+                onChange={(e) => setMensagemAdicional(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setDialogEnvioAberto(false)}
+              disabled={enviandoEmail}
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleEnviarEmail}
+              disabled={enviandoEmail || !emailDestinatario.trim()}
+            >
+              {enviandoEmail ? "Enviando..." : "Enviar Email"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

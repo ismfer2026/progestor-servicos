@@ -1,1 +1,4 @@
 project_id = "txxadrpsnkotlavovnea"
+
+[functions.enviar-orcamento]
+verify_jwt = true
