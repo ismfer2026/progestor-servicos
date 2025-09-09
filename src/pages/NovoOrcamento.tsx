@@ -84,6 +84,12 @@ export function NovoOrcamento() {
   const [quantidade, setQuantidade] = useState(1);
   const [precoUnitario, setPrecoUnitario] = useState(0);
 
+  // Estados para envio
+  const [modalEnviarEmail, setModalEnviarEmail] = useState(false);
+  const [emailDestinatario, setEmailDestinatario] = useState("");
+  const [mensagemAdicional, setMensagemAdicional] = useState("");
+  const [orcamentoSalvoId, setOrcamentoSalvoId] = useState<string | null>(null);
+
   useEffect(() => {
     fetchClientes();
     fetchServicos();
@@ -211,27 +217,27 @@ export function NovoOrcamento() {
     return itensOrcamento.reduce((total, item) => total + item.preco_total, 0);
   };
 
-  const handleSalvarOrcamento = async () => {
+  const handleSalvarOrcamento = async (showSuccessMessage = true) => {
     if (!clienteSelecionado) {
       toast.error("Selecione um cliente");
-      return;
+      return null;
     }
 
     if (itensOrcamento.length === 0) {
       toast.error("Adicione pelo menos um serviço");
-      return;
+      return null;
     }
 
     if (!user?.empresa_id) {
       toast.error("Erro: usuário não está associado a uma empresa");
-      return;
+      return null;
     }
 
     setLoading(true);
     try {
       const valorTotal = calcularTotal();
       
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("orcamentos")
         .insert([{
           cliente_id: clienteSelecionado,
@@ -240,18 +246,100 @@ export function NovoOrcamento() {
           servicos: itensOrcamento as any,
           valor_total: valorTotal,
           status: "Aguardando",
-        }]);
+        }])
+        .select()
+        .single();
 
       if (error) throw error;
 
-      toast.success("Orçamento criado com sucesso!");
-      navigate("/orcamentos");
+      setOrcamentoSalvoId(data.id);
+      
+      if (showSuccessMessage) {
+        toast.success("Orçamento salvo com sucesso!");
+      }
+      
+      return data.id;
     } catch (error) {
       console.error("Erro ao salvar orçamento:", error);
       toast.error("Erro ao salvar orçamento");
+      return null;
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleEnviarEmail = async () => {
+    if (!emailDestinatario) {
+      toast.error("Digite o email de destino");
+      return;
+    }
+
+    let orcamentoId = orcamentoSalvoId;
+    
+    // Se o orçamento não foi salvo ainda, salvar primeiro
+    if (!orcamentoId) {
+      orcamentoId = await handleSalvarOrcamento(false);
+      if (!orcamentoId) return;
+    }
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('enviar-orcamento', {
+        body: {
+          orcamento_id: orcamentoId,
+          email_destinatario: emailDestinatario,
+          mensagem_adicional: mensagemAdicional
+        }
+      });
+
+      if (error) throw error;
+
+      toast.success("Orçamento enviado por email com sucesso!");
+      setModalEnviarEmail(false);
+      setEmailDestinatario("");
+      setMensagemAdicional("");
+    } catch (error) {
+      console.error("Erro ao enviar email:", error);
+      toast.error("Erro ao enviar orçamento por email");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEnviarWhatsApp = async () => {
+    let orcamentoId = orcamentoSalvoId;
+    
+    // Se o orçamento não foi salvo ainda, salvar primeiro
+    if (!orcamentoId) {
+      orcamentoId = await handleSalvarOrcamento(false);
+      if (!orcamentoId) return;
+    }
+
+    const cliente = clientes.find(c => c.id === clienteSelecionado);
+    if (!cliente?.telefone) {
+      toast.error("Cliente não possui telefone cadastrado");
+      return;
+    }
+
+    const valorTotal = calcularTotal();
+    const mensagem = `Olá ${cliente.nome}! 
+
+Segue o orçamento solicitado:
+
+${itensOrcamento.map(item => 
+  `• ${item.nome} - Qtd: ${item.quantidade} - R$ ${item.preco_total.toFixed(2)}`
+).join('\n')}
+
+*Valor Total: R$ ${valorTotal.toFixed(2)}*
+
+Orçamento válido por 30 dias.
+Em caso de dúvidas, estou à disposição!`;
+
+    const telefone = cliente.telefone.replace(/\D/g, '');
+    const whatsappUrl = `https://wa.me/55${telefone}?text=${encodeURIComponent(mensagem)}`;
+    
+    window.open(whatsappUrl, '_blank');
+    toast.success("Redirecionando para WhatsApp...");
   };
 
   useEffect(() => {
@@ -575,11 +663,67 @@ export function NovoOrcamento() {
           <div className="space-y-2">
             <Button
               className="w-full"
-              onClick={handleSalvarOrcamento}
+              onClick={() => handleSalvarOrcamento(true)}
               disabled={loading || !clienteSelecionado || itensOrcamento.length === 0}
             >
               {loading ? "Salvando..." : "Salvar Orçamento"}
             </Button>
+
+            <Dialog open={modalEnviarEmail} onOpenChange={setModalEnviarEmail}>
+              <DialogTrigger asChild>
+                <Button 
+                  className="w-full" 
+                  variant="default"
+                  disabled={loading || !clienteSelecionado || itensOrcamento.length === 0}
+                >
+                  Enviar por E-mail
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Enviar Orçamento por E-mail</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="email-destinatario">E-mail do Cliente</Label>
+                    <Input
+                      id="email-destinatario"
+                      type="email"
+                      placeholder="cliente@email.com"
+                      value={emailDestinatario}
+                      onChange={(e) => setEmailDestinatario(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="mensagem">Mensagem Adicional (opcional)</Label>
+                    <Textarea
+                      id="mensagem"
+                      placeholder="Digite uma mensagem personalizada..."
+                      value={mensagemAdicional}
+                      onChange={(e) => setMensagemAdicional(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setModalEnviarEmail(false)}>
+                      Cancelar
+                    </Button>
+                    <Button onClick={handleEnviarEmail} disabled={loading}>
+                      {loading ? "Enviando..." : "Enviar E-mail"}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            <Button 
+              onClick={handleEnviarWhatsApp}
+              disabled={loading || !clienteSelecionado || itensOrcamento.length === 0}
+              className="w-full"
+              variant="secondary"
+            >
+              Enviar por WhatsApp
+            </Button>
+
             <Button
               variant="outline"
               className="w-full"
