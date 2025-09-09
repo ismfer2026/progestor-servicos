@@ -222,6 +222,11 @@ export function NovoOrcamento() {
       return;
     }
 
+    if (!user?.empresa_id) {
+      toast.error("Erro: usuário não está associado a uma empresa");
+      return;
+    }
+
     setLoading(true);
     try {
       const valorTotal = calcularTotal();
@@ -231,6 +236,7 @@ export function NovoOrcamento() {
         .insert([{
           cliente_id: clienteSelecionado,
           usuario_id: user?.id,
+          empresa_id: user.empresa_id,
           servicos: itensOrcamento as any,
           valor_total: valorTotal,
           status: "Aguardando",

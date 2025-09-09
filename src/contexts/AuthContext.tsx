@@ -40,21 +40,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
-        setIsLoading(false);
         
         if (session?.user) {
-          // Create user from auth session data directly to avoid RLS issues
-          setUser({
-            id: session.user.id,
-            name: session.user.user_metadata?.name || session.user.email || 'Usuário',
-            email: session.user.email || '',
-            role: 'admin', // Default role - can be updated later through proper flows
-            empresa_id: '',
-            avatar_url: undefined
-          });
+          // Use setTimeout to avoid potential deadlock issues
+          setTimeout(async () => {
+            try {
+              const { data: userData, error } = await supabase
+                .from('usuarios')
+                .select('id, nome, email, funcao, permissao, empresa_id, ativo')
+                .eq('id', session.user.id)
+                .single();
+
+              if (error) {
+                console.error('Erro ao buscar dados do usuário:', error);
+                // Fallback to basic user data if query fails
+                setUser({
+                  id: session.user.id,
+                  name: session.user.user_metadata?.name || session.user.email || 'Usuário',
+                  email: session.user.email || '',
+                  role: 'admin',
+                  empresa_id: '',
+                  avatar_url: undefined
+                });
+              } else if (userData) {
+                setUser({
+                  id: userData.id,
+                  name: userData.nome,
+                  email: userData.email,
+                  role: userData.permissao as 'admin' | 'gestor' | 'operacional' | 'comercial' | 'parceiro',
+                  empresa_id: userData.empresa_id || '',
+                  avatar_url: undefined
+                });
+              }
+            } catch (error) {
+              console.error('Erro inesperado ao buscar usuário:', error);
+              // Fallback to basic user data
+              setUser({
+                id: session.user.id,
+                name: session.user.user_metadata?.name || session.user.email || 'Usuário',
+                email: session.user.email || '',
+                role: 'admin',
+                empresa_id: '',
+                avatar_url: undefined
+              });
+            }
+          }, 0);
         } else {
           setUser(null);
         }
+        setIsLoading(false);
       }
     );
 
