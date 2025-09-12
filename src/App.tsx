@@ -11,6 +11,8 @@ import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import { Orcamentos } from "@/pages/Orcamentos";
 import { NovoOrcamento } from "@/pages/NovoOrcamento";
+import { Servicos } from "@/pages/Servicos";
+import { NovoServico } from "@/pages/NovoServico";
 
 const queryClient = new QueryClient();
 
@@ -84,6 +86,22 @@ const App = () => (
                 } 
               />
               <Route 
+                path="/servicos" 
+                element={
+                  <ProtectedRoute>
+                    <Servicos />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/servicos/novo" 
+                element={
+                  <ProtectedRoute>
+                    <NovoServico />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route
                 path="/funil" 
                 element={
                   <ProtectedRoute>

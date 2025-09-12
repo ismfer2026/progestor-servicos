@@ -349,42 +349,117 @@ export type Database = {
           },
         ]
       }
+      servico_itens: {
+        Row: {
+          created_at: string | null
+          desconto: number | null
+          descricao: string
+          empresa_id: string
+          id: string
+          quantidade: number
+          servico_id: string
+          updated_at: string | null
+          valor_total: number
+          valor_unitario: number
+        }
+        Insert: {
+          created_at?: string | null
+          desconto?: number | null
+          descricao: string
+          empresa_id: string
+          id?: string
+          quantidade?: number
+          servico_id: string
+          updated_at?: string | null
+          valor_total?: number
+          valor_unitario?: number
+        }
+        Update: {
+          created_at?: string | null
+          desconto?: number | null
+          descricao?: string
+          empresa_id?: string
+          id?: string
+          quantidade?: number
+          servico_id?: string
+          updated_at?: string | null
+          valor_total?: number
+          valor_unitario?: number
+        }
+        Relationships: []
+      }
       servicos: {
         Row: {
+          cliente_id: string | null
+          created_at: string | null
           custo_encargos: number | null
           custo_mao_obra: number | null
           custo_produto: number | null
+          data: string | null
           descricao: string | null
           empresa_id: string | null
+          horario_fim: string | null
+          horario_ini: string | null
           id: string
+          local: string | null
           lucro_liquido: number | null
           markup_percent: number | null
           nome: string
+          observacoes: string | null
+          periodo: string | null
           preco_venda: number | null
+          responsavel_id: string | null
+          status: string | null
+          updated_at: string | null
+          valor_total: number | null
         }
         Insert: {
+          cliente_id?: string | null
+          created_at?: string | null
           custo_encargos?: number | null
           custo_mao_obra?: number | null
           custo_produto?: number | null
+          data?: string | null
           descricao?: string | null
           empresa_id?: string | null
+          horario_fim?: string | null
+          horario_ini?: string | null
           id?: string
+          local?: string | null
           lucro_liquido?: number | null
           markup_percent?: number | null
           nome: string
+          observacoes?: string | null
+          periodo?: string | null
           preco_venda?: number | null
+          responsavel_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+          valor_total?: number | null
         }
         Update: {
+          cliente_id?: string | null
+          created_at?: string | null
           custo_encargos?: number | null
           custo_mao_obra?: number | null
           custo_produto?: number | null
+          data?: string | null
           descricao?: string | null
           empresa_id?: string | null
+          horario_fim?: string | null
+          horario_ini?: string | null
           id?: string
+          local?: string | null
           lucro_liquido?: number | null
           markup_percent?: number | null
           nome?: string
+          observacoes?: string | null
+          periodo?: string | null
           preco_venda?: number | null
+          responsavel_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+          valor_total?: number | null
         }
         Relationships: [
           {

@@ -11,7 +11,8 @@ import {
   Package,
   TrendingUp,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Wrench
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,7 @@ import { Button } from '@/components/ui/button';
 const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
   { name: 'Orçamentos', href: '/orcamentos', icon: FileText },
+  { name: 'Serviços', href: '/servicos', icon: Wrench },
   { name: 'Funil de Vendas', href: '/funil', icon: TrendingUp },
   { name: 'Agenda', href: '/agenda', icon: Calendar },
   { name: 'Clientes', href: '/clientes', icon: Users },
