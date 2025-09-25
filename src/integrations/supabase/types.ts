@@ -116,6 +116,39 @@ export type Database = {
           },
         ]
       }
+      configuracoes: {
+        Row: {
+          chave: string
+          created_at: string | null
+          descricao: string | null
+          empresa_id: string
+          id: string
+          tipo: string | null
+          updated_at: string | null
+          valor: Json | null
+        }
+        Insert: {
+          chave: string
+          created_at?: string | null
+          descricao?: string | null
+          empresa_id: string
+          id?: string
+          tipo?: string | null
+          updated_at?: string | null
+          valor?: Json | null
+        }
+        Update: {
+          chave?: string
+          created_at?: string | null
+          descricao?: string | null
+          empresa_id?: string
+          id?: string
+          tipo?: string | null
+          updated_at?: string | null
+          valor?: Json | null
+        }
+        Relationships: []
+      }
       contratos: {
         Row: {
           data_assinatura: string | null
@@ -185,6 +218,147 @@ export type Database = {
         }
         Relationships: []
       }
+      estoque_itens: {
+        Row: {
+          categoria: string | null
+          created_at: string | null
+          custo: number | null
+          descricao: string | null
+          empresa_id: string
+          id: string
+          localizacao: string | null
+          nome: string
+          saldo: number | null
+          saldo_minimo: number | null
+          sku: string | null
+          status: string | null
+          tipo: string | null
+          unidade: string | null
+          updated_at: string | null
+          venda: number | null
+        }
+        Insert: {
+          categoria?: string | null
+          created_at?: string | null
+          custo?: number | null
+          descricao?: string | null
+          empresa_id: string
+          id?: string
+          localizacao?: string | null
+          nome: string
+          saldo?: number | null
+          saldo_minimo?: number | null
+          sku?: string | null
+          status?: string | null
+          tipo?: string | null
+          unidade?: string | null
+          updated_at?: string | null
+          venda?: number | null
+        }
+        Update: {
+          categoria?: string | null
+          created_at?: string | null
+          custo?: number | null
+          descricao?: string | null
+          empresa_id?: string
+          id?: string
+          localizacao?: string | null
+          nome?: string
+          saldo?: number | null
+          saldo_minimo?: number | null
+          sku?: string | null
+          status?: string | null
+          tipo?: string | null
+          unidade?: string | null
+          updated_at?: string | null
+          venda?: number | null
+        }
+        Relationships: []
+      }
+      estoque_manutencao: {
+        Row: {
+          created_at: string | null
+          custo_manutencao: number | null
+          data_entrada: string | null
+          data_retorno: string | null
+          defeito: string
+          empresa_id: string
+          id: string
+          item_id: string
+          observacoes: string | null
+          previsao_retorno: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          custo_manutencao?: number | null
+          data_entrada?: string | null
+          data_retorno?: string | null
+          defeito: string
+          empresa_id: string
+          id?: string
+          item_id: string
+          observacoes?: string | null
+          previsao_retorno?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          custo_manutencao?: number | null
+          data_entrada?: string | null
+          data_retorno?: string | null
+          defeito?: string
+          empresa_id?: string
+          id?: string
+          item_id?: string
+          observacoes?: string | null
+          previsao_retorno?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      estoque_reservas: {
+        Row: {
+          created_at: string | null
+          data_liberacao: string | null
+          data_reserva: string
+          empresa_id: string
+          id: string
+          item_id: string
+          observacoes: string | null
+          quantidade: number
+          servico_id: string | null
+          status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          data_liberacao?: string | null
+          data_reserva: string
+          empresa_id: string
+          id?: string
+          item_id: string
+          observacoes?: string | null
+          quantidade: number
+          servico_id?: string | null
+          status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          data_liberacao?: string | null
+          data_reserva?: string
+          empresa_id?: string
+          id?: string
+          item_id?: string
+          observacoes?: string | null
+          quantidade?: number
+          servico_id?: string | null
+          status?: string | null
+        }
+        Relationships: []
+      }
       financeiro: {
         Row: {
           categoria: string | null
@@ -246,6 +420,141 @@ export type Database = {
           },
         ]
       }
+      financeiro_movimentacoes: {
+        Row: {
+          categoria: string | null
+          centro_custo: string | null
+          cliente_id: string | null
+          created_at: string | null
+          data_pagamento: string | null
+          data_vencimento: string
+          descricao: string
+          empresa_id: string
+          forma_pagamento: string | null
+          fornecedor_id: string | null
+          id: string
+          observacoes: string | null
+          status: string | null
+          tipo: string
+          updated_at: string | null
+          valor: number
+        }
+        Insert: {
+          categoria?: string | null
+          centro_custo?: string | null
+          cliente_id?: string | null
+          created_at?: string | null
+          data_pagamento?: string | null
+          data_vencimento: string
+          descricao: string
+          empresa_id: string
+          forma_pagamento?: string | null
+          fornecedor_id?: string | null
+          id?: string
+          observacoes?: string | null
+          status?: string | null
+          tipo: string
+          updated_at?: string | null
+          valor: number
+        }
+        Update: {
+          categoria?: string | null
+          centro_custo?: string | null
+          cliente_id?: string | null
+          created_at?: string | null
+          data_pagamento?: string | null
+          data_vencimento?: string
+          descricao?: string
+          empresa_id?: string
+          forma_pagamento?: string | null
+          fornecedor_id?: string | null
+          id?: string
+          observacoes?: string | null
+          status?: string | null
+          tipo?: string
+          updated_at?: string | null
+          valor?: number
+        }
+        Relationships: []
+      }
+      funil_cards: {
+        Row: {
+          cliente_id: string | null
+          created_at: string | null
+          data_limite: string | null
+          empresa_id: string
+          etapa_id: string
+          id: string
+          observacoes: string | null
+          orcamento_id: string | null
+          ordem: number | null
+          responsavel_id: string | null
+          titulo: string
+          updated_at: string | null
+          valor: number | null
+        }
+        Insert: {
+          cliente_id?: string | null
+          created_at?: string | null
+          data_limite?: string | null
+          empresa_id: string
+          etapa_id: string
+          id?: string
+          observacoes?: string | null
+          orcamento_id?: string | null
+          ordem?: number | null
+          responsavel_id?: string | null
+          titulo: string
+          updated_at?: string | null
+          valor?: number | null
+        }
+        Update: {
+          cliente_id?: string | null
+          created_at?: string | null
+          data_limite?: string | null
+          empresa_id?: string
+          etapa_id?: string
+          id?: string
+          observacoes?: string | null
+          orcamento_id?: string | null
+          ordem?: number | null
+          responsavel_id?: string | null
+          titulo?: string
+          updated_at?: string | null
+          valor?: number | null
+        }
+        Relationships: []
+      }
+      funil_etapas: {
+        Row: {
+          ativo: boolean | null
+          cor: string | null
+          created_at: string | null
+          empresa_id: string
+          id: string
+          nome: string
+          ordem: number
+        }
+        Insert: {
+          ativo?: boolean | null
+          cor?: string | null
+          created_at?: string | null
+          empresa_id: string
+          id?: string
+          nome: string
+          ordem: number
+        }
+        Update: {
+          ativo?: boolean | null
+          cor?: string | null
+          created_at?: string | null
+          empresa_id?: string
+          id?: string
+          nome?: string
+          ordem?: number
+        }
+        Relationships: []
+      }
       logs_envio: {
         Row: {
           criado_em: string
@@ -285,6 +594,84 @@ export type Database = {
           status?: string
           tipo_envio?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      modelos: {
+        Row: {
+          ativo: boolean | null
+          conteudo_template: string
+          created_at: string | null
+          empresa_id: string
+          id: string
+          nome: string
+          publico: boolean | null
+          tipo: string
+          updated_at: string | null
+          variaveis: Json | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          conteudo_template: string
+          created_at?: string | null
+          empresa_id: string
+          id?: string
+          nome: string
+          publico?: boolean | null
+          tipo: string
+          updated_at?: string | null
+          variaveis?: Json | null
+        }
+        Update: {
+          ativo?: boolean | null
+          conteudo_template?: string
+          created_at?: string | null
+          empresa_id?: string
+          id?: string
+          nome?: string
+          publico?: boolean | null
+          tipo?: string
+          updated_at?: string | null
+          variaveis?: Json | null
+        }
+        Relationships: []
+      }
+      notificacoes: {
+        Row: {
+          created_at: string | null
+          data_leitura: string | null
+          empresa_id: string
+          id: string
+          lida: boolean | null
+          link: string | null
+          mensagem: string | null
+          tipo: string
+          titulo: string
+          usuario_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          data_leitura?: string | null
+          empresa_id: string
+          id?: string
+          lida?: boolean | null
+          link?: string | null
+          mensagem?: string | null
+          tipo: string
+          titulo: string
+          usuario_id: string
+        }
+        Update: {
+          created_at?: string | null
+          data_leitura?: string | null
+          empresa_id?: string
+          id?: string
+          lida?: boolean | null
+          link?: string | null
+          mensagem?: string | null
+          tipo?: string
+          titulo?: string
+          usuario_id?: string
         }
         Relationships: []
       }
@@ -470,6 +857,60 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tarefas: {
+        Row: {
+          cliente_id: string | null
+          created_at: string | null
+          data_fim: string | null
+          data_hora: string
+          descricao: string | null
+          empresa_id: string
+          id: string
+          lembrete: boolean | null
+          origem: string | null
+          servico_id: string | null
+          status: string | null
+          tipo: string | null
+          titulo: string
+          updated_at: string | null
+          usuario_id: string | null
+        }
+        Insert: {
+          cliente_id?: string | null
+          created_at?: string | null
+          data_fim?: string | null
+          data_hora: string
+          descricao?: string | null
+          empresa_id: string
+          id?: string
+          lembrete?: boolean | null
+          origem?: string | null
+          servico_id?: string | null
+          status?: string | null
+          tipo?: string | null
+          titulo: string
+          updated_at?: string | null
+          usuario_id?: string | null
+        }
+        Update: {
+          cliente_id?: string | null
+          created_at?: string | null
+          data_fim?: string | null
+          data_hora?: string
+          descricao?: string | null
+          empresa_id?: string
+          id?: string
+          lembrete?: boolean | null
+          origem?: string | null
+          servico_id?: string | null
+          status?: string | null
+          tipo?: string | null
+          titulo?: string
+          updated_at?: string | null
+          usuario_id?: string | null
+        }
+        Relationships: []
       }
       usuarios: {
         Row: {

@@ -26,6 +26,7 @@ const navigation = [
   { name: 'Clientes', href: '/clientes', icon: Users },
   { name: 'Estoque', href: '/estoque', icon: Package },
   { name: 'Financeiro', href: '/financeiro', icon: DollarSign },
+  { name: 'Contratos', href: '/contratos', icon: FileText },
   { name: 'Relatórios', href: '/relatorios', icon: BarChart3 },
   { name: 'Configurações', href: '/configuracoes', icon: Settings },
 ];

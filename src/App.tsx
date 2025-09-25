@@ -13,6 +13,14 @@ import { Orcamentos } from "@/pages/Orcamentos";
 import { NovoOrcamento } from "@/pages/NovoOrcamento";
 import { Servicos } from "@/pages/Servicos";
 import { NovoServico } from "@/pages/NovoServico";
+import FunilVendas from "@/pages/FunilVendas";
+import Agenda from "@/pages/Agenda";
+import Clientes from "@/pages/Clientes";
+import Estoque from "@/pages/Estoque";
+import Financeiro from "@/pages/Financeiro";
+import Relatorios from "@/pages/Relatorios";
+import Configuracoes from "@/pages/Configuracoes";
+import Contratos from "@/pages/Contratos";
 
 const queryClient = new QueryClient();
 
@@ -105,10 +113,7 @@ const App = () => (
                 path="/funil" 
                 element={
                   <ProtectedRoute>
-                    <div className="p-8 text-center">
-                      <h1 className="text-2xl font-bold mb-4">Funil de Vendas</h1>
-                      <p className="text-muted-foreground">Módulo em desenvolvimento</p>
-                    </div>
+                    <FunilVendas />
                   </ProtectedRoute>
                 } 
               />
@@ -116,10 +121,7 @@ const App = () => (
                 path="/agenda" 
                 element={
                   <ProtectedRoute>
-                    <div className="p-8 text-center">
-                      <h1 className="text-2xl font-bold mb-4">Agenda</h1>
-                      <p className="text-muted-foreground">Módulo em desenvolvimento</p>
-                    </div>
+                    <Agenda />
                   </ProtectedRoute>
                 } 
               />
@@ -127,10 +129,7 @@ const App = () => (
                 path="/clientes" 
                 element={
                   <ProtectedRoute>
-                    <div className="p-8 text-center">
-                      <h1 className="text-2xl font-bold mb-4">Clientes</h1>
-                      <p className="text-muted-foreground">Módulo em desenvolvimento</p>
-                    </div>
+                    <Clientes />
                   </ProtectedRoute>
                 } 
               />
@@ -138,10 +137,7 @@ const App = () => (
                 path="/estoque" 
                 element={
                   <ProtectedRoute>
-                    <div className="p-8 text-center">
-                      <h1 className="text-2xl font-bold mb-4">Estoque</h1>
-                      <p className="text-muted-foreground">Módulo em desenvolvimento</p>
-                    </div>
+                    <Estoque />
                   </ProtectedRoute>
                 } 
               />
@@ -149,10 +145,7 @@ const App = () => (
                 path="/financeiro" 
                 element={
                   <ProtectedRoute>
-                    <div className="p-8 text-center">
-                      <h1 className="text-2xl font-bold mb-4">Financeiro</h1>
-                      <p className="text-muted-foreground">Módulo em desenvolvimento</p>
-                    </div>
+                    <Financeiro />
                   </ProtectedRoute>
                 } 
               />
@@ -160,10 +153,7 @@ const App = () => (
                 path="/relatorios" 
                 element={
                   <ProtectedRoute>
-                    <div className="p-8 text-center">
-                      <h1 className="text-2xl font-bold mb-4">Relatórios</h1>
-                      <p className="text-muted-foreground">Módulo em desenvolvimento</p>
-                    </div>
+                    <Relatorios />
                   </ProtectedRoute>
                 } 
               />
@@ -171,10 +161,15 @@ const App = () => (
                 path="/configuracoes" 
                 element={
                   <ProtectedRoute>
-                    <div className="p-8 text-center">
-                      <h1 className="text-2xl font-bold mb-4">Configurações</h1>
-                      <p className="text-muted-foreground">Módulo em desenvolvimento</p>
-                    </div>
+                    <Configuracoes />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/contratos" 
+                element={
+                  <ProtectedRoute>
+                    <Contratos />
                   </ProtectedRoute>
                 } 
               />
