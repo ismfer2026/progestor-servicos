@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { DatePickerWithRange } from '@/components/ui/date-range-picker';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -18,7 +18,7 @@ import { ptBR } from 'date-fns/locale';
 
 interface FinanceiroMovimentacao {
   id: string;
-  tipo: 'receber' | 'pagar';
+  tipo: string;
   descricao: string;
   valor: number;
   data_vencimento: string;
@@ -28,7 +28,6 @@ interface FinanceiroMovimentacao {
   centro_custo?: string;
   forma_pagamento?: string;
   cliente_id?: string;
-  cliente?: { nome: string };
 }
 
 export default function Financeiro() {
@@ -54,10 +53,8 @@ export default function Financeiro() {
     try {
       const { data, error } = await supabase
         .from('financeiro_movimentacoes')
-        .select(`
-          *,
-          cliente:clientes(nome)
-        `)
+        .select('*')
+        .eq('empresa_id', user.empresa_id)
         .order('data_vencimento');
 
       if (error) throw error;
@@ -71,8 +68,7 @@ export default function Financeiro() {
   };
 
   const filteredMovimentacoes = movimentacoes.filter(mov => {
-    const matchesSearch = mov.descricao.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         mov.cliente?.nome?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = mov.descricao.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = selectedStatus === 'all' || mov.status === selectedStatus;
     const matchesTipo = selectedTipo === 'all' || mov.tipo === selectedTipo;
@@ -312,7 +308,7 @@ export default function Financeiro() {
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  {mov.cliente?.nome || '-'}
+                  {mov.cliente_id ? `Cliente #${mov.cliente_id.slice(-8)}` : '-'}
                 </TableCell>
                 <TableCell>
                   <div className="flex space-x-1">

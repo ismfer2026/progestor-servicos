@@ -23,8 +23,8 @@ interface Tarefa {
   data_fim?: string;
   status: string;
   tipo: string;
-  cliente?: { nome: string } | null;
-  usuario?: { nome: string } | null;
+  cliente_id?: string;
+  usuario_id?: string;
 }
 
 export default function Agenda() {
@@ -45,11 +45,8 @@ export default function Agenda() {
     try {
       const { data, error } = await supabase
         .from('tarefas')
-        .select(`
-          *,
-          cliente:clientes(nome),
-          usuario:usuarios(nome)
-        `)
+        .select('*')
+        .eq('empresa_id', user.empresa_id)
         .order('data_hora');
 
       if (error) throw error;
@@ -198,10 +195,10 @@ export default function Agenda() {
                       {format(new Date(tarefa.data_hora), 'HH:mm')}
                       {tarefa.data_fim && ` - ${format(new Date(tarefa.data_fim), 'HH:mm')}`}
                     </div>
-                    {tarefa.cliente && (
+                    {tarefa.cliente_id && (
                       <div className="flex items-center">
                         <Users className="mr-1 h-4 w-4" />
-                        {tarefa.cliente.nome}
+                        Cliente #{tarefa.cliente_id.slice(-8)}
                       </div>
                     )}
                   </div>

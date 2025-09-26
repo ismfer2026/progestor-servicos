@@ -72,6 +72,7 @@ export default function Estoque() {
       const { data: itensData, error: itensError } = await supabase
         .from('estoque_itens')
         .select('*')
+        .eq('empresa_id', user.empresa_id)
         .order('nome');
 
       if (itensError) throw itensError;
@@ -79,10 +80,8 @@ export default function Estoque() {
       // Load reservations
       const { data: reservasData, error: reservasError } = await supabase
         .from('estoque_reservas')
-        .select(`
-          *,
-          item:estoque_itens(nome, unidade)
-        `)
+        .select('*')
+        .eq('empresa_id', user.empresa_id)
         .eq('status', 'reservado')
         .order('data_reserva');
 
@@ -91,10 +90,8 @@ export default function Estoque() {
       // Load maintenance
       const { data: manutencoesData, error: manutencoesError } = await supabase
         .from('estoque_manutencao')
-        .select(`
-          *,
-          item:estoque_itens(nome, unidade)
-        `)
+        .select('*')
+        .eq('empresa_id', user.empresa_id)
         .eq('status', 'em_manutencao')
         .order('data_entrada');
 
@@ -290,10 +287,10 @@ export default function Estoque() {
             {reservas.map(reserva => (
               <TableRow key={reserva.id}>
                 <TableCell>
-                  {reserva.item?.nome || 'Item não encontrado'}
+                  Item #{reserva.item_id.slice(-8)}
                 </TableCell>
                 <TableCell>
-                  {reserva.quantidade} {reserva.item?.unidade}
+                  {reserva.quantidade}
                 </TableCell>
                 <TableCell>
                   {new Date(reserva.data_reserva).toLocaleDateString('pt-BR')}
@@ -340,7 +337,7 @@ export default function Estoque() {
             {manutencoes.map(manutencao => (
               <TableRow key={manutencao.id}>
                 <TableCell>
-                  {manutencao.item?.nome || 'Item não encontrado'}
+                  Item #{manutencao.item_id.slice(-8)}
                 </TableCell>
                 <TableCell>{manutencao.defeito}</TableCell>
                 <TableCell>

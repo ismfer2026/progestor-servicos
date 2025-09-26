@@ -53,18 +53,16 @@ export default function FunilVendas() {
       const { data: etapasData, error: etapasError } = await supabase
         .from('funil_etapas')
         .select('*')
+        .eq('empresa_id', user.empresa_id)
         .order('ordem');
 
       if (etapasError) throw etapasError;
 
-      // Load cards with related data
+      // Load cards
       const { data: cardsData, error: cardsError } = await supabase
         .from('funil_cards')
-        .select(`
-          *,
-          cliente:clientes(nome),
-          responsavel:usuarios(nome)
-        `)
+        .select('*')
+        .eq('empresa_id', user.empresa_id)
         .order('ordem');
 
       if (cardsError) throw cardsError;
@@ -235,21 +233,21 @@ export default function FunilVendas() {
                               )}
                             </CardHeader>
                             <CardContent className="pt-0">
-                              {card.cliente && (
+                              {card.cliente_id && (
                                 <div className="flex items-center space-x-2 mb-2">
                                   <Avatar className="h-6 w-6">
                                     <AvatarFallback className="text-xs">
-                                      {card.cliente.nome?.slice(0, 2).toUpperCase()}
+                                      CL
                                     </AvatarFallback>
                                   </Avatar>
                                   <span className="text-xs text-muted-foreground">
-                                    {card.cliente.nome}
+                                    Cliente #{card.cliente_id.slice(-8)}
                                   </span>
                                 </div>
                               )}
-                              {card.responsavel && (
+                              {card.responsavel_id && (
                                 <p className="text-xs text-muted-foreground mb-2">
-                                  Resp.: {card.responsavel.nome}
+                                  Resp.: #{card.responsavel_id.slice(-8)}
                                 </p>
                               )}
                               <div className="flex justify-between items-center">

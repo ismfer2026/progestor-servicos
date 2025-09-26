@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { BarChart3, TrendingUp, Users, DollarSign, Package, FileText, Download, Calendar } from 'lucide-react';
+import { BarChart3, TrendingUp, Users, DollarSign, Package, FileText, Download, Calendar, Plus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DatePickerWithRange } from '@/components/ui/date-range-picker';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { addDays } from 'date-fns';
@@ -81,7 +81,7 @@ const relatoriosData = [
 
 export default function Relatorios() {
   const [selectedPeriodo, setSelectedPeriodo] = useState('30dias');
-  const [dateRange, setDateRange] = useState({
+  const [dateRange, setDateRange] = useState<any>({
     from: new Date(),
     to: addDays(new Date(), 30)
   });
@@ -180,7 +180,7 @@ export default function Relatorios() {
             {selectedPeriodo === 'personalizado' && (
               <div className="md:col-span-2">
                 <label className="text-sm font-medium">Período Personalizado</label>
-                <DatePickerWithRange
+                <DateRangePicker
                   date={dateRange}
                   onDateChange={setDateRange}
                 />

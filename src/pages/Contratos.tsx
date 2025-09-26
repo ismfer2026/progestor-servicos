@@ -16,18 +16,20 @@ import { toast } from 'sonner';
 
 interface Contrato {
   id: string;
-  titulo: string;
+  titulo?: string;
   numero_contrato?: string;
   valor_total?: number;
   data_inicio?: string;
   data_fim?: string;
-  status: string;
+  status?: string;
   data_assinatura?: string;
   cliente_id?: string;
   servico_id?: string;
   orcamento_id?: string;
   observacoes?: string;
-  cliente?: { nome: string } | null;
+  empresa_id?: string;
+  pdf_contrato?: string;
+  status_assinatura?: string;
 }
 
 interface Modelo {
@@ -60,10 +62,8 @@ export default function Contratos() {
       // Load contracts
       const { data: contratosData, error: contratosError } = await supabase
         .from('contratos')
-        .select(`
-          *,
-          cliente:clientes(nome)
-        `)
+        .select('*')
+        .eq('empresa_id', user.empresa_id)
         .order('created_at', { ascending: false });
 
       if (contratosError) throw contratosError;
@@ -72,13 +72,14 @@ export default function Contratos() {
       const { data: modelosData, error: modelosError } = await supabase
         .from('modelos')
         .select('*')
+        .eq('empresa_id', user.empresa_id)
         .eq('tipo', 'contrato')
         .eq('ativo', true)
         .order('nome');
 
       if (modelosError) throw modelosError;
 
-      setContratos(contratosData || []);
+      setContratos(contratosData as Contrato[] || []);
       setModelos(modelosData || []);
     } catch (error) {
       console.error('Error loading contratos data:', error);
@@ -89,11 +90,10 @@ export default function Contratos() {
   };
 
   const filteredContratos = contratos.filter(contrato => {
-    const matchesSearch = contrato.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         contrato.numero_contrato?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         contrato.cliente?.nome?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (contrato.titulo || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (contrato.numero_contrato || '').toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesStatus = selectedStatus === 'all' || contrato.status === selectedStatus;
+    const matchesStatus = selectedStatus === 'all' || (contrato.status_assinatura || contrato.status) === selectedStatus;
     
     return matchesSearch && matchesStatus;
   });
@@ -155,7 +155,7 @@ export default function Contratos() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {contratos.filter(c => c.status === 'assinado').length}
+              {contratos.filter(c => (c.status_assinatura || c.status) === 'assinado').length}
             </div>
           </CardContent>
         </Card>
@@ -165,7 +165,7 @@ export default function Contratos() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">
-              {contratos.filter(c => c.status === 'enviado').length}
+              {contratos.filter(c => (c.status_assinatura || c.status) === 'enviado').length}
             </div>
           </CardContent>
         </Card>
@@ -175,7 +175,7 @@ export default function Contratos() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatCurrency(contratos.filter(c => c.status === 'assinado').reduce((sum, c) => sum + (c.valor_total || 0), 0))}
+              {formatCurrency(contratos.filter(c => (c.status_assinatura || c.status) === 'assinado').reduce((sum, c) => sum + (c.valor_total || 0), 0))}
             </div>
           </CardContent>
         </Card>
@@ -202,14 +202,14 @@ export default function Contratos() {
                 <TableRow key={contrato.id}>
                   <TableCell>
                     <div>
-                      <p className="font-medium">{contrato.titulo}</p>
+                      <p className="font-medium">{contrato.titulo || 'Contrato sem título'}</p>
                       {contrato.numero_contrato && (
                         <p className="text-sm text-muted-foreground">{contrato.numero_contrato}</p>
                       )}
                     </div>
                   </TableCell>
                   <TableCell>
-                    {contrato.cliente?.nome || 'N/A'}
+                    {contrato.cliente_id ? `Cliente #${contrato.cliente_id.slice(-8)}` : 'N/A'}
                   </TableCell>
                   <TableCell>
                     {formatCurrency(contrato.valor_total)}
@@ -220,9 +220,9 @@ export default function Contratos() {
                   <TableCell>
                     <Badge
                       variant="secondary"
-                      className={`${getStatusColor(contrato.status)} text-white`}
+                      className={`${getStatusColor(contrato.status_assinatura || contrato.status || 'rascunho')} text-white`}
                     >
-                      {getStatusLabel(contrato.status)}
+                      {getStatusLabel(contrato.status_assinatura || contrato.status || 'rascunho')}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -293,14 +293,14 @@ export default function Contratos() {
                     <div>
                       <Label>Variáveis Disponíveis</Label>
                       <div className="text-sm text-muted-foreground space-y-1">
-                        <p>{{cliente_nome}} - Nome do cliente</p>
-                        <p>{{cliente_documento}} - CPF/CNPJ</p>
-                        <p>{{cliente_endereco}} - Endereço</p>
-                        <p>{{empresa_nome}} - Nome da empresa</p>
-                        <p>{{contrato_numero}} - Número do contrato</p>
-                        <p>{{contrato_valor}} - Valor total</p>
-                        <p>{{data_inicio}} - Data de início</p>
-                        <p>{{data_fim}} - Data de fim</p>
+                        <p>{'{{cliente_nome}}'} - Nome do cliente</p>
+                        <p>{'{{cliente_documento}}'} - CPF/CNPJ</p>
+                        <p>{'{{cliente_endereco}}'} - Endereço</p>
+                        <p>{'{{empresa_nome}}'} - Nome da empresa</p>
+                        <p>{'{{contrato_numero}}'} - Número do contrato</p>
+                        <p>{'{{contrato_valor}}'} - Valor total</p>
+                        <p>{'{{data_inicio}}'} - Data de início</p>
+                        <p>{'{{data_fim}}'} - Data de fim</p>
                       </div>
                     </div>
                   </div>
@@ -523,8 +523,8 @@ CONTRATANTE                     CONTRATADO`}
                   <h4 className="font-semibold">Informações Gerais</h4>
                   <p><strong>Título:</strong> {selectedContract.titulo}</p>
                   <p><strong>Número:</strong> {selectedContract.numero_contrato || 'N/A'}</p>
-                  <p><strong>Cliente:</strong> {selectedContract.cliente?.nome || 'N/A'}</p>
-                  <p><strong>Status:</strong> {getStatusLabel(selectedContract.status)}</p>
+                  <p><strong>Cliente:</strong> {selectedContract.cliente_id ? `Cliente #${selectedContract.cliente_id.slice(-8)}` : 'N/A'}</p>
+                  <p><strong>Status:</strong> {getStatusLabel(selectedContract.status_assinatura || selectedContract.status || 'rascunho')}</p>
                 </div>
                 <div>
                   <h4 className="font-semibold">Valores e Datas</h4>
