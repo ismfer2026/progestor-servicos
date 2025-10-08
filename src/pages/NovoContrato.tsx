@@ -177,6 +177,11 @@ export function NovoContrato() {
   const gerarConteudoContrato = () => {
     const dataAtual = new Date().toLocaleDateString('pt-BR');
     
+    const formatTime = (time: string) => {
+      if (!time) return '';
+      return time.substring(0, 5);
+    };
+    
     return `
 CONTRATO DE PRESTAÇÃO DE SERVIÇOS
 
@@ -189,6 +194,11 @@ CPF/CNPJ: ${cliente?.cpf_cnpj || 'N/A'}
 Endereço: ${cliente?.endereco || 'N/A'}
 Email: ${cliente?.email || 'N/A'}
 Telefone: ${cliente?.telefone || 'N/A'}
+
+DETALHES DO SERVIÇO:
+${orcamento?.data_servico ? `Data: ${new Date(orcamento.data_servico).toLocaleDateString('pt-BR')}` : ''}
+${orcamento?.horario_inicio && orcamento?.horario_fim ? `Horário: ${formatTime(orcamento.horario_inicio)} às ${formatTime(orcamento.horario_fim)}` : ''}
+${orcamento?.local_servico ? `Local: ${orcamento.local_servico}` : ''}
 
 OBJETO DO CONTRATO:
 O presente contrato tem por objeto a prestação de serviços conforme especificado no orçamento:

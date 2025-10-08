@@ -112,12 +112,20 @@ export function NovoOrcamento() {
       if (data) {
         setClienteSelecionado(data.cliente_id);
         setBuscaCliente(data.clientes?.nome || '');
+        
+        // Load service details
+        if (data.data_servico) setDataEvento(new Date(data.data_servico));
+        if (data.horario_inicio) setHorarioInicio(data.horario_inicio);
+        if (data.horario_fim) setHorarioTermino(data.horario_fim);
+        if (data.local_servico) setLocalEvento(data.local_servico);
+        if (data.data_validade) setDataValidade(new Date(data.data_validade));
+        if (data.observacoes) setObservacoes(data.observacoes);
+        
         // Type assertion for servicos from JSON
         const servicosData = data.servicos as any;
         if (Array.isArray(servicosData)) {
           setItensOrcamento(servicosData as ItemOrcamento[]);
         }
-        setObservacoes('');
       }
     } catch (error) {
       console.error('Erro ao carregar orçamento:', error);
@@ -259,6 +267,12 @@ export function NovoOrcamento() {
         servicos: itensOrcamento as any,
         valor_total: valorTotal,
         status: "Aguardando",
+        data_validade: dataValidade?.toISOString().split('T')[0],
+        data_servico: dataEvento?.toISOString().split('T')[0],
+        horario_inicio: horarioInicio || null,
+        horario_fim: horarioTermino || null,
+        local_servico: localEvento || null,
+        observacoes: observacoes || null,
       };
 
       if (isEditing && orcamentoId) {

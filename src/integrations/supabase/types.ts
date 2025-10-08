@@ -705,8 +705,14 @@ export type Database = {
           cliente_id: string | null
           criado_em: string | null
           data_envio: string | null
+          data_servico: string | null
+          data_validade: string | null
           empresa_id: string | null
+          horario_fim: string | null
+          horario_inicio: string | null
           id: string
+          local_servico: string | null
+          observacoes: string | null
           pdf_gerado: boolean | null
           servicos: Json | null
           status: string | null
@@ -717,8 +723,14 @@ export type Database = {
           cliente_id?: string | null
           criado_em?: string | null
           data_envio?: string | null
+          data_servico?: string | null
+          data_validade?: string | null
           empresa_id?: string | null
+          horario_fim?: string | null
+          horario_inicio?: string | null
           id?: string
+          local_servico?: string | null
+          observacoes?: string | null
           pdf_gerado?: boolean | null
           servicos?: Json | null
           status?: string | null
@@ -729,8 +741,14 @@ export type Database = {
           cliente_id?: string | null
           criado_em?: string | null
           data_envio?: string | null
+          data_servico?: string | null
+          data_validade?: string | null
           empresa_id?: string | null
+          horario_fim?: string | null
+          horario_inicio?: string | null
           id?: string
+          local_servico?: string | null
+          observacoes?: string | null
           pdf_gerado?: boolean | null
           servicos?: Json | null
           status?: string | null

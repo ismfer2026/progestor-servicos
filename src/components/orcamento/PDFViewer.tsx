@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -17,6 +17,7 @@ export function PDFViewer({ orcamento, onClose }: PDFViewerProps) {
       scale: 2,
       useCORS: true,
       logging: false,
+      backgroundColor: '#ffffff',
     });
 
     const imgData = canvas.toDataURL('image/png');
@@ -44,135 +45,172 @@ export function PDFViewer({ orcamento, onClose }: PDFViewerProps) {
     return new Date(date).toLocaleDateString('pt-BR');
   };
 
+  const formatTime = (time: string) => {
+    if (!time) return '';
+    return time.substring(0, 5);
+  };
+
+  const calcularSubtotal = () => {
+    if (!Array.isArray(orcamento.servicos)) return 0;
+    return orcamento.servicos.reduce((sum: number, item: any) => {
+      const valorItem = (item.preco_unitario || 0) * (item.quantidade || 1);
+      return sum + valorItem;
+    }, 0);
+  };
+
+  const subtotal = calcularSubtotal();
+
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-background rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-auto">
-        <div className="sticky top-0 bg-background border-b p-4 flex justify-between items-center">
-          <h2 className="text-xl font-bold">Pré-visualização do Orçamento</h2>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-auto">
+      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full my-4">
+        <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center rounded-t-lg z-10">
+          <h2 className="text-xl font-bold text-gray-900">Pré-visualização do Orçamento</h2>
           <div className="flex gap-2">
             <button
               onClick={generatePDF}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
+              className="px-4 py-2 bg-gray-900 text-white rounded hover:bg-gray-800 transition-colors font-medium"
             >
               Baixar PDF
             </button>
             <button
               onClick={onClose}
-              className="px-4 py-2 border rounded hover:bg-accent"
+              className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
             >
-              Fechar
+              Voltar
             </button>
           </div>
         </div>
 
-        <div ref={contentRef} className="p-8 bg-white text-black">
+        <div ref={contentRef} className="p-12 bg-white">
           {/* Header */}
-          <div className="text-center mb-8 pb-4 border-b-2 border-gray-300">
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">ORÇAMENTO</h1>
-            <p className="text-sm text-gray-600">
-              Nº {orcamento.id.slice(0, 8).toUpperCase()}
-            </p>
-            <p className="text-sm text-gray-600">
-              Data: {formatDate(orcamento.criado_em || new Date().toISOString())}
-            </p>
+          <div className="flex justify-between items-start mb-8 pb-6">
+            {/* Company Info */}
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-12 h-12 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-xl">
+                  P
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">ProGestor Serviços Inc.</h1>
+                  <p className="text-sm text-gray-600">contato@progestor.com</p>
+                  <p className="text-sm text-gray-600">(11) 98765-4321</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Budget Number */}
+            <div className="text-right">
+              <h2 className="text-3xl font-bold text-gray-400 mb-2">ORÇAMENTO</h2>
+              <p className="text-sm text-gray-600">
+                # ORC-DRAFT-{orcamento.id.slice(0, 6).toUpperCase()}
+              </p>
+              <p className="text-sm text-gray-600">
+                Data: {formatDate(orcamento.criado_em || new Date().toISOString())}
+              </p>
+            </div>
           </div>
 
-          {/* Client Data */}
-          <div className="mb-6">
-            <h2 className="text-lg font-bold text-gray-800 mb-3 pb-2 border-b border-gray-300">
-              Dados do Cliente
-            </h2>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-gray-600">Nome:</p>
-                <p className="font-semibold">{orcamento.clientes?.nome || 'N/A'}</p>
+          {/* Client and Service Details */}
+          <div className="grid grid-cols-2 gap-8 mb-8">
+            {/* Client */}
+            <div>
+              <h3 className="text-sm font-bold text-gray-900 mb-3 uppercase">Cliente</h3>
+              <div className="space-y-1 text-sm">
+                <p className="font-bold text-gray-900">{orcamento.clientes?.nome || 'N/A'}</p>
+                <p className="text-blue-600">{orcamento.clientes?.email || 'N/A'}</p>
+                <p className="text-gray-600">{orcamento.clientes?.telefone || 'N/A'}</p>
               </div>
-              <div>
-                <p className="text-gray-600">Email:</p>
-                <p className="font-semibold">{orcamento.clientes?.email || 'N/A'}</p>
-              </div>
-              <div>
-                <p className="text-gray-600">Telefone:</p>
-                <p className="font-semibold">{orcamento.clientes?.telefone || 'N/A'}</p>
-              </div>
-              <div>
-                <p className="text-gray-600">Endereço:</p>
-                <p className="font-semibold">{orcamento.clientes?.endereco || 'N/A'}</p>
+            </div>
+
+            {/* Service Details */}
+            <div>
+              <h3 className="text-sm font-bold text-gray-900 mb-3 uppercase">Detalhes do Serviço</h3>
+              <div className="space-y-1 text-sm text-gray-600">
+                {orcamento.data_servico && (
+                  <p><span className="font-medium">Data:</span> {formatDate(orcamento.data_servico)}</p>
+                )}
+                {(orcamento.horario_inicio || orcamento.horario_fim) && (
+                  <p>
+                    <span className="font-medium">Horário:</span> {formatTime(orcamento.horario_inicio)} às {formatTime(orcamento.horario_fim)}
+                  </p>
+                )}
+                {orcamento.local_servico && (
+                  <p><span className="font-medium">Local:</span> {orcamento.local_servico}</p>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Services */}
-          <div className="mb-6">
-            <h2 className="text-lg font-bold text-gray-800 mb-3 pb-2 border-b border-gray-300">
-              Serviços
-            </h2>
-            <table className="w-full text-sm">
+          {/* Items Table */}
+          <div className="mb-8">
+            <table className="w-full">
               <thead>
-                <tr className="bg-gray-100 border-b-2 border-gray-300">
-                  <th className="text-left p-2">Descrição</th>
-                  <th className="text-center p-2">Qtd</th>
-                  <th className="text-right p-2">Valor Unit.</th>
-                  <th className="text-right p-2">Desconto</th>
-                  <th className="text-right p-2">Total</th>
+                <tr className="bg-gray-100 border-b-2 border-gray-200">
+                  <th className="text-left py-3 px-4 text-sm font-bold text-gray-700 uppercase">Item</th>
+                  <th className="text-center py-3 px-4 text-sm font-bold text-gray-700 uppercase">Qtd.</th>
+                  <th className="text-right py-3 px-4 text-sm font-bold text-gray-700 uppercase">Preço Unitário</th>
+                  <th className="text-right py-3 px-4 text-sm font-bold text-gray-700 uppercase">Total</th>
                 </tr>
               </thead>
               <tbody>
                 {Array.isArray(orcamento.servicos) && orcamento.servicos.map((servico: any, index: number) => (
                   <tr key={index} className="border-b border-gray-200">
-                    <td className="p-2">
-                      <p className="font-semibold">{servico.nome}</p>
+                    <td className="py-4 px-4">
+                      <p className="font-medium text-gray-900">{servico.nome}</p>
                       {servico.descricao && (
-                        <p className="text-xs text-gray-600">{servico.descricao}</p>
+                        <p className="text-sm text-gray-500 mt-1">{servico.descricao}</p>
                       )}
-                    </td>
-                    <td className="text-center p-2">{servico.quantidade || 1}</td>
-                    <td className="text-right p-2">{formatCurrency(servico.preco_unitario || 0)}</td>
-                    <td className="text-right p-2">
                       {servico.desconto > 0 && (
-                        <span>
-                          {servico.tipo_desconto === 'percentual' 
+                        <p className="text-sm text-green-600 mt-1">
+                          Desconto: {servico.tipo_desconto === 'percentual' 
                             ? `${servico.desconto}%` 
                             : formatCurrency(servico.desconto)}
-                        </span>
+                        </p>
                       )}
                     </td>
-                    <td className="text-right p-2 font-semibold">
-                      {formatCurrency(servico.preco_total || 0)}
-                    </td>
+                    <td className="py-4 px-4 text-center text-gray-900">{servico.quantidade || 1}</td>
+                    <td className="py-4 px-4 text-right text-gray-900">{formatCurrency(servico.preco_unitario || 0)}</td>
+                    <td className="py-4 px-4 text-right font-medium text-gray-900">{formatCurrency(servico.preco_total || 0)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
-          {/* Total */}
+          {/* Totals */}
           <div className="flex justify-end mb-8">
-            <div className="w-64">
-              <div className="bg-gray-100 p-4 rounded">
-                <div className="flex justify-between items-center">
-                  <span className="text-lg font-bold">VALOR TOTAL:</span>
-                  <span className="text-xl font-bold text-gray-800">
-                    {formatCurrency(orcamento.valor_total || 0)}
-                  </span>
-                </div>
+            <div className="w-80">
+              <div className="flex justify-between py-2 text-sm text-gray-600 border-t border-gray-200">
+                <span>Subtotal</span>
+                <span>{formatCurrency(subtotal)}</span>
+              </div>
+              <div className="flex justify-between py-3 text-lg font-bold text-gray-900 border-t-2 border-gray-900">
+                <span>Total</span>
+                <span>{formatCurrency(orcamento.valor_total || 0)}</span>
               </div>
             </div>
           </div>
 
-          {/* Validity */}
-          {orcamento.data_validade && (
-            <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded">
-              <p className="text-sm text-gray-700">
-                <strong>Válido até:</strong> {formatDate(orcamento.data_validade)}
-              </p>
+          {/* Observations */}
+          {orcamento.observacoes && (
+            <div className="mb-8">
+              <h3 className="text-sm font-bold text-gray-900 mb-2 uppercase">Observações</h3>
+              <p className="text-sm text-gray-600 whitespace-pre-wrap">{orcamento.observacoes}</p>
             </div>
           )}
 
+          {/* Validity */}
+          <div className="text-sm text-gray-600 border-t border-gray-200 pt-4">
+            {orcamento.data_validade ? (
+              <p>Este orçamento é válido até: <span className="font-medium">{formatDate(orcamento.data_validade)}</span></p>
+            ) : (
+              <p>Este orçamento é válido por 30 dias a partir da data de emissão.</p>
+            )}
+          </div>
+
           {/* Footer */}
-          <div className="mt-8 pt-4 border-t border-gray-300 text-center text-sm text-gray-600">
-            <p>Orçamento gerado em {formatDate(new Date().toISOString())}</p>
-            <p className="mt-2">Este orçamento é válido por 30 dias a partir da data de emissão.</p>
+          <div className="mt-12 text-center text-sm text-gray-400">
+            <p>Obrigado pela sua preferência!</p>
           </div>
         </div>
       </div>
