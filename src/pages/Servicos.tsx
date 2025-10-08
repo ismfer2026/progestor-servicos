@@ -1,44 +1,40 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Search, Filter, Eye, Edit, FileText, Calendar, Clock } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
-interface Servico {
+interface ServicoItem {
   id: string;
   nome: string;
-  cliente_id?: string | null;
-  data?: string | null;
-  periodo?: string | null;
-  horario_ini?: string | null;
-  horario_fim?: string | null;
-  local?: string | null;
-  responsavel_id?: string | null;
+  descricao?: string | null;
+  preco_venda?: number | null;
   status?: string | null;
-  valor_total?: number | null;
-  observacoes?: string | null;
-  clientes?: {
-    nome: string;
-  } | null;
-  usuarios?: {
-    nome: string;
-  } | null;
+  created_at?: string;
 }
 
 export function Servicos() {
-  const [servicos, setServicos] = useState<Servico[]>([]);
+  const [servicos, setServicos] = useState<ServicoItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('todos');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingServico, setEditingServico] = useState<ServicoItem | null>(null);
   const { user } = useAuth();
+
+  const [formData, setFormData] = useState({
+    nome: '',
+    descricao: '',
+    preco_venda: '',
+  });
 
   useEffect(() => {
     fetchServicos();
@@ -50,19 +46,16 @@ export function Servicos() {
     try {
       const { data, error } = await supabase
         .from('servicos')
-        .select(`
-          *,
-          clientes!left (nome),
-          usuarios!left (nome)
-        `)
+        .select('id, nome, descricao, preco_venda, status, created_at')
         .eq('empresa_id', user.empresa_id)
-        .order('created_at', { ascending: false });
+        .is('cliente_id', null) // Only fetch catalog items (not service executions)
+        .order('nome');
 
       if (error) {
         console.error('Error fetching servicos:', error);
         toast.error('Erro ao carregar serviços');
       } else {
-        setServicos((data || []) as any[]);
+        setServicos((data || []) as ServicoItem[]);
       }
     } catch (error) {
       console.error('Error:', error);
@@ -72,20 +65,93 @@ export function Servicos() {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      'Aberto': { variant: 'secondary' as const, label: 'Aberto' },
-      'Confirmado': { variant: 'default' as const, label: 'Confirmado' },
-      'Em andamento': { variant: 'default' as const, label: 'Em andamento' },
-      'Concluído': { variant: 'default' as const, label: 'Concluído' },
-      'Cancelado': { variant: 'destructive' as const, label: 'Cancelado' },
-    };
-
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig['Aberto'];
-    return <Badge variant={config.variant}>{config.label}</Badge>;
+  const handleOpenModal = (servico?: ServicoItem) => {
+    if (servico) {
+      setEditingServico(servico);
+      setFormData({
+        nome: servico.nome,
+        descricao: servico.descricao || '',
+        preco_venda: servico.preco_venda?.toString() || '',
+      });
+    } else {
+      setEditingServico(null);
+      setFormData({
+        nome: '',
+        descricao: '',
+        preco_venda: '',
+      });
+    }
+    setModalOpen(true);
   };
 
-  const formatCurrency = (value?: number) => {
+  const handleSave = async () => {
+    if (!formData.nome) {
+      toast.error('Nome do serviço é obrigatório');
+      return;
+    }
+
+    if (!user?.empresa_id) {
+      toast.error('Erro: usuário não está associado a uma empresa');
+      return;
+    }
+
+    try {
+      const servicoData = {
+        nome: formData.nome,
+        descricao: formData.descricao || null,
+        preco_venda: formData.preco_venda ? parseFloat(formData.preco_venda) : null,
+        empresa_id: user.empresa_id,
+        status: 'Ativo',
+      };
+
+      if (editingServico) {
+        // Update existing service
+        const { error } = await supabase
+          .from('servicos')
+          .update(servicoData)
+          .eq('id', editingServico.id);
+
+        if (error) throw error;
+        toast.success('Serviço atualizado com sucesso!');
+      } else {
+        // Create new service
+        const { error } = await supabase
+          .from('servicos')
+          .insert([servicoData]);
+
+        if (error) throw error;
+        toast.success('Serviço cadastrado com sucesso!');
+      }
+
+      setModalOpen(false);
+      fetchServicos();
+    } catch (error) {
+      console.error('Error saving servico:', error);
+      toast.error('Erro ao salvar serviço');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Tem certeza que deseja excluir este serviço?')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('servicos')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      toast.success('Serviço excluído com sucesso!');
+      fetchServicos();
+    } catch (error) {
+      console.error('Error deleting servico:', error);
+      toast.error('Erro ao excluir serviço');
+    }
+  };
+
+  const formatCurrency = (value?: number | null) => {
     if (!value) return 'R$ 0,00';
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -93,25 +159,10 @@ export function Servicos() {
     }).format(value);
   };
 
-  const formatDate = (date?: string) => {
-    if (!date) return '-';
-    return new Date(date).toLocaleDateString('pt-BR');
-  };
-
-  const formatTime = (time?: string) => {
-    if (!time) return '';
-    return time.slice(0, 5);
-  };
-
-  const filteredServicos = servicos.filter(servico => {
-    const matchesSearch = servico.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         servico.clientes?.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         servico.local?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'todos' || servico.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
+  const filteredServicos = servicos.filter(servico =>
+    servico.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    servico.descricao?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   if (loading) {
     return (
@@ -135,19 +186,17 @@ export function Servicos() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Serviços</h1>
-          <p className="text-muted-foreground">Gerencie todos os serviços da empresa</p>
+          <h1 className="text-3xl font-bold text-foreground">Catálogo de Serviços</h1>
+          <p className="text-muted-foreground">Gerencie os serviços oferecidos pela empresa</p>
         </div>
-        <Link to="/servicos/novo">
-          <Button className="gap-2">
-            <Plus className="w-4 h-4" />
-            Novo Serviço
-          </Button>
-        </Link>
+        <Button onClick={() => handleOpenModal()} className="gap-2">
+          <Plus className="w-4 h-4" />
+          Novo Serviço
+        </Button>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -155,7 +204,7 @@ export function Servicos() {
                 <p className="text-sm font-medium text-muted-foreground">Total de Serviços</p>
                 <p className="text-2xl font-bold text-foreground">{servicos.length}</p>
               </div>
-              <FileText className="w-8 h-8 text-primary" />
+              <Package className="w-8 h-8 text-primary" />
             </div>
           </CardContent>
         </Card>
@@ -164,12 +213,12 @@ export function Servicos() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Em Andamento</p>
+                <p className="text-sm font-medium text-muted-foreground">Serviços Ativos</p>
                 <p className="text-2xl font-bold text-foreground">
-                  {servicos.filter(s => s.status === 'Em andamento').length}
+                  {servicos.filter(s => s.status === 'Ativo').length}
                 </p>
               </div>
-              <Clock className="w-8 h-8 text-blue-600" />
+              <Package className="w-8 h-8 text-green-600" />
             </div>
           </CardContent>
         </Card>
@@ -178,26 +227,14 @@ export function Servicos() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Concluídos</p>
+                <p className="text-sm font-medium text-muted-foreground">Preço Médio</p>
                 <p className="text-2xl font-bold text-foreground">
-                  {servicos.filter(s => s.status === 'Concluído').length}
+                  {formatCurrency(
+                    servicos.reduce((sum, s) => sum + (s.preco_venda || 0), 0) / (servicos.length || 1)
+                  )}
                 </p>
               </div>
-              <Calendar className="w-8 h-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Valor Total</p>
-                <p className="text-2xl font-bold text-foreground">
-                  {formatCurrency(servicos.reduce((sum, s) => sum + (s.valor_total || 0), 0))}
-                </p>
-              </div>
-              <FileText className="w-8 h-8 text-purple-600" />
+              <Package className="w-8 h-8 text-purple-600" />
             </div>
           </CardContent>
         </Card>
@@ -209,32 +246,14 @@ export function Servicos() {
           <CardTitle className="text-lg">Filtros</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por nome, cliente ou local..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os Status</SelectItem>
-                <SelectItem value="Aberto">Aberto</SelectItem>
-                <SelectItem value="Confirmado">Confirmado</SelectItem>
-                <SelectItem value="Em andamento">Em andamento</SelectItem>
-                <SelectItem value="Concluído">Concluído</SelectItem>
-                <SelectItem value="Cancelado">Cancelado</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="relative">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por nome ou descrição..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
           </div>
         </CardContent>
       </Card>
@@ -245,14 +264,10 @@ export function Servicos() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Serviço</TableHead>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Data</TableHead>
-                <TableHead>Período</TableHead>
-                <TableHead>Local</TableHead>
-                <TableHead>Responsável</TableHead>
+                <TableHead>Nome do Serviço</TableHead>
+                <TableHead>Descrição</TableHead>
+                <TableHead>Preço de Venda</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Valor</TableHead>
                 <TableHead>Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -260,52 +275,37 @@ export function Servicos() {
               {filteredServicos.map((servico) => (
                 <TableRow key={servico.id}>
                   <TableCell>
-                    <div>
-                      <p className="font-medium">{servico.nome}</p>
-                      <p className="text-sm text-muted-foreground">#{servico.id.slice(0, 8)}</p>
+                    <div className="font-medium">{servico.nome}</div>
+                  </TableCell>
+                  <TableCell className="max-w-md">
+                    <div className="text-sm text-muted-foreground truncate">
+                      {servico.descricao || '-'}
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Avatar className="w-8 h-8">
-                        <AvatarFallback>
-                          {servico.clientes?.nome?.charAt(0) || 'C'}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="truncate">{servico.clientes?.nome || 'N/A'}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>{formatDate(servico.data)}</TableCell>
-                  <TableCell>
-                    <div>
-                      <p className="capitalize">{servico.periodo || '-'}</p>
-                      {servico.horario_ini && servico.horario_fim && (
-                        <p className="text-sm text-muted-foreground">
-                          {formatTime(servico.horario_ini)} - {formatTime(servico.horario_fim)}
-                        </p>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="max-w-32 truncate">
-                    {servico.local || '-'}
-                  </TableCell>
-                  <TableCell>{servico.usuarios?.nome || '-'}</TableCell>
-                  <TableCell>{getStatusBadge(servico.status || 'Aberto')}</TableCell>
                   <TableCell className="font-medium">
-                    {formatCurrency(servico.valor_total)}
+                    {formatCurrency(servico.preco_venda)}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={servico.status === 'Ativo' ? 'default' : 'secondary'}>
+                      {servico.status || 'Ativo'}
+                    </Badge>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Link to={`/servicos/${servico.id}`}>
-                        <Button variant="ghost" size="icon">
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                      </Link>
-                      <Link to={`/servicos/${servico.id}/editar`}>
-                        <Button variant="ghost" size="icon">
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                      </Link>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleOpenModal(servico)}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(servico.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -315,28 +315,84 @@ export function Servicos() {
 
           {filteredServicos.length === 0 && (
             <div className="text-center py-8">
-              <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <Package className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-lg font-medium text-muted-foreground">
                 Nenhum serviço encontrado
               </p>
               <p className="text-muted-foreground mb-4">
-                {searchTerm || statusFilter !== 'todos' 
+                {searchTerm
                   ? 'Tente ajustar os filtros de busca'
                   : 'Comece criando seu primeiro serviço'
                 }
               </p>
-              {!searchTerm && statusFilter === 'todos' && (
-                <Link to="/servicos/novo">
-                  <Button>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Novo Serviço
-                  </Button>
-                </Link>
+              {!searchTerm && (
+                <Button onClick={() => handleOpenModal()}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Novo Serviço
+                </Button>
               )}
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Modal for Create/Edit */}
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editingServico ? 'Editar Serviço' : 'Novo Serviço'}
+            </DialogTitle>
+            <DialogDescription>
+              Cadastre os serviços que sua empresa oferece
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="nome">Nome do Serviço *</Label>
+              <Input
+                id="nome"
+                value={formData.nome}
+                onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+                placeholder="Ex: Manutenção de Ar Condicionado"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="descricao">Descrição</Label>
+              <Textarea
+                id="descricao"
+                value={formData.descricao}
+                onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
+                placeholder="Descreva os detalhes do serviço..."
+                rows={3}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="preco_venda">Preço de Venda</Label>
+              <Input
+                id="preco_venda"
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.preco_venda}
+                onChange={(e) => setFormData({ ...formData, preco_venda: e.target.value })}
+                placeholder="0.00"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setModalOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSave}>
+                {editingServico ? 'Atualizar' : 'Criar'} Serviço
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

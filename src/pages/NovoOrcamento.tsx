@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, CalendarIcon, Plus, Search, Trash2, X } from "lucide-react";
+import { ArrowLeft, CalendarIcon, Plus, Search, Trash2, X, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -147,11 +147,16 @@ export function NovoOrcamento() {
     }
 
     try {
+      // Get current date in Brazilian timezone
+      const today = new Date();
+      const todayBR = new Date(today.getTime() - (today.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+      
       const { data, error } = await supabase
         .from("clientes")
         .insert([{
           ...novoCliente,
-          empresa_id: user.empresa_id
+          empresa_id: user.empresa_id,
+          data_cadastro: todayBR
         }])
         .select()
         .single();
@@ -160,6 +165,7 @@ export function NovoOrcamento() {
 
       setClientes([...clientes, data]);
       setClienteSelecionado(data.id);
+      setBuscaCliente(data.nome);
       setModalNovoCliente(false);
       setNovoCliente({ nome: "", email: "", telefone: "", endereco: "" });
       toast.success("Cliente criado com sucesso!");
@@ -446,15 +452,12 @@ Em caso de dúvidas, estou à disposição!`;
                 </div>
               </div>
 
-              {clientes.length > 0 && buscaCliente && (
-                <div className="border rounded-md max-h-48 overflow-y-auto">
+              {clientes.length > 0 && buscaCliente && !clienteSelecionado && (
+                <div className="border rounded-md max-h-48 overflow-y-auto bg-background shadow-md z-50">
                   {clientes.map((cliente) => (
                     <div
                       key={cliente.id}
-                      className={cn(
-                        "p-3 border-b last:border-b-0 cursor-pointer hover:bg-muted",
-                        clienteSelecionado === cliente.id && "bg-primary/10"
-                      )}
+                      className="p-3 border-b last:border-b-0 cursor-pointer hover:bg-muted"
                       onClick={() => {
                         setClienteSelecionado(cliente.id);
                         setBuscaCliente(cliente.nome);
@@ -467,6 +470,27 @@ Em caso de dúvidas, estou à disposição!`;
                       )}
                     </div>
                   ))}
+                </div>
+              )}
+              
+              {clienteSelecionado && (
+                <div className="p-3 bg-primary/10 rounded-md flex items-center justify-between">
+                  <div>
+                    <div className="font-medium">{clientes.find(c => c.id === clienteSelecionado)?.nome}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {clientes.find(c => c.id === clienteSelecionado)?.email}
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setClienteSelecionado("");
+                      setBuscaCliente("");
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
                 </div>
               )}
 
@@ -667,6 +691,109 @@ Em caso de dúvidas, estou à disposição!`;
               disabled={loading || !clienteSelecionado || itensOrcamento.length === 0}
             >
               {loading ? "Salvando..." : "Salvar Orçamento"}
+            </Button>
+            
+            <Button
+              className="w-full"
+              variant="outline"
+              onClick={() => {
+                if (!clienteSelecionado || itensOrcamento.length === 0) {
+                  toast.error("Adicione um cliente e serviços para visualizar o PDF");
+                  return;
+                }
+                // Open PDF preview in new window
+                const cliente = clientes.find(c => c.id === clienteSelecionado);
+                const pdfContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Orçamento - ${cliente?.nome}</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
+    h1 { color: #333; border-bottom: 2px solid #333; padding-bottom: 10px; }
+    .info { margin: 20px 0; }
+    .info-row { display: flex; margin: 5px 0; }
+    .info-label { font-weight: bold; width: 150px; }
+    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+    th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+    th { background-color: #f5f5f5; font-weight: bold; }
+    .total { font-size: 18px; font-weight: bold; text-align: right; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h1>ORÇAMENTO</h1>
+  
+  <div class="info">
+    <div class="info-row">
+      <span class="info-label">Cliente:</span>
+      <span>${cliente?.nome}</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Email:</span>
+      <span>${cliente?.email || '-'}</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Telefone:</span>
+      <span>${cliente?.telefone || '-'}</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Data:</span>
+      <span>${new Date().toLocaleDateString('pt-BR')}</span>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Serviço</th>
+        <th>Qtd</th>
+        <th>Preço Unit.</th>
+        <th>Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${itensOrcamento.map(item => `
+        <tr>
+          <td>
+            <strong>${item.nome}</strong>
+            ${item.descricao ? `<br/><small>${item.descricao}</small>` : ''}
+          </td>
+          <td>${item.quantidade}</td>
+          <td>R$ ${item.preco_unitario.toFixed(2)}</td>
+          <td>R$ ${item.preco_total.toFixed(2)}</td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>
+
+  <div class="total">
+    VALOR TOTAL: R$ ${calcularTotal().toFixed(2)}
+  </div>
+
+  ${observacoes ? `
+    <div style="margin-top: 30px; padding: 15px; background-color: #f9f9f9; border-left: 3px solid #333;">
+      <strong>Observações:</strong><br/>
+      ${observacoes}
+    </div>
+  ` : ''}
+
+  <div style="margin-top: 40px; font-size: 12px; color: #666; text-align: center;">
+    Orçamento válido por 30 dias
+  </div>
+</body>
+</html>
+                `;
+                const newWindow = window.open('', '_blank');
+                if (newWindow) {
+                  newWindow.document.write(pdfContent);
+                  newWindow.document.close();
+                }
+              }}
+              disabled={!clienteSelecionado || itensOrcamento.length === 0}
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Pré-visualizar PDF
             </Button>
 
             <Dialog open={modalEnviarEmail} onOpenChange={setModalEnviarEmail}>
