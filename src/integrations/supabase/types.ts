@@ -151,30 +151,55 @@ export type Database = {
       }
       contratos: {
         Row: {
+          cliente_id: string | null
           data_assinatura: string | null
+          data_inicio: string | null
           empresa_id: string | null
           id: string
+          numero_contrato: string | null
+          observacoes: string | null
           orcamento_id: string | null
           pdf_contrato: string | null
           status_assinatura: string | null
+          titulo: string | null
+          valor_total: number | null
         }
         Insert: {
+          cliente_id?: string | null
           data_assinatura?: string | null
+          data_inicio?: string | null
           empresa_id?: string | null
           id?: string
+          numero_contrato?: string | null
+          observacoes?: string | null
           orcamento_id?: string | null
           pdf_contrato?: string | null
           status_assinatura?: string | null
+          titulo?: string | null
+          valor_total?: number | null
         }
         Update: {
+          cliente_id?: string | null
           data_assinatura?: string | null
+          data_inicio?: string | null
           empresa_id?: string | null
           id?: string
+          numero_contrato?: string | null
+          observacoes?: string | null
           orcamento_id?: string | null
           pdf_contrato?: string | null
           status_assinatura?: string | null
+          titulo?: string | null
+          valor_total?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "contratos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "contratos_empresa_id_fkey"
             columns: ["empresa_id"]

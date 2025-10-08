@@ -1,0 +1,8 @@
+-- Add missing columns to contratos table
+ALTER TABLE contratos
+ADD COLUMN IF NOT EXISTS numero_contrato TEXT,
+ADD COLUMN IF NOT EXISTS titulo TEXT,
+ADD COLUMN IF NOT EXISTS valor_total NUMERIC,
+ADD COLUMN IF NOT EXISTS data_inicio TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+ADD COLUMN IF NOT EXISTS observacoes TEXT,
+ADD COLUMN IF NOT EXISTS cliente_id UUID REFERENCES clientes(id);
