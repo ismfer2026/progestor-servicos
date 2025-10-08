@@ -21,6 +21,7 @@ import Financeiro from "@/pages/Financeiro";
 import Relatorios from "@/pages/Relatorios";
 import Configuracoes from "@/pages/Configuracoes";
 import Contratos from "@/pages/Contratos";
+import { NovoContrato } from "@/pages/NovoContrato";
 
 const queryClient = new QueryClient();
 
@@ -90,6 +91,22 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <NovoOrcamento />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/orcamentos/editar/:id" 
+                element={
+                  <ProtectedRoute>
+                    <NovoOrcamento />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/contratos/novo" 
+                element={
+                  <ProtectedRoute>
+                    <NovoContrato />
                   </ProtectedRoute>
                 } 
               />

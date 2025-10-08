@@ -7,6 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { FileText, Send, Eye, MoreVertical, Plus, Search, DollarSign, CheckCircle2, FileCheck } from "lucide-react";
 import { format } from "date-fns";
@@ -14,6 +16,7 @@ import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { PDFViewer } from "@/components/orcamento/PDFViewer";
 
 interface Orcamento {
   id: string;
@@ -53,6 +56,11 @@ export function Orcamentos() {
   // Dialog de envio
   const [dialogEnvio, setDialogEnvio] = useState(false);
   const [orcamentoSelecionado, setOrcamentoSelecionado] = useState<Orcamento | null>(null);
+  const [mensagemEnvio, setMensagemEnvio] = useState("");
+  
+  // PDF Viewer
+  const [mostrarPDF, setMostrarPDF] = useState(false);
+  const [orcamentoPDF, setOrcamentoPDF] = useState<Orcamento | null>(null);
 
   useEffect(() => {
     fetchOrcamentos();
@@ -88,29 +96,68 @@ export function Orcamentos() {
     navigate(`/orcamentos/editar/${id}`);
   };
 
-  const handleVisualizar = (id: string) => {
-    // TODO: Implementar visualização em PDF
-    toast.info("Funcionalidade de visualização em desenvolvimento");
+  const handleVisualizar = async (id: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("orcamentos")
+        .select(`
+          *,
+          clientes (*)
+        `)
+        .eq("id", id)
+        .single();
+
+      if (error) throw error;
+      setOrcamentoPDF(data);
+      setMostrarPDF(true);
+    } catch (error) {
+      console.error("Erro ao carregar orçamento:", error);
+      toast.error("Erro ao visualizar orçamento");
+    }
   };
 
   const handleAbrirEnvio = (orcamento: Orcamento) => {
     setOrcamentoSelecionado(orcamento);
+    setMensagemEnvio(`Olá ${orcamento.clientes?.nome}! Segue o orçamento solicitado.`);
     setDialogEnvio(true);
   };
 
-  const handleEnviarWhatsApp = () => {
+  const handleEnviarWhatsApp = async () => {
     if (!orcamentoSelecionado?.clientes?.telefone) {
       toast.error("Cliente não possui telefone cadastrado");
       return;
     }
 
     const telefone = orcamentoSelecionado.clientes.telefone.replace(/\D/g, '');
-    const mensagem = `Olá ${orcamentoSelecionado.clientes.nome}! Segue o orçamento solicitado no valor de ${formatCurrency(orcamentoSelecionado.valor_total)}.`;
-    const whatsappUrl = `https://wa.me/55${telefone}?text=${encodeURIComponent(mensagem)}`;
+    const mensagemCompleta = `${mensagemEnvio}\n\nOrçamento #${orcamentoSelecionado.id.slice(0, 8)}\nValor Total: ${formatCurrency(orcamentoSelecionado.valor_total)}`;
+    const whatsappUrl = `https://wa.me/55${telefone}?text=${encodeURIComponent(mensagemCompleta)}`;
+    
+    // Log sending
+    try {
+      await supabase.from('logs_envio').insert({
+        orcamento_id: orcamentoSelecionado.id,
+        empresa_id: user?.empresa_id,
+        enviado_por: user?.id,
+        destinatario: telefone,
+        tipo_envio: 'whatsapp',
+        status: 'enviado',
+      });
+      
+      await supabase
+        .from('orcamentos')
+        .update({ 
+          data_envio: new Date().toISOString(),
+          status: 'Enviado'
+        })
+        .eq('id', orcamentoSelecionado.id);
+    } catch (error) {
+      console.error("Erro ao registrar envio:", error);
+    }
     
     window.open(whatsappUrl, '_blank');
     setDialogEnvio(false);
     toast.success("Redirecionando para WhatsApp...");
+    fetchOrcamentos();
   };
 
   const handleEnviarEmail = async () => {
@@ -121,6 +168,7 @@ export function Orcamentos() {
         body: {
           orcamento_id: orcamentoSelecionado.id,
           email_destinatario: orcamentoSelecionado.clientes?.email,
+          mensagem_adicional: mensagemEnvio,
         }
       });
 
@@ -365,13 +413,24 @@ export function Orcamentos() {
 
       {/* Dialog de Envio */}
       <Dialog open={dialogEnvio} onOpenChange={setDialogEnvio}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Enviar Orçamento</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            <div>
+              <Label htmlFor="mensagem">Mensagem Personalizada</Label>
+              <Textarea
+                id="mensagem"
+                value={mensagemEnvio}
+                onChange={(e) => setMensagemEnvio(e.target.value)}
+                placeholder="Digite sua mensagem..."
+                rows={4}
+                className="mt-2"
+              />
+            </div>
             <p className="text-sm text-muted-foreground">
-              Como deseja enviar o orçamento para {orcamentoSelecionado?.clientes?.nome}?
+              Como deseja enviar para {orcamentoSelecionado?.clientes?.nome}?
             </p>
             <div className="flex flex-col gap-2">
               <Button onClick={handleEnviarWhatsApp} className="gap-2">
@@ -397,6 +456,17 @@ export function Orcamentos() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* PDF Viewer */}
+      {mostrarPDF && orcamentoPDF && (
+        <PDFViewer
+          orcamento={orcamentoPDF}
+          onClose={() => {
+            setMostrarPDF(false);
+            setOrcamentoPDF(null);
+          }}
+        />
+      )}
     </div>
   );
 }

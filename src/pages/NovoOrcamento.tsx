@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -47,6 +47,8 @@ interface ItemOrcamento {
 export function NovoOrcamento() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { id: orcamentoId } = useParams();
+  const isEditing = !!orcamentoId;
 
   // Estados principais
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -86,6 +88,44 @@ export function NovoOrcamento() {
   useEffect(() => {
     fetchServicos();
   }, []);
+
+  useEffect(() => {
+    if (isEditing && orcamentoId) {
+      loadOrcamento();
+    }
+  }, [isEditing, orcamentoId]);
+
+  const loadOrcamento = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('orcamentos')
+        .select(`
+          *,
+          clientes (*)
+        `)
+        .eq('id', orcamentoId)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setClienteSelecionado(data.cliente_id);
+        setBuscaCliente(data.clientes?.nome || '');
+        // Type assertion for servicos from JSON
+        const servicosData = data.servicos as any;
+        if (Array.isArray(servicosData)) {
+          setItensOrcamento(servicosData as ItemOrcamento[]);
+        }
+        setObservacoes('');
+      }
+    } catch (error) {
+      console.error('Erro ao carregar orçamento:', error);
+      toast.error('Erro ao carregar orçamento');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (servicoSelecionado) {
@@ -212,23 +252,32 @@ export function NovoOrcamento() {
     setLoading(true);
     try {
       const valorTotal = calcularTotal();
-      
-      const { data, error } = await supabase
-        .from("orcamentos")
-        .insert([{
-          cliente_id: clienteSelecionado,
-          usuario_id: user?.id,
-          empresa_id: user.empresa_id,
-          servicos: itensOrcamento as any,
-          valor_total: valorTotal,
-          status: "Aguardando",
-        }])
-        .select()
-        .single();
+      const orcamentoData = {
+        cliente_id: clienteSelecionado,
+        usuario_id: user?.id,
+        empresa_id: user.empresa_id,
+        servicos: itensOrcamento as any,
+        valor_total: valorTotal,
+        status: "Aguardando",
+      };
 
-      if (error) throw error;
+      if (isEditing && orcamentoId) {
+        const { error } = await supabase
+          .from("orcamentos")
+          .update(orcamentoData)
+          .eq('id', orcamentoId);
 
-      toast.success("Orçamento salvo com sucesso!");
+        if (error) throw error;
+        toast.success("Orçamento atualizado com sucesso!");
+      } else {
+        const { error } = await supabase
+          .from("orcamentos")
+          .insert([orcamentoData]);
+
+        if (error) throw error;
+        toast.success("Orçamento salvo com sucesso!");
+      }
+
       navigate("/orcamentos");
     } catch (error) {
       console.error("Erro ao salvar orçamento:", error);
