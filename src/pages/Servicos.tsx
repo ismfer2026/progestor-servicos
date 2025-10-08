@@ -33,7 +33,9 @@ export function Servicos() {
   const [formData, setFormData] = useState({
     nome: '',
     descricao: '',
-    preco_venda: '',
+    custo_produto: '',
+    custo_mao_obra: '',
+    markup_percent: '50',
   });
 
   useEffect(() => {
@@ -65,20 +67,31 @@ export function Servicos() {
     }
   };
 
-  const handleOpenModal = (servico?: ServicoItem) => {
+  const handleOpenModal = async (servico?: ServicoItem) => {
     if (servico) {
       setEditingServico(servico);
+      // Fetch full servico details to get cost fields
+      const { data } = await supabase
+        .from('servicos')
+        .select('custo_produto, custo_mao_obra, markup_percent')
+        .eq('id', servico.id)
+        .single();
+      
       setFormData({
         nome: servico.nome,
         descricao: servico.descricao || '',
-        preco_venda: servico.preco_venda?.toString() || '',
+        custo_produto: data?.custo_produto?.toString() || '0',
+        custo_mao_obra: data?.custo_mao_obra?.toString() || '0',
+        markup_percent: ((data?.markup_percent || 0.5) * 100).toString(),
       });
     } else {
       setEditingServico(null);
       setFormData({
         nome: '',
         descricao: '',
-        preco_venda: '',
+        custo_produto: '0',
+        custo_mao_obra: '0',
+        markup_percent: '50',
       });
     }
     setModalOpen(true);
@@ -99,7 +112,9 @@ export function Servicos() {
       const servicoData = {
         nome: formData.nome,
         descricao: formData.descricao || null,
-        preco_venda: formData.preco_venda ? parseFloat(formData.preco_venda) : null,
+        custo_produto: formData.custo_produto ? parseFloat(formData.custo_produto) : 0,
+        custo_mao_obra: formData.custo_mao_obra ? parseFloat(formData.custo_mao_obra) : 0,
+        markup_percent: formData.markup_percent ? parseFloat(formData.markup_percent) / 100 : 0.5,
         empresa_id: user.empresa_id,
         status: 'Ativo',
       };
@@ -370,16 +385,46 @@ export function Servicos() {
             </div>
 
             <div>
-              <Label htmlFor="preco_venda">Preço de Venda</Label>
+              <Label htmlFor="custo_produto">Custo do Produto/Material *</Label>
               <Input
-                id="preco_venda"
+                id="custo_produto"
                 type="number"
                 min="0"
                 step="0.01"
-                value={formData.preco_venda}
-                onChange={(e) => setFormData({ ...formData, preco_venda: e.target.value })}
+                value={formData.custo_produto}
+                onChange={(e) => setFormData({ ...formData, custo_produto: e.target.value })}
                 placeholder="0.00"
               />
+            </div>
+
+            <div>
+              <Label htmlFor="custo_mao_obra">Custo da Mão de Obra *</Label>
+              <Input
+                id="custo_mao_obra"
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.custo_mao_obra}
+                onChange={(e) => setFormData({ ...formData, custo_mao_obra: e.target.value })}
+                placeholder="0.00"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="markup_percent">Margem de Lucro (%)</Label>
+              <Input
+                id="markup_percent"
+                type="number"
+                min="0"
+                max="1000"
+                step="1"
+                value={formData.markup_percent}
+                onChange={(e) => setFormData({ ...formData, markup_percent: e.target.value })}
+                placeholder="50"
+              />
+              <p className="text-sm text-muted-foreground mt-1">
+                Preço de venda será calculado automaticamente: (Custo Total) × (1 + Margem/100)
+              </p>
             </div>
 
             <div className="flex justify-end gap-2">

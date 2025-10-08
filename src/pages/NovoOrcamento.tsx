@@ -62,6 +62,7 @@ export function NovoOrcamento() {
   // Estados do formulário
   const [clienteSelecionado, setClienteSelecionado] = useState<string>("");
   const [dataServico, setDataServico] = useState<Date>();
+  const [dataValidade, setDataValidade] = useState<Date>();
   const [observacoes, setObservacoes] = useState("");
   const [itensOrcamento, setItensOrcamento] = useState<ItemOrcamento[]>([]);
 
@@ -83,6 +84,9 @@ export function NovoOrcamento() {
   const [servicoSelecionado, setServicoSelecionado] = useState<string>("");
   const [quantidade, setQuantidade] = useState(1);
   const [precoUnitario, setPrecoUnitario] = useState(0);
+  const [novoServicoNome, setNovoServicoNome] = useState("");
+  const [novoServicoDescricao, setNovoServicoDescricao] = useState("");
+  const [criarNovoServico, setCriarNovoServico] = useState(false);
 
   // Estados para envio
   const [modalEnviarEmail, setModalEnviarEmail] = useState(false);
@@ -175,11 +179,64 @@ export function NovoOrcamento() {
     }
   };
 
-  const handleAdicionarServico = () => {
-    const servico = servicos.find(s => s.id === servicoSelecionado);
-    if (!servico) {
-      toast.error("Selecione um serviço");
-      return;
+  const handleCriarServicoRapido = async () => {
+    if (!novoServicoNome) {
+      toast.error("Nome do serviço é obrigatório");
+      return null;
+    }
+
+    if (!user?.empresa_id) {
+      toast.error("Erro: usuário não está associado a uma empresa");
+      return null;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('servicos')
+        .insert([{
+          nome: novoServicoNome,
+          descricao: novoServicoDescricao || null,
+          custo_produto: precoUnitario,
+          custo_mao_obra: 0,
+          markup_percent: 0,
+          empresa_id: user.empresa_id,
+          status: 'Ativo',
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      setServicos([...servicos, data]);
+      toast.success("Serviço criado com sucesso!");
+      return data.id;
+    } catch (error) {
+      console.error("Erro ao criar serviço:", error);
+      toast.error("Erro ao criar serviço");
+      return null;
+    }
+  };
+
+  const handleAdicionarServico = async () => {
+    let servicoId = servicoSelecionado;
+    let servicoNome = "";
+    let servicoDescricao = "";
+
+    // Se está criando novo serviço
+    if (criarNovoServico) {
+      const novoId = await handleCriarServicoRapido();
+      if (!novoId) return;
+      servicoId = novoId;
+      servicoNome = novoServicoNome;
+      servicoDescricao = novoServicoDescricao;
+    } else {
+      const servico = servicos.find(s => s.id === servicoSelecionado);
+      if (!servico) {
+        toast.error("Selecione um serviço");
+        return;
+      }
+      servicoNome = servico.nome;
+      servicoDescricao = servico.descricao || "";
     }
 
     if (quantidade <= 0) {
@@ -192,16 +249,16 @@ export function NovoOrcamento() {
       return;
     }
 
-    const itemExistente = itensOrcamento.find(item => item.servico_id === servicoSelecionado);
+    const itemExistente = itensOrcamento.find(item => item.servico_id === servicoId);
     if (itemExistente) {
       toast.error("Este serviço já foi adicionado");
       return;
     }
 
     const novoItem: ItemOrcamento = {
-      servico_id: servico.id,
-      nome: servico.nome,
-      descricao: servico.descricao,
+      servico_id: servicoId,
+      nome: servicoNome,
+      descricao: servicoDescricao,
       quantidade,
       preco_unitario: precoUnitario,
       preco_total: quantidade * precoUnitario,
@@ -210,8 +267,12 @@ export function NovoOrcamento() {
     setItensOrcamento([...itensOrcamento, novoItem]);
     setModalAdicionarServico(false);
     setServicoSelecionado("");
+    setBuscaServico("");
     setQuantidade(1);
     setPrecoUnitario(0);
+    setCriarNovoServico(false);
+    setNovoServicoNome("");
+    setNovoServicoDescricao("");
     toast.success("Serviço adicionado ao orçamento");
   };
 
@@ -495,6 +556,33 @@ Em caso de dúvidas, estou à disposição!`;
               )}
 
               <div>
+                <Label>Validade do Orçamento</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !dataValidade && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dataValidade ? format(dataValidade, "PPP", { locale: ptBR }) : "Selecionar data"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={dataValidade}
+                      onSelect={setDataValidade}
+                      locale={ptBR}
+                      disabled={(date) => date < new Date()}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div>
                 <Label htmlFor="observacoes">Observações</Label>
                 <Textarea
                   id="observacoes"
@@ -523,47 +611,136 @@ Em caso de dúvidas, estou à disposição!`;
                       <DialogTitle>Adicionar Serviço</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="busca-servico">Buscar Serviço</Label>
-                        <Input
-                          id="busca-servico"
-                          placeholder="Digite para buscar serviços..."
-                          value={buscaServico}
-                          onChange={(e) => setBuscaServico(e.target.value)}
-                        />
-                      </div>
+                      {!criarNovoServico ? (
+                        <>
+                          <div>
+                            <Label htmlFor="busca-servico">Buscar Serviço</Label>
+                            <Input
+                              id="busca-servico"
+                              placeholder="Digite para buscar serviços..."
+                              value={buscaServico}
+                              onChange={(e) => {
+                                setBuscaServico(e.target.value);
+                                setCriarNovoServico(false);
+                              }}
+                            />
+                          </div>
 
-                      {servicos.length > 0 && (
-                        <div className="border rounded-md max-h-48 overflow-y-auto">
-                          {servicos.map((servico) => (
-                            <div
-                              key={servico.id}
-                              className={cn(
-                                "p-3 border-b last:border-b-0 cursor-pointer hover:bg-muted",
-                                servicoSelecionado === servico.id && "bg-primary/10"
-                              )}
-                              onClick={() => setServicoSelecionado(servico.id)}
-                            >
-                              <div className="font-medium">{servico.nome}</div>
-                              {servico.descricao && (
-                                <div className="text-sm text-muted-foreground">{servico.descricao}</div>
-                              )}
-                              {servico.preco_venda && (
-                                <div className="text-sm font-medium text-primary">
-                                  {new Intl.NumberFormat("pt-BR", {
-                                    style: "currency",
-                                    currency: "BRL",
-                                  }).format(servico.preco_venda)}
+                          {servicos.length > 0 && buscaServico && (
+                            <div className="border rounded-md max-h-48 overflow-y-auto bg-background">
+                              {servicos.map((servico) => (
+                                <div
+                                  key={servico.id}
+                                  className={cn(
+                                    "p-3 border-b last:border-b-0 cursor-pointer hover:bg-muted",
+                                    servicoSelecionado === servico.id && "bg-primary/10"
+                                  )}
+                                  onClick={() => {
+                                    setServicoSelecionado(servico.id);
+                                    setBuscaServico("");
+                                    setCriarNovoServico(false);
+                                  }}
+                                >
+                                  <div className="font-medium">{servico.nome}</div>
+                                  {servico.descricao && (
+                                    <div className="text-sm text-muted-foreground">{servico.descricao}</div>
+                                  )}
+                                  {servico.preco_venda && (
+                                    <div className="text-sm font-medium text-primary">
+                                      {new Intl.NumberFormat("pt-BR", {
+                                        style: "currency",
+                                        currency: "BRL",
+                                      }).format(servico.preco_venda)}
+                                    </div>
+                                  )}
                                 </div>
-                              )}
+                              ))}
                             </div>
-                          ))}
-                        </div>
+                          )}
+
+                          {buscaServico && servicos.length === 0 && (
+                            <div className="p-4 border rounded-md text-center">
+                              <p className="text-sm text-muted-foreground mb-2">Serviço não encontrado</p>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setCriarNovoServico(true);
+                                  setNovoServicoNome(buscaServico);
+                                }}
+                              >
+                                <Plus className="h-4 w-4 mr-2" />
+                                Criar novo serviço
+                              </Button>
+                            </div>
+                          )}
+
+                          {servicoSelecionado && (
+                            <div className="p-3 bg-primary/10 rounded-md">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <div className="font-medium">
+                                    {servicos.find(s => s.id === servicoSelecionado)?.nome}
+                                  </div>
+                                  <div className="text-sm text-muted-foreground">
+                                    {servicos.find(s => s.id === servicoSelecionado)?.descricao}
+                                  </div>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setServicoSelecionado("");
+                                    setPrecoUnitario(0);
+                                  }}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-center justify-between">
+                            <h3 className="font-medium">Criar Novo Serviço</h3>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setCriarNovoServico(false);
+                                setNovoServicoNome("");
+                                setNovoServicoDescricao("");
+                              }}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <div>
+                            <Label htmlFor="novo-servico-nome">Nome do Serviço *</Label>
+                            <Input
+                              id="novo-servico-nome"
+                              value={novoServicoNome}
+                              onChange={(e) => setNovoServicoNome(e.target.value)}
+                              placeholder="Ex: Manutenção de Ar Condicionado"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="novo-servico-descricao">Descrição</Label>
+                            <Textarea
+                              id="novo-servico-descricao"
+                              value={novoServicoDescricao}
+                              onChange={(e) => setNovoServicoDescricao(e.target.value)}
+                              placeholder="Descreva o serviço..."
+                              rows={3}
+                            />
+                          </div>
+                        </>
                       )}
 
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <Label htmlFor="quantidade">Quantidade</Label>
+                          <Label htmlFor="quantidade">Quantidade *</Label>
                           <Input
                             id="quantidade"
                             type="number"
@@ -573,7 +750,7 @@ Em caso de dúvidas, estou à disposição!`;
                           />
                         </div>
                         <div>
-                          <Label htmlFor="preco">Preço Unitário</Label>
+                          <Label htmlFor="preco">Preço Unitário *</Label>
                           <Input
                             id="preco"
                             type="number"
@@ -585,13 +762,34 @@ Em caso de dúvidas, estou à disposição!`;
                         </div>
                       </div>
 
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline" onClick={() => setModalAdicionarServico(false)}>
-                          Cancelar
-                        </Button>
-                        <Button onClick={handleAdicionarServico}>
-                          Adicionar
-                        </Button>
+                      <div className="flex justify-between gap-2">
+                        {!criarNovoServico && buscaServico && (
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              setCriarNovoServico(true);
+                              setNovoServicoNome(buscaServico);
+                            }}
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Criar Novo Serviço
+                          </Button>
+                        )}
+                        <div className="flex gap-2 ml-auto">
+                          <Button variant="outline" onClick={() => {
+                            setModalAdicionarServico(false);
+                            setBuscaServico("");
+                            setServicoSelecionado("");
+                            setCriarNovoServico(false);
+                            setNovoServicoNome("");
+                            setNovoServicoDescricao("");
+                          }}>
+                            Cancelar
+                          </Button>
+                          <Button onClick={handleAdicionarServico}>
+                            Adicionar
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </DialogContent>
@@ -741,6 +939,12 @@ Em caso de dúvidas, estou à disposição!`;
       <span class="info-label">Data:</span>
       <span>${new Date().toLocaleDateString('pt-BR')}</span>
     </div>
+    ${dataValidade ? `
+    <div class="info-row">
+      <span class="info-label">Válido até:</span>
+      <span>${dataValidade.toLocaleDateString('pt-BR')}</span>
+    </div>
+    ` : ''}
   </div>
 
   <table>
@@ -779,7 +983,7 @@ Em caso de dúvidas, estou à disposição!`;
   ` : ''}
 
   <div style="margin-top: 40px; font-size: 12px; color: #666; text-align: center;">
-    Orçamento válido por 30 dias
+    ${dataValidade ? `Orçamento válido até ${dataValidade.toLocaleDateString('pt-BR')}` : 'Orçamento válido por 30 dias'}
   </div>
 </body>
 </html>
