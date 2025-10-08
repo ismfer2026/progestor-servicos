@@ -294,6 +294,34 @@ CONTRATANTE                     CONTRATADO
                 <Label className="text-sm text-muted-foreground">Endereço</Label>
                 <p className="text-sm">{cliente?.endereco || 'N/A'}</p>
               </div>
+              
+              {/* Service Details */}
+              {(orcamento?.data_servico || orcamento?.horario_inicio || orcamento?.local_servico) && (
+                <div className="pt-4 border-t">
+                  <Label className="text-sm text-muted-foreground mb-2 block">Detalhes do Serviço</Label>
+                  {orcamento?.data_servico && (
+                    <div className="mb-2">
+                      <span className="text-xs text-muted-foreground">Data: </span>
+                      <span className="text-sm">{new Date(orcamento.data_servico).toLocaleDateString('pt-BR')}</span>
+                    </div>
+                  )}
+                  {(orcamento?.horario_inicio || orcamento?.horario_fim) && (
+                    <div className="mb-2">
+                      <span className="text-xs text-muted-foreground">Horário: </span>
+                      <span className="text-sm">
+                        {orcamento.horario_inicio?.substring(0, 5)} às {orcamento.horario_fim?.substring(0, 5)}
+                      </span>
+                    </div>
+                  )}
+                  {orcamento?.local_servico && (
+                    <div>
+                      <span className="text-xs text-muted-foreground">Local: </span>
+                      <span className="text-sm">{orcamento.local_servico}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+              
               <div className="pt-4 border-t">
                 <Label className="text-sm text-muted-foreground">Valor Total</Label>
                 <p className="text-2xl font-bold text-primary">

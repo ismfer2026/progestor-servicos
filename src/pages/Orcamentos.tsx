@@ -130,7 +130,7 @@ export function Orcamentos() {
 
     const telefone = orcamentoSelecionado.clientes.telefone.replace(/\D/g, '');
     const mensagemCompleta = `${mensagemEnvio}\n\nOrçamento #${orcamentoSelecionado.id.slice(0, 8)}\nValor Total: ${formatCurrency(orcamentoSelecionado.valor_total)}`;
-    const whatsappUrl = `https://web.whatsapp.com/send?phone=55${telefone}&text=${encodeURIComponent(mensagemCompleta)}`;
+    const whatsappUrl = `https://wa.me/55${telefone}?text=${encodeURIComponent(mensagemCompleta)}`;
     
     // Log sending
     try {

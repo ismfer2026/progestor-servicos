@@ -64,7 +64,7 @@ export default function Contratos() {
         .from('contratos')
         .select('*')
         .eq('empresa_id', user.empresa_id)
-        .order('created_at', { ascending: false });
+        .order('data_inicio', { ascending: false });
 
       if (contratosError) throw contratosError;
 
