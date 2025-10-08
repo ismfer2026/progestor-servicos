@@ -1,23 +1,19 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { CalendarIcon, Filter, Plus, FileText, Send, FileCheck, Eye } from "lucide-react";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { FileText, Send, Eye, MoreVertical, Plus, Search, DollarSign, CheckCircle2, FileCheck } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { Link } from "react-router-dom";
 
 interface Orcamento {
   id: string;
@@ -28,50 +24,39 @@ interface Orcamento {
   criado_em: string;
   data_envio?: string;
   pdf_gerado: boolean;
+  servicos: any;
   clientes?: {
     nome: string;
     email: string;
+    telefone?: string;
   };
   usuarios?: {
     nome: string;
   };
 }
 
-interface Usuario {
-  id: string;
-  nome: string;
-}
-
-const statusOptions = [
-  { value: "Aguardando", label: "Aguardando", variant: "secondary" as const },
-  { value: "Enviado", label: "Enviado", variant: "default" as const },
-  { value: "Aprovado", label: "Aprovado", variant: "default" as const },
-  { value: "Rejeitado", label: "Rejeitado", variant: "destructive" as const },
-];
+const statusMap = {
+  "Aguardando": { label: "Rascunho", variant: "secondary" as const },
+  "Enviado": { label: "Enviado", variant: "default" as const },
+  "Aprovado": { label: "Aprovado", variant: "default" as const },
+  "Rejeitado": { label: "Rejeitado", variant: "destructive" as const },
+};
 
 export function Orcamentos() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [orcamentos, setOrcamentos] = useState<Orcamento[]>([]);
-  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // Filtros
-  const [filtroStatus, setFiltroStatus] = useState<string>("");
-  const [filtroResponsavel, setFiltroResponsavel] = useState<string>("");
-  const [filtroDataInicio, setFiltroDataInicio] = useState<Date>();
-  const [filtroDataFim, setFiltroDataFim] = useState<Date>();
-
-  // Estados do dialog de envio
-  const [orcamentoParaEnvio, setOrcamentoParaEnvio] = useState<Orcamento | null>(null);
-  const [emailDestinatario, setEmailDestinatario] = useState("");
-  const [mensagemAdicional, setMensagemAdicional] = useState("");
-  const [enviandoEmail, setEnviandoEmail] = useState(false);
-  const [dialogEnvioAberto, setDialogEnvioAberto] = useState(false);
+  const [busca, setBusca] = useState("");
+  const [filtroStatus, setFiltroStatus] = useState("all");
+  
+  // Dialog de envio
+  const [dialogEnvio, setDialogEnvio] = useState(false);
+  const [orcamentoSelecionado, setOrcamentoSelecionado] = useState<Orcamento | null>(null);
 
   useEffect(() => {
     fetchOrcamentos();
-    fetchUsuarios();
-  }, []);
+  }, [filtroStatus]);
 
   const fetchOrcamentos = async () => {
     try {
@@ -79,7 +64,7 @@ export function Orcamentos() {
         .from("orcamentos")
         .select(`
           *,
-          clientes (nome, email),
+          clientes (nome, email, telefone),
           usuarios (nome)
         `)
         .order("criado_em", { ascending: false });
@@ -87,18 +72,8 @@ export function Orcamentos() {
       if (filtroStatus && filtroStatus !== "all") {
         query = query.eq("status", filtroStatus);
       }
-      if (filtroResponsavel && filtroResponsavel !== "all") {
-        query = query.eq("usuario_id", filtroResponsavel);
-      }
-      if (filtroDataInicio) {
-        query = query.gte("criado_em", filtroDataInicio.toISOString());
-      }
-      if (filtroDataFim) {
-        query = query.lte("criado_em", filtroDataFim.toISOString());
-      }
 
       const { data, error } = await query;
-
       if (error) throw error;
       setOrcamentos(data || []);
     } catch (error) {
@@ -109,217 +84,182 @@ export function Orcamentos() {
     }
   };
 
-  const fetchUsuarios = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("usuarios")
-        .select("id, nome")
-        .eq("ativo", true);
-
-      if (error) throw error;
-      setUsuarios(data || []);
-    } catch (error) {
-      console.error("Erro ao buscar usuários:", error);
-    }
+  const handleEditar = (id: string) => {
+    navigate(`/orcamentos/editar/${id}`);
   };
 
-  const handleGerarPDF = async (orcamentoId: string) => {
-    try {
-      // Implementar geração de PDF
-      toast.success("PDF gerado com sucesso!");
-    } catch (error) {
-      console.error("Erro ao gerar PDF:", error);
-      toast.error("Erro ao gerar PDF");
-    }
+  const handleVisualizar = (id: string) => {
+    // TODO: Implementar visualização em PDF
+    toast.info("Funcionalidade de visualização em desenvolvimento");
   };
 
-  const handleAbrirDialogEnvio = (orcamento: Orcamento) => {
-    setOrcamentoParaEnvio(orcamento);
-    setEmailDestinatario(orcamento.clientes?.email || "");
-    setMensagemAdicional("");
-    setDialogEnvioAberto(true);
+  const handleAbrirEnvio = (orcamento: Orcamento) => {
+    setOrcamentoSelecionado(orcamento);
+    setDialogEnvio(true);
   };
 
-  const handleEnviarEmail = async () => {
-    if (!orcamentoParaEnvio || !emailDestinatario.trim()) {
-      toast.error("Por favor, preencha o email do destinatário");
+  const handleEnviarWhatsApp = () => {
+    if (!orcamentoSelecionado?.clientes?.telefone) {
+      toast.error("Cliente não possui telefone cadastrado");
       return;
     }
 
-    setEnviandoEmail(true);
+    const telefone = orcamentoSelecionado.clientes.telefone.replace(/\D/g, '');
+    const mensagem = `Olá ${orcamentoSelecionado.clientes.nome}! Segue o orçamento solicitado no valor de ${formatCurrency(orcamentoSelecionado.valor_total)}.`;
+    const whatsappUrl = `https://wa.me/55${telefone}?text=${encodeURIComponent(mensagem)}`;
+    
+    window.open(whatsappUrl, '_blank');
+    setDialogEnvio(false);
+    toast.success("Redirecionando para WhatsApp...");
+  };
+
+  const handleEnviarEmail = async () => {
+    if (!orcamentoSelecionado) return;
+
     try {
-      const { data, error } = await supabase.functions.invoke('enviar-orcamento', {
+      const { error } = await supabase.functions.invoke('enviar-orcamento', {
         body: {
-          orcamento_id: orcamentoParaEnvio.id,
-          email_destinatario: emailDestinatario,
-          mensagem_adicional: mensagemAdicional || undefined
+          orcamento_id: orcamentoSelecionado.id,
+          email_destinatario: orcamentoSelecionado.clientes?.email,
         }
       });
 
       if (error) throw error;
-
-      toast.success("Orçamento enviado com sucesso!");
-      setDialogEnvioAberto(false);
-      fetchOrcamentos(); // Atualizar a lista
+      toast.success("Orçamento enviado por email com sucesso!");
+      setDialogEnvio(false);
+      fetchOrcamentos();
     } catch (error: any) {
-      console.error("Erro ao enviar orçamento:", error);
-      toast.error(error.message || "Erro ao enviar orçamento");
-    } finally {
-      setEnviandoEmail(false);
+      console.error("Erro ao enviar email:", error);
+      toast.error("Erro ao enviar orçamento");
     }
   };
 
-  const handleGerarContrato = async (orcamentoId: string) => {
-    try {
-      // Implementar geração de contrato
-      toast.success("Contrato gerado com sucesso!");
-    } catch (error) {
-      console.error("Erro ao gerar contrato:", error);
-      toast.error("Erro ao gerar contrato");
-    }
+  const handleGerarContrato = (orcamento: Orcamento) => {
+    // Navegar para página de contratos com os dados do orçamento
+    navigate(`/contratos/novo?orcamento_id=${orcamento.id}`);
   };
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig = statusOptions.find(s => s.value === status);
-    return (
-      <Badge variant={statusConfig?.variant || "secondary"}>
-        {statusConfig?.label || status}
-      </Badge>
-    );
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(value);
   };
 
-  const limparFiltros = () => {
-    setFiltroStatus("all");
-    setFiltroResponsavel("all");
-    setFiltroDataInicio(undefined);
-    setFiltroDataFim(undefined);
+  const getNumeroOrcamento = (id: string) => {
+    const shortId = id.slice(0, 6).toUpperCase();
+    return `ORC-DRAFT-${shortId}`;
   };
 
-  useEffect(() => {
-    fetchOrcamentos();
-  }, [filtroStatus, filtroResponsavel, filtroDataInicio, filtroDataFim]);
+  const orcamentosFiltrados = orcamentos.filter(orc => {
+    const numero = getNumeroOrcamento(orc.id);
+    return numero.toLowerCase().includes(busca.toLowerCase());
+  });
+
+  // Estatísticas
+  const totalOrcamentos = orcamentos.length;
+  const totalEnviados = orcamentos.filter(o => o.status === "Enviado").length;
+  const totalAprovados = orcamentos.filter(o => o.status === "Aprovado").length;
+  const valorTotal = orcamentos.reduce((sum, o) => sum + (o.valor_total || 0), 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
+      {/* Cabeçalho */}
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Orçamentos</h1>
-        <Link to="/orcamentos/novo">
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Novo Orçamento
-          </Button>
-        </Link>
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Orçamentos</h1>
+          <p className="text-muted-foreground">Gerencie propostas e orçamentos dos seus clientes</p>
+        </div>
+        <Button onClick={() => navigate("/orcamentos/novo")} className="gap-2">
+          <Plus className="h-4 w-4" />
+          Novo Orçamento
+        </Button>
       </div>
 
-      {/* Filtros */}
+      {/* Cards de Estatísticas */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total</p>
+                <p className="text-3xl font-bold text-foreground">{totalOrcamentos}</p>
+              </div>
+              <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                <FileText className="h-6 w-6 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Enviados</p>
+                <p className="text-3xl font-bold text-foreground">{totalEnviados}</p>
+              </div>
+              <div className="h-12 w-12 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                <Send className="h-6 w-6 text-purple-500" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Aprovados</p>
+                <p className="text-3xl font-bold text-foreground">{totalAprovados}</p>
+              </div>
+              <div className="h-12 w-12 rounded-lg bg-green-500/10 flex items-center justify-center">
+                <CheckCircle2 className="h-6 w-6 text-green-500" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Valor Total</p>
+                <p className="text-2xl font-bold text-foreground">{formatCurrency(valorTotal)}</p>
+              </div>
+              <div className="h-12 w-12 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                <DollarSign className="h-6 w-6 text-orange-500" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filtros e Busca */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="h-4 w-4" />
-            Filtros
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Status</label>
-              <Select value={filtroStatus} onValueChange={setFiltroStatus}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Todos os status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os status</SelectItem>
-                  {statusOptions.map((status) => (
-                    <SelectItem key={status.value} value={status.value}>
-                      {status.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        <CardContent className="p-6">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por número do orçamento..."
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                className="pl-10"
+              />
             </div>
-
-            <div>
-              <label className="text-sm font-medium mb-2 block">Responsável</label>
-              <Select value={filtroResponsavel} onValueChange={setFiltroResponsavel}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Todos os responsáveis" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os responsáveis</SelectItem>
-                  {usuarios.map((usuario) => (
-                    <SelectItem key={usuario.id} value={usuario.id}>
-                      {usuario.nome}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium mb-2 block">Data Início</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !filtroDataInicio && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {filtroDataInicio ? (
-                      format(filtroDataInicio, "PPP", { locale: ptBR })
-                    ) : (
-                      "Selecionar data"
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={filtroDataInicio}
-                    onSelect={setFiltroDataInicio}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium mb-2 block">Data Fim</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !filtroDataFim && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {filtroDataFim ? (
-                      format(filtroDataFim, "PPP", { locale: ptBR })
-                    ) : (
-                      "Selecionar data"
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={filtroDataFim}
-                    onSelect={setFiltroDataFim}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-          </div>
-
-          <div className="flex justify-end mt-4">
-            <Button variant="outline" onClick={limparFiltros}>
-              Limpar Filtros
-            </Button>
+            <Select value={filtroStatus} onValueChange={setFiltroStatus}>
+              <SelectTrigger className="w-full md:w-[200px]">
+                <SelectValue placeholder="Todos os Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os Status</SelectItem>
+                <SelectItem value="Aguardando">Rascunho</SelectItem>
+                <SelectItem value="Enviado">Enviado</SelectItem>
+                <SelectItem value="Aprovado">Aprovado</SelectItem>
+                <SelectItem value="Rejeitado">Rejeitado</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -327,161 +267,134 @@ export function Orcamentos() {
       {/* Tabela de Orçamentos */}
       <Card>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Responsável</TableHead>
-                <TableHead>Valor Total</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Data Criação</TableHead>
-                <TableHead>Data Envio</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8">
-                    Carregando orçamentos...
-                  </TableCell>
+                  <TableHead>Número</TableHead>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Data do Evento</TableHead>
+                  <TableHead>Valor</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
-              ) : orcamentos.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8">
-                    Nenhum orçamento encontrado
-                  </TableCell>
-                </TableRow>
-              ) : (
-                orcamentos.map((orcamento) => (
-                  <TableRow key={orcamento.id}>
-                    <TableCell className="font-medium">
-                      {orcamento.clientes?.nome || "Cliente não encontrado"}
-                    </TableCell>
-                    <TableCell>
-                      {orcamento.usuarios?.nome || "Usuário não encontrado"}
-                    </TableCell>
-                    <TableCell>
-                      {new Intl.NumberFormat("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      }).format(orcamento.valor_total || 0)}
-                    </TableCell>
-                    <TableCell>{getStatusBadge(orcamento.status)}</TableCell>
-                    <TableCell>
-                      {format(new Date(orcamento.criado_em), "dd/MM/yyyy", {
-                        locale: ptBR,
-                      })}
-                    </TableCell>
-                    <TableCell>
-                      {orcamento.data_envio
-                        ? format(new Date(orcamento.data_envio), "dd/MM/yyyy", {
-                            locale: ptBR,
-                          })
-                        : "-"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleGerarPDF(orcamento.id)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleAbrirDialogEnvio(orcamento)}
-                        >
-                          <Send className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleGerarContrato(orcamento.id)}
-                        >
-                          <FileCheck className="h-4 w-4" />
-                        </Button>
-                      </div>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8">
+                      Carregando orçamentos...
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : orcamentosFiltrados.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8">
+                      Nenhum orçamento encontrado
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  orcamentosFiltrados.map((orcamento) => {
+                    const statusInfo = statusMap[orcamento.status as keyof typeof statusMap] || statusMap["Aguardando"];
+                    return (
+                      <TableRow key={orcamento.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-primary" />
+                            <span className="font-medium">{getNumeroOrcamento(orcamento.id)}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+                              <span className="text-xs font-medium">
+                                {orcamento.clientes?.nome?.charAt(0) || "?"}
+                              </span>
+                            </div>
+                            <span>{orcamento.clientes?.nome || "Cliente não encontrado"}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground">-</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {formatCurrency(orcamento.valor_total || 0)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={statusInfo.variant}>
+                            {statusInfo.label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleEditar(orcamento.id)}>
+                                <FileText className="h-4 w-4 mr-2" />
+                                Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleVisualizar(orcamento.id)}>
+                                <Eye className="h-4 w-4 mr-2" />
+                                Visualizar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleAbrirEnvio(orcamento)}>
+                                <Send className="h-4 w-4 mr-2" />
+                                Enviar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleGerarContrato(orcamento)}>
+                                <FileCheck className="h-4 w-4 mr-2" />
+                                Gerar Contrato
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Dialog de Envio por Email */}
-      <Dialog open={dialogEnvioAberto} onOpenChange={setDialogEnvioAberto}>
-        <DialogContent className="sm:max-w-md">
+      {/* Dialog de Envio */}
+      <Dialog open={dialogEnvio} onOpenChange={setDialogEnvio}>
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>Enviar Orçamento por Email</DialogTitle>
+            <DialogTitle>Enviar Orçamento</DialogTitle>
           </DialogHeader>
-          
           <div className="space-y-4">
-            <div>
-              <Label htmlFor="cliente">Cliente</Label>
-              <Input
-                id="cliente"
-                value={orcamentoParaEnvio?.clientes?.nome || ""}
-                disabled
-                className="bg-muted"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="email-destinatario">Email do Destinatário</Label>
-              <Input
-                id="email-destinatario"
-                type="email"
-                placeholder="cliente@email.com"
-                value={emailDestinatario}
-                onChange={(e) => setEmailDestinatario(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="valor-total">Valor Total</Label>
-              <Input
-                id="valor-total"
-                value={new Intl.NumberFormat("pt-BR", {
-                  style: "currency",
-                  currency: "BRL",
-                }).format(orcamentoParaEnvio?.valor_total || 0)}
-                disabled
-                className="bg-muted"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="mensagem-adicional">Mensagem Adicional (Opcional)</Label>
-              <Textarea
-                id="mensagem-adicional"
-                placeholder="Digite uma mensagem personalizada para o cliente..."
-                value={mensagemAdicional}
-                onChange={(e) => setMensagemAdicional(e.target.value)}
-                rows={3}
-              />
+            <p className="text-sm text-muted-foreground">
+              Como deseja enviar o orçamento para {orcamentoSelecionado?.clientes?.nome}?
+            </p>
+            <div className="flex flex-col gap-2">
+              <Button onClick={handleEnviarWhatsApp} className="gap-2">
+                <Send className="h-4 w-4" />
+                Enviar via WhatsApp
+              </Button>
+              <Button onClick={handleEnviarEmail} variant="outline" className="gap-2">
+                <Send className="h-4 w-4" />
+                Enviar via E-mail
+              </Button>
+              <Button 
+                onClick={() => {
+                  handleEnviarWhatsApp();
+                  handleEnviarEmail();
+                }} 
+                variant="outline"
+                className="gap-2"
+              >
+                <Send className="h-4 w-4" />
+                Enviar Ambos
+              </Button>
             </div>
           </div>
-
-          <DialogFooter className="flex gap-2">
-            <Button 
-              variant="outline" 
-              onClick={() => setDialogEnvioAberto(false)}
-              disabled={enviandoEmail}
-            >
-              Cancelar
-            </Button>
-            <Button 
-              onClick={handleEnviarEmail}
-              disabled={enviandoEmail || !emailDestinatario.trim()}
-            >
-              {enviandoEmail ? "Enviando..." : "Enviar Email"}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

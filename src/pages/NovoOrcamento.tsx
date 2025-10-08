@@ -10,8 +10,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, CalendarIcon, Plus, Search, Trash2, X, FileText } from "lucide-react";
+import { ArrowLeft, CalendarIcon, Plus, X, Trash2, Eye, Clock, MapPin, User, Package } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -40,14 +39,9 @@ interface ItemOrcamento {
   descricao?: string;
   quantidade: number;
   preco_unitario: number;
+  desconto: number;
+  tipo_desconto: 'valor' | 'percentual';
   preco_total: number;
-}
-
-interface NovoCliente {
-  nome: string;
-  email: string;
-  telefone: string;
-  endereco: string;
 }
 
 export function NovoOrcamento() {
@@ -61,43 +55,46 @@ export function NovoOrcamento() {
 
   // Estados do formulário
   const [clienteSelecionado, setClienteSelecionado] = useState<string>("");
-  const [dataServico, setDataServico] = useState<Date>();
+  const [modeloDocumento, setModeloDocumento] = useState("");
+  const [localEvento, setLocalEvento] = useState("");
+  const [dataEvento, setDataEvento] = useState<Date>();
+  const [horarioInicio, setHorarioInicio] = useState("");
+  const [horarioTermino, setHorarioTermino] = useState("");
   const [dataValidade, setDataValidade] = useState<Date>();
   const [observacoes, setObservacoes] = useState("");
   const [itensOrcamento, setItensOrcamento] = useState<ItemOrcamento[]>([]);
 
-  // Estados para busca
+  // Estados para busca de cliente
   const [buscaCliente, setBuscaCliente] = useState("");
-  const [buscaServico, setBuscaServico] = useState("");
+  const [mostrarListaClientes, setMostrarListaClientes] = useState(false);
 
-  // Estados para novo cliente
-  const [modalNovoCliente, setModalNovoCliente] = useState(false);
-  const [novoCliente, setNovoCliente] = useState<NovoCliente>({
-    nome: "",
-    email: "",
-    telefone: "",
-    endereco: "",
-  });
-
-  // Estados para adicionar serviço
+  // Estados para modal de adicionar serviço
   const [modalAdicionarServico, setModalAdicionarServico] = useState(false);
   const [servicoSelecionado, setServicoSelecionado] = useState<string>("");
   const [quantidade, setQuantidade] = useState(1);
   const [precoUnitario, setPrecoUnitario] = useState(0);
-  const [novoServicoNome, setNovoServicoNome] = useState("");
-  const [novoServicoDescricao, setNovoServicoDescricao] = useState("");
-  const [criarNovoServico, setCriarNovoServico] = useState(false);
-
-  // Estados para envio
-  const [modalEnviarEmail, setModalEnviarEmail] = useState(false);
-  const [emailDestinatario, setEmailDestinatario] = useState("");
-  const [mensagemAdicional, setMensagemAdicional] = useState("");
-  const [orcamentoSalvoId, setOrcamentoSalvoId] = useState<string | null>(null);
+  const [desconto, setDesconto] = useState(0);
+  const [tipoDesconto, setTipoDesconto] = useState<'valor' | 'percentual'>('valor');
 
   useEffect(() => {
-    fetchClientes();
+    if (buscaCliente) {
+      fetchClientes();
+      setMostrarListaClientes(true);
+    }
+  }, [buscaCliente]);
+
+  useEffect(() => {
     fetchServicos();
   }, []);
+
+  useEffect(() => {
+    if (servicoSelecionado) {
+      const servico = servicos.find(s => s.id === servicoSelecionado);
+      if (servico?.preco_venda) {
+        setPrecoUnitario(servico.preco_venda);
+      }
+    }
+  }, [servicoSelecionado, servicos]);
 
   const fetchClientes = async () => {
     try {
@@ -115,128 +112,43 @@ export function NovoOrcamento() {
       setClientes(data || []);
     } catch (error) {
       console.error("Erro ao buscar clientes:", error);
-      toast.error("Erro ao carregar clientes");
     }
   };
 
   const fetchServicos = async () => {
     try {
-      let query = supabase
+      const { data, error } = await supabase
         .from("servicos")
         .select("id, nome, descricao, preco_venda")
+        .is("cliente_id", null)
+        .eq("status", "Ativo")
         .order("nome");
 
-      if (buscaServico) {
-        query = query.or(`nome.ilike.%${buscaServico}%,descricao.ilike.%${buscaServico}%`);
-      }
-
-      const { data, error } = await query;
       if (error) throw error;
       setServicos(data || []);
     } catch (error) {
       console.error("Erro ao buscar serviços:", error);
-      toast.error("Erro ao carregar serviços");
     }
   };
 
-  const handleCriarCliente = async () => {
-    if (!novoCliente.nome || !novoCliente.email) {
-      toast.error("Nome e email são obrigatórios");
+  const handleSelecionarCliente = (cliente: Cliente) => {
+    setClienteSelecionado(cliente.id);
+    setBuscaCliente(cliente.nome);
+    setMostrarListaClientes(false);
+  };
+
+  const calcularPrecoTotal = () => {
+    const subtotal = quantidade * precoUnitario;
+    if (tipoDesconto === 'percentual') {
+      return subtotal - (subtotal * desconto / 100);
+    }
+    return subtotal - desconto;
+  };
+
+  const handleAdicionarServico = () => {
+    if (!servicoSelecionado) {
+      toast.error("Selecione um serviço");
       return;
-    }
-
-    if (!user?.empresa_id) {
-      toast.error("Erro: usuário não está associado a uma empresa");
-      return;
-    }
-
-    try {
-      // Get current date in Brazilian timezone
-      const today = new Date();
-      const todayBR = new Date(today.getTime() - (today.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
-      
-      const { data, error } = await supabase
-        .from("clientes")
-        .insert([{
-          ...novoCliente,
-          empresa_id: user.empresa_id,
-          data_cadastro: todayBR
-        }])
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setClientes([...clientes, data]);
-      setClienteSelecionado(data.id);
-      setBuscaCliente(data.nome);
-      setModalNovoCliente(false);
-      setNovoCliente({ nome: "", email: "", telefone: "", endereco: "" });
-      toast.success("Cliente criado com sucesso!");
-    } catch (error) {
-      console.error("Erro ao criar cliente:", error);
-      toast.error("Erro ao criar cliente");
-    }
-  };
-
-  const handleCriarServicoRapido = async () => {
-    if (!novoServicoNome) {
-      toast.error("Nome do serviço é obrigatório");
-      return null;
-    }
-
-    if (!user?.empresa_id) {
-      toast.error("Erro: usuário não está associado a uma empresa");
-      return null;
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from('servicos')
-        .insert([{
-          nome: novoServicoNome,
-          descricao: novoServicoDescricao || null,
-          custo_produto: precoUnitario,
-          custo_mao_obra: 0,
-          markup_percent: 0,
-          empresa_id: user.empresa_id,
-          status: 'Ativo',
-        }])
-        .select()
-        .single();
-
-      if (error) throw error;
-      
-      setServicos([...servicos, data]);
-      toast.success("Serviço criado com sucesso!");
-      return data.id;
-    } catch (error) {
-      console.error("Erro ao criar serviço:", error);
-      toast.error("Erro ao criar serviço");
-      return null;
-    }
-  };
-
-  const handleAdicionarServico = async () => {
-    let servicoId = servicoSelecionado;
-    let servicoNome = "";
-    let servicoDescricao = "";
-
-    // Se está criando novo serviço
-    if (criarNovoServico) {
-      const novoId = await handleCriarServicoRapido();
-      if (!novoId) return;
-      servicoId = novoId;
-      servicoNome = novoServicoNome;
-      servicoDescricao = novoServicoDescricao;
-    } else {
-      const servico = servicos.find(s => s.id === servicoSelecionado);
-      if (!servico) {
-        toast.error("Selecione um serviço");
-        return;
-      }
-      servicoNome = servico.nome;
-      servicoDescricao = servico.descricao || "";
     }
 
     if (quantidade <= 0) {
@@ -244,36 +156,33 @@ export function NovoOrcamento() {
       return;
     }
 
-    if (precoUnitario <= 0) {
-      toast.error("Preço unitário deve ser maior que zero");
-      return;
-    }
+    const servico = servicos.find(s => s.id === servicoSelecionado);
+    if (!servico) return;
 
-    const itemExistente = itensOrcamento.find(item => item.servico_id === servicoId);
+    const itemExistente = itensOrcamento.find(item => item.servico_id === servicoSelecionado);
     if (itemExistente) {
       toast.error("Este serviço já foi adicionado");
       return;
     }
 
     const novoItem: ItemOrcamento = {
-      servico_id: servicoId,
-      nome: servicoNome,
-      descricao: servicoDescricao,
+      servico_id: servicoSelecionado,
+      nome: servico.nome,
+      descricao: servico.descricao,
       quantidade,
       preco_unitario: precoUnitario,
-      preco_total: quantidade * precoUnitario,
+      desconto,
+      tipo_desconto: tipoDesconto,
+      preco_total: calcularPrecoTotal(),
     };
 
     setItensOrcamento([...itensOrcamento, novoItem]);
     setModalAdicionarServico(false);
     setServicoSelecionado("");
-    setBuscaServico("");
     setQuantidade(1);
     setPrecoUnitario(0);
-    setCriarNovoServico(false);
-    setNovoServicoNome("");
-    setNovoServicoDescricao("");
-    toast.success("Serviço adicionado ao orçamento");
+    setDesconto(0);
+    toast.success("Serviço adicionado");
   };
 
   const handleRemoverItem = (servicoId: string) => {
@@ -284,20 +193,20 @@ export function NovoOrcamento() {
     return itensOrcamento.reduce((total, item) => total + item.preco_total, 0);
   };
 
-  const handleSalvarOrcamento = async (showSuccessMessage = true) => {
+  const handleSalvarOrcamento = async () => {
     if (!clienteSelecionado) {
       toast.error("Selecione um cliente");
-      return null;
+      return;
     }
 
     if (itensOrcamento.length === 0) {
       toast.error("Adicione pelo menos um serviço");
-      return null;
+      return;
     }
 
     if (!user?.empresa_id) {
       toast.error("Erro: usuário não está associado a uma empresa");
-      return null;
+      return;
     }
 
     setLoading(true);
@@ -319,495 +228,201 @@ export function NovoOrcamento() {
 
       if (error) throw error;
 
-      setOrcamentoSalvoId(data.id);
-      
-      if (showSuccessMessage) {
-        toast.success("Orçamento salvo com sucesso!");
-      }
-      
-      return data.id;
+      toast.success("Orçamento salvo com sucesso!");
+      navigate("/orcamentos");
     } catch (error) {
       console.error("Erro ao salvar orçamento:", error);
       toast.error("Erro ao salvar orçamento");
-      return null;
     } finally {
       setLoading(false);
     }
   };
 
-  const handleEnviarEmail = async () => {
-    if (!emailDestinatario) {
-      toast.error("Digite o email de destino");
+  const handleVisualizarPDF = () => {
+    if (!clienteSelecionado || itensOrcamento.length === 0) {
+      toast.error("Adicione um cliente e serviços para visualizar o PDF");
       return;
     }
-
-    let orcamentoId = orcamentoSalvoId;
-    
-    // Se o orçamento não foi salvo ainda, salvar primeiro
-    if (!orcamentoId) {
-      orcamentoId = await handleSalvarOrcamento(false);
-      if (!orcamentoId) return;
-    }
-
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('enviar-orcamento', {
-        body: {
-          orcamento_id: orcamentoId,
-          email_destinatario: emailDestinatario,
-          mensagem_adicional: mensagemAdicional
-        }
-      });
-
-      if (error) throw error;
-
-      toast.success("Orçamento enviado por email com sucesso!");
-      setModalEnviarEmail(false);
-      setEmailDestinatario("");
-      setMensagemAdicional("");
-    } catch (error) {
-      console.error("Erro ao enviar email:", error);
-      toast.error("Erro ao enviar orçamento por email");
-    } finally {
-      setLoading(false);
-    }
+    toast.info("Funcionalidade de visualização em PDF em desenvolvimento");
   };
-
-  const handleEnviarWhatsApp = async () => {
-    let orcamentoId = orcamentoSalvoId;
-    
-    // Se o orçamento não foi salvo ainda, salvar primeiro
-    if (!orcamentoId) {
-      orcamentoId = await handleSalvarOrcamento(false);
-      if (!orcamentoId) return;
-    }
-
-    const cliente = clientes.find(c => c.id === clienteSelecionado);
-    if (!cliente?.telefone) {
-      toast.error("Cliente não possui telefone cadastrado");
-      return;
-    }
-
-    const valorTotal = calcularTotal();
-    const mensagem = `Olá ${cliente.nome}! 
-
-Segue o orçamento solicitado:
-
-${itensOrcamento.map(item => 
-  `• ${item.nome} - Qtd: ${item.quantidade} - R$ ${item.preco_total.toFixed(2)}`
-).join('\n')}
-
-*Valor Total: R$ ${valorTotal.toFixed(2)}*
-
-Orçamento válido por 30 dias.
-Em caso de dúvidas, estou à disposição!`;
-
-    const telefone = cliente.telefone.replace(/\D/g, '');
-    const whatsappUrl = `https://wa.me/55${telefone}?text=${encodeURIComponent(mensagem)}`;
-    
-    window.open(whatsappUrl, '_blank');
-    toast.success("Redirecionando para WhatsApp...");
-  };
-
-  useEffect(() => {
-    fetchClientes();
-  }, [buscaCliente]);
-
-  useEffect(() => {
-    fetchServicos();
-  }, [buscaServico]);
-
-  useEffect(() => {
-    if (servicoSelecionado) {
-      const servico = servicos.find(s => s.id === servicoSelecionado);
-      if (servico && servico.preco_venda) {
-        setPrecoUnitario(servico.preco_venda);
-      }
-    }
-  }, [servicoSelecionado, servicos]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="outline" onClick={() => navigate("/orcamentos")}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Voltar
-        </Button>
-        <h1 className="text-3xl font-bold">Novo Orçamento</h1>
-      </div>
+    <div className="min-h-screen bg-background">
+      <div className="max-w-7xl mx-auto p-6 space-y-6">
+        {/* Cabeçalho */}
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="icon" onClick={() => navigate("/orcamentos")}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Novo Orçamento</h1>
+            <p className="text-muted-foreground">Preencha os dados para gerar o orçamento</p>
+          </div>
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Formulário Principal */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Dados do Cliente */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Dados do Cliente</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <Label htmlFor="cliente">Cliente *</Label>
-                  <div className="flex gap-2 mt-1">
-                    <Input
-                      placeholder="Buscar cliente..."
-                      value={buscaCliente}
-                      onChange={(e) => setBuscaCliente(e.target.value)}
-                    />
-                    <Dialog open={modalNovoCliente} onOpenChange={setModalNovoCliente}>
-                      <DialogTrigger asChild>
-                        <Button variant="outline">
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Novo Cliente</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                          <div>
-                            <Label htmlFor="nome">Nome *</Label>
-                            <Input
-                              id="nome"
-                              value={novoCliente.nome}
-                              onChange={(e) => setNovoCliente({...novoCliente, nome: e.target.value})}
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="email">Email *</Label>
-                            <Input
-                              id="email"
-                              type="email"
-                              value={novoCliente.email}
-                              onChange={(e) => setNovoCliente({...novoCliente, email: e.target.value})}
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="telefone">Telefone</Label>
-                            <Input
-                              id="telefone"
-                              value={novoCliente.telefone}
-                              onChange={(e) => setNovoCliente({...novoCliente, telefone: e.target.value})}
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="endereco">Endereço</Label>
-                            <Input
-                              id="endereco"
-                              value={novoCliente.endereco}
-                              onChange={(e) => setNovoCliente({...novoCliente, endereco: e.target.value})}
-                            />
-                          </div>
-                          <div className="flex justify-end gap-2">
-                            <Button variant="outline" onClick={() => setModalNovoCliente(false)}>
-                              Cancelar
-                            </Button>
-                            <Button onClick={handleCriarCliente}>
-                              Criar Cliente
-                            </Button>
-                          </div>
+        {/* Dados do Cliente */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Dados do Cliente
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="cliente">Cliente *</Label>
+                <div className="relative">
+                  <Input
+                    id="cliente"
+                    placeholder="Selecione um cliente"
+                    value={buscaCliente}
+                    onChange={(e) => setBuscaCliente(e.target.value)}
+                    onFocus={() => setMostrarListaClientes(true)}
+                  />
+                  {mostrarListaClientes && clientes.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-lg max-h-60 overflow-y-auto">
+                      {clientes.map((cliente) => (
+                        <div
+                          key={cliente.id}
+                          className="p-3 hover:bg-muted cursor-pointer border-b last:border-b-0"
+                          onClick={() => handleSelecionarCliente(cliente)}
+                        >
+                          <div className="font-medium">{cliente.nome}</div>
+                          <div className="text-sm text-muted-foreground">{cliente.email}</div>
                         </div>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {clientes.length > 0 && buscaCliente && !clienteSelecionado && (
-                <div className="border rounded-md max-h-48 overflow-y-auto bg-background shadow-md z-50">
-                  {clientes.map((cliente) => (
-                    <div
-                      key={cliente.id}
-                      className="p-3 border-b last:border-b-0 cursor-pointer hover:bg-muted"
-                      onClick={() => {
-                        setClienteSelecionado(cliente.id);
-                        setBuscaCliente(cliente.nome);
-                      }}
-                    >
-                      <div className="font-medium">{cliente.nome}</div>
-                      <div className="text-sm text-muted-foreground">{cliente.email}</div>
-                      {cliente.telefone && (
-                        <div className="text-sm text-muted-foreground">{cliente.telefone}</div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              {clienteSelecionado && (
-                <div className="p-3 bg-primary/10 rounded-md flex items-center justify-between">
-                  <div>
-                    <div className="font-medium">{clientes.find(c => c.id === clienteSelecionado)?.nome}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {clientes.find(c => c.id === clienteSelecionado)?.email}
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setClienteSelecionado("");
-                      setBuscaCliente("");
-                    }}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
+              <div className="space-y-2">
+                <Label htmlFor="modelo">Modelo do Documento</Label>
+                <Select value={modeloDocumento} onValueChange={setModeloDocumento}>
+                  <SelectTrigger id="modelo">
+                    <SelectValue placeholder="Selecione um modelo (opcional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="padrao">Modelo Padrão</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-              <div>
-                <Label>Validade do Orçamento</Label>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="local">Local do Serviço</Label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="local"
+                    placeholder="Endereço ou nome do local"
+                    value={localEvento}
+                    onChange={(e) => setLocalEvento(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Dados do Serviço */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CalendarIcon className="h-5 w-5" />
+              Dados do Serviço
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Data do Serviço *</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
                       className={cn(
                         "w-full justify-start text-left font-normal",
-                        !dataValidade && "text-muted-foreground"
+                        !dataEvento && "text-muted-foreground"
                       )}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dataValidade ? format(dataValidade, "PPP", { locale: ptBR }) : "Selecionar data"}
+                      {dataEvento ? format(dataEvento, "PPP", { locale: ptBR }) : "Selecionar data"}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
                     <Calendar
                       mode="single"
-                      selected={dataValidade}
-                      onSelect={setDataValidade}
+                      selected={dataEvento}
+                      onSelect={setDataEvento}
                       locale={ptBR}
-                      disabled={(date) => date < new Date()}
+                      className="pointer-events-auto"
                     />
                   </PopoverContent>
                 </Popover>
               </div>
 
-              <div>
-                <Label htmlFor="observacoes">Observações</Label>
-                <Textarea
-                  id="observacoes"
-                  placeholder="Observações gerais do orçamento..."
-                  value={observacoes}
-                  onChange={(e) => setObservacoes(e.target.value)}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Itens do Orçamento */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Itens do Orçamento</CardTitle>
-                <Dialog open={modalAdicionarServico} onOpenChange={setModalAdicionarServico}>
-                  <DialogTrigger asChild>
-                    <Button>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Adicionar Serviço
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-2xl">
-                    <DialogHeader>
-                      <DialogTitle>Adicionar Serviço</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      {!criarNovoServico ? (
-                        <>
-                          <div>
-                            <Label htmlFor="busca-servico">Buscar Serviço</Label>
-                            <Input
-                              id="busca-servico"
-                              placeholder="Digite para buscar serviços..."
-                              value={buscaServico}
-                              onChange={(e) => {
-                                setBuscaServico(e.target.value);
-                                setCriarNovoServico(false);
-                              }}
-                            />
-                          </div>
-
-                          {servicos.length > 0 && buscaServico && (
-                            <div className="border rounded-md max-h-48 overflow-y-auto bg-background">
-                              {servicos.map((servico) => (
-                                <div
-                                  key={servico.id}
-                                  className={cn(
-                                    "p-3 border-b last:border-b-0 cursor-pointer hover:bg-muted",
-                                    servicoSelecionado === servico.id && "bg-primary/10"
-                                  )}
-                                  onClick={() => {
-                                    setServicoSelecionado(servico.id);
-                                    setBuscaServico("");
-                                    setCriarNovoServico(false);
-                                  }}
-                                >
-                                  <div className="font-medium">{servico.nome}</div>
-                                  {servico.descricao && (
-                                    <div className="text-sm text-muted-foreground">{servico.descricao}</div>
-                                  )}
-                                  {servico.preco_venda && (
-                                    <div className="text-sm font-medium text-primary">
-                                      {new Intl.NumberFormat("pt-BR", {
-                                        style: "currency",
-                                        currency: "BRL",
-                                      }).format(servico.preco_venda)}
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-
-                          {buscaServico && servicos.length === 0 && (
-                            <div className="p-4 border rounded-md text-center">
-                              <p className="text-sm text-muted-foreground mb-2">Serviço não encontrado</p>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setCriarNovoServico(true);
-                                  setNovoServicoNome(buscaServico);
-                                }}
-                              >
-                                <Plus className="h-4 w-4 mr-2" />
-                                Criar novo serviço
-                              </Button>
-                            </div>
-                          )}
-
-                          {servicoSelecionado && (
-                            <div className="p-3 bg-primary/10 rounded-md">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <div className="font-medium">
-                                    {servicos.find(s => s.id === servicoSelecionado)?.nome}
-                                  </div>
-                                  <div className="text-sm text-muted-foreground">
-                                    {servicos.find(s => s.id === servicoSelecionado)?.descricao}
-                                  </div>
-                                </div>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    setServicoSelecionado("");
-                                    setPrecoUnitario(0);
-                                  }}
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <>
-                          <div className="flex items-center justify-between">
-                            <h3 className="font-medium">Criar Novo Serviço</h3>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setCriarNovoServico(false);
-                                setNovoServicoNome("");
-                                setNovoServicoDescricao("");
-                              }}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                          <div>
-                            <Label htmlFor="novo-servico-nome">Nome do Serviço *</Label>
-                            <Input
-                              id="novo-servico-nome"
-                              value={novoServicoNome}
-                              onChange={(e) => setNovoServicoNome(e.target.value)}
-                              placeholder="Ex: Manutenção de Ar Condicionado"
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="novo-servico-descricao">Descrição</Label>
-                            <Textarea
-                              id="novo-servico-descricao"
-                              value={novoServicoDescricao}
-                              onChange={(e) => setNovoServicoDescricao(e.target.value)}
-                              placeholder="Descreva o serviço..."
-                              rows={3}
-                            />
-                          </div>
-                        </>
-                      )}
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="quantidade">Quantidade *</Label>
-                          <Input
-                            id="quantidade"
-                            type="number"
-                            min="1"
-                            value={quantidade}
-                            onChange={(e) => setQuantidade(Number(e.target.value))}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="preco">Preço Unitário *</Label>
-                          <Input
-                            id="preco"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={precoUnitario}
-                            onChange={(e) => setPrecoUnitario(Number(e.target.value))}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="flex justify-between gap-2">
-                        {!criarNovoServico && buscaServico && (
-                          <Button
-                            variant="outline"
-                            onClick={() => {
-                              setCriarNovoServico(true);
-                              setNovoServicoNome(buscaServico);
-                            }}
-                          >
-                            <Plus className="h-4 w-4 mr-2" />
-                            Criar Novo Serviço
-                          </Button>
-                        )}
-                        <div className="flex gap-2 ml-auto">
-                          <Button variant="outline" onClick={() => {
-                            setModalAdicionarServico(false);
-                            setBuscaServico("");
-                            setServicoSelecionado("");
-                            setCriarNovoServico(false);
-                            setNovoServicoNome("");
-                            setNovoServicoDescricao("");
-                          }}>
-                            Cancelar
-                          </Button>
-                          <Button onClick={handleAdicionarServico}>
-                            Adicionar
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {itensOrcamento.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  Nenhum serviço adicionado
+              <div className="space-y-2">
+                <Label htmlFor="horario-inicio">Horário de Início</Label>
+                <div className="relative">
+                  <Clock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="horario-inicio"
+                    type="time"
+                    value={horarioInicio}
+                    onChange={(e) => setHorarioInicio(e.target.value)}
+                    className="pl-10"
+                  />
                 </div>
-              ) : (
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="horario-termino">Horário de Término</Label>
+                <div className="relative">
+                  <Clock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="horario-termino"
+                    type="time"
+                    value={horarioTermino}
+                    onChange={(e) => setHorarioTermino(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Itens do Orçamento */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Itens do Orçamento
+              </CardTitle>
+              <Button onClick={() => setModalAdicionarServico(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Adicionar Serviço
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {itensOrcamento.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Nenhum serviço adicionado</p>
+              </div>
+            ) : (
+              <>
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Serviço</TableHead>
                       <TableHead>Qtd</TableHead>
                       <TableHead>Preço Unit.</TableHead>
+                      <TableHead>Desconto</TableHead>
                       <TableHead>Total</TableHead>
                       <TableHead></TableHead>
                     </TableRow>
@@ -831,6 +446,15 @@ Em caso de dúvidas, estou à disposição!`;
                           }).format(item.preco_unitario)}
                         </TableCell>
                         <TableCell>
+                          {item.tipo_desconto === 'percentual' 
+                            ? `${item.desconto}%` 
+                            : new Intl.NumberFormat("pt-BR", {
+                                style: "currency",
+                                currency: "BRL",
+                              }).format(item.desconto)
+                          }
+                        </TableCell>
+                        <TableCell className="font-medium">
                           {new Intl.NumberFormat("pt-BR", {
                             style: "currency",
                             currency: "BRL",
@@ -838,233 +462,205 @@ Em caso de dúvidas, estou à disposição!`;
                         </TableCell>
                         <TableCell>
                           <Button
-                            variant="outline"
-                            size="sm"
+                            variant="ghost"
+                            size="icon"
                             onClick={() => handleRemoverItem(item.servico_id)}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
-              )}
+
+                <div className="mt-6 flex justify-end">
+                  <div className="text-2xl font-bold">
+                    Total: {new Intl.NumberFormat("pt-BR", {
+                      style: "currency",
+                      currency: "BRL",
+                    }).format(calcularTotal())}
+                  </div>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Observações e Validade */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Observações</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                placeholder="Observações adicionais sobre o orçamento..."
+                value={observacoes}
+                onChange={(e) => setObservacoes(e.target.value)}
+                rows={6}
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Validade do Orçamento</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !dataValidade && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dataValidade ? format(dataValidade, "PPP", { locale: ptBR }) : "Selecionar validade"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={dataValidade}
+                    onSelect={setDataValidade}
+                    locale={ptBR}
+                    disabled={(date) => date < new Date()}
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
             </CardContent>
           </Card>
         </div>
 
-        {/* Resumo */}
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Resumo</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span>Subtotal:</span>
-                <span className="font-medium">
-                  {new Intl.NumberFormat("pt-BR", {
-                    style: "currency",
-                    currency: "BRL",
-                  }).format(calcularTotal())}
-                </span>
-              </div>
-              <div className="flex justify-between items-center text-lg font-bold">
-                <span>Total:</span>
-                <span>
-                  {new Intl.NumberFormat("pt-BR", {
-                    style: "currency",
-                    currency: "BRL",
-                  }).format(calcularTotal())}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
+        {/* Botões de Ação */}
+        <div className="flex flex-col sm:flex-row gap-4 justify-between">
+          <Button variant="outline" onClick={handleVisualizarPDF} className="gap-2">
+            <Eye className="h-4 w-4" />
+            Visualizar PDF
+          </Button>
 
-          <div className="space-y-2">
-            <Button
-              className="w-full"
-              onClick={() => handleSalvarOrcamento(true)}
-              disabled={loading || !clienteSelecionado || itensOrcamento.length === 0}
-            >
-              {loading ? "Salvando..." : "Salvar Orçamento"}
-            </Button>
-            
-            <Button
-              className="w-full"
-              variant="outline"
-              onClick={() => {
-                if (!clienteSelecionado || itensOrcamento.length === 0) {
-                  toast.error("Adicione um cliente e serviços para visualizar o PDF");
-                  return;
-                }
-                // Open PDF preview in new window
-                const cliente = clientes.find(c => c.id === clienteSelecionado);
-                const pdfContent = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Orçamento - ${cliente?.nome}</title>
-  <style>
-    body { font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
-    h1 { color: #333; border-bottom: 2px solid #333; padding-bottom: 10px; }
-    .info { margin: 20px 0; }
-    .info-row { display: flex; margin: 5px 0; }
-    .info-label { font-weight: bold; width: 150px; }
-    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-    th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-    th { background-color: #f5f5f5; font-weight: bold; }
-    .total { font-size: 18px; font-weight: bold; text-align: right; margin-top: 20px; }
-  </style>
-</head>
-<body>
-  <h1>ORÇAMENTO</h1>
-  
-  <div class="info">
-    <div class="info-row">
-      <span class="info-label">Cliente:</span>
-      <span>${cliente?.nome}</span>
-    </div>
-    <div class="info-row">
-      <span class="info-label">Email:</span>
-      <span>${cliente?.email || '-'}</span>
-    </div>
-    <div class="info-row">
-      <span class="info-label">Telefone:</span>
-      <span>${cliente?.telefone || '-'}</span>
-    </div>
-    <div class="info-row">
-      <span class="info-label">Data:</span>
-      <span>${new Date().toLocaleDateString('pt-BR')}</span>
-    </div>
-    ${dataValidade ? `
-    <div class="info-row">
-      <span class="info-label">Válido até:</span>
-      <span>${dataValidade.toLocaleDateString('pt-BR')}</span>
-    </div>
-    ` : ''}
-  </div>
-
-  <table>
-    <thead>
-      <tr>
-        <th>Serviço</th>
-        <th>Qtd</th>
-        <th>Preço Unit.</th>
-        <th>Total</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${itensOrcamento.map(item => `
-        <tr>
-          <td>
-            <strong>${item.nome}</strong>
-            ${item.descricao ? `<br/><small>${item.descricao}</small>` : ''}
-          </td>
-          <td>${item.quantidade}</td>
-          <td>R$ ${item.preco_unitario.toFixed(2)}</td>
-          <td>R$ ${item.preco_total.toFixed(2)}</td>
-        </tr>
-      `).join('')}
-    </tbody>
-  </table>
-
-  <div class="total">
-    VALOR TOTAL: R$ ${calcularTotal().toFixed(2)}
-  </div>
-
-  ${observacoes ? `
-    <div style="margin-top: 30px; padding: 15px; background-color: #f9f9f9; border-left: 3px solid #333;">
-      <strong>Observações:</strong><br/>
-      ${observacoes}
-    </div>
-  ` : ''}
-
-  <div style="margin-top: 40px; font-size: 12px; color: #666; text-align: center;">
-    ${dataValidade ? `Orçamento válido até ${dataValidade.toLocaleDateString('pt-BR')}` : 'Orçamento válido por 30 dias'}
-  </div>
-</body>
-</html>
-                `;
-                const newWindow = window.open('', '_blank');
-                if (newWindow) {
-                  newWindow.document.write(pdfContent);
-                  newWindow.document.close();
-                }
-              }}
-              disabled={!clienteSelecionado || itensOrcamento.length === 0}
-            >
-              <FileText className="h-4 w-4 mr-2" />
-              Pré-visualizar PDF
-            </Button>
-
-            <Dialog open={modalEnviarEmail} onOpenChange={setModalEnviarEmail}>
-              <DialogTrigger asChild>
-                <Button 
-                  className="w-full" 
-                  variant="default"
-                  disabled={loading || !clienteSelecionado || itensOrcamento.length === 0}
-                >
-                  Enviar por E-mail
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Enviar Orçamento por E-mail</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="email-destinatario">E-mail do Cliente</Label>
-                    <Input
-                      id="email-destinatario"
-                      type="email"
-                      placeholder="cliente@email.com"
-                      value={emailDestinatario}
-                      onChange={(e) => setEmailDestinatario(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="mensagem">Mensagem Adicional (opcional)</Label>
-                    <Textarea
-                      id="mensagem"
-                      placeholder="Digite uma mensagem personalizada..."
-                      value={mensagemAdicional}
-                      onChange={(e) => setMensagemAdicional(e.target.value)}
-                    />
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => setModalEnviarEmail(false)}>
-                      Cancelar
-                    </Button>
-                    <Button onClick={handleEnviarEmail} disabled={loading}>
-                      {loading ? "Enviando..." : "Enviar E-mail"}
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-
-            <Button 
-              onClick={handleEnviarWhatsApp}
-              disabled={loading || !clienteSelecionado || itensOrcamento.length === 0}
-              className="w-full"
-              variant="secondary"
-            >
-              Enviar por WhatsApp
-            </Button>
-
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => navigate("/orcamentos")}
-            >
+          <div className="flex gap-4">
+            <Button variant="outline" onClick={() => navigate("/orcamentos")}>
               Cancelar
+            </Button>
+            <Button 
+              onClick={handleSalvarOrcamento} 
+              disabled={loading || !clienteSelecionado || itensOrcamento.length === 0}
+              className="gap-2"
+            >
+              {loading ? "Salvando..." : "Salvar e Continuar"}
             </Button>
           </div>
         </div>
       </div>
+
+      {/* Modal Adicionar Serviço */}
+      <Dialog open={modalAdicionarServico} onOpenChange={setModalAdicionarServico}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Itens do Orçamento - Adicionar Serviço</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2 md:col-span-2">
+                <Label>Serviço *</Label>
+                <Select value={servicoSelecionado} onValueChange={setServicoSelecionado}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecionar serviço" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {servicos.map((servico) => (
+                      <SelectItem key={servico.id} value={servico.id}>
+                        {servico.nome} - {new Intl.NumberFormat("pt-BR", {
+                          style: "currency",
+                          currency: "BRL",
+                        }).format(servico.preco_venda || 0)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {servicoSelecionado && servicos.find(s => s.id === servicoSelecionado)?.descricao && (
+                  <p className="text-sm text-muted-foreground">
+                    {servicos.find(s => s.id === servicoSelecionado)?.descricao}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Qtd *</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={quantidade}
+                  onChange={(e) => setQuantidade(Number(e.target.value))}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Preço Unit. *</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={precoUnitario}
+                  onChange={(e) => setPrecoUnitario(Number(e.target.value))}
+                  disabled
+                  className="bg-muted"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Desconto</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={desconto}
+                    onChange={(e) => setDesconto(Number(e.target.value))}
+                    placeholder="0"
+                  />
+                  <Select value={tipoDesconto} onValueChange={(value: 'valor' | 'percentual') => setTipoDesconto(value)}>
+                    <SelectTrigger className="w-[120px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="valor">R$</SelectItem>
+                      <SelectItem value="percentual">%</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Total</Label>
+                <Input
+                  value={new Intl.NumberFormat("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  }).format(calcularPrecoTotal())}
+                  disabled
+                  className="bg-muted font-bold"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setModalAdicionarServico(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleAdicionarServico}>
+                <Plus className="h-4 w-4 mr-2" />
+                Adicionar Serviço
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
