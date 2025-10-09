@@ -51,11 +51,11 @@ const kpis = [
     variant: 'success' as const
   },
   {
-    title: 'Taxa de Conversão',
-    value: '68%',
-    subtitle: 'Últimos 90 dias',
+    title: 'Valor Total Serviços',
+    value: 'R$ 0',
+    subtitle: 'Catálogo de serviços',
     icon: TrendingUp,
-    trend: { value: 5, isPositive: true }
+    trend: { value: 0, isPositive: true }
   }
 ];
 

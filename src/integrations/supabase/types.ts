@@ -820,6 +820,7 @@ export type Database = {
       }
       servicos: {
         Row: {
+          categoria: string | null
           cliente_id: string | null
           created_at: string | null
           custo_encargos: number | null
@@ -831,6 +832,7 @@ export type Database = {
           horario_fim: string | null
           horario_ini: string | null
           id: string
+          imagem_url: string | null
           local: string | null
           lucro_liquido: number | null
           markup_percent: number | null
@@ -844,6 +846,7 @@ export type Database = {
           valor_total: number | null
         }
         Insert: {
+          categoria?: string | null
           cliente_id?: string | null
           created_at?: string | null
           custo_encargos?: number | null
@@ -855,6 +858,7 @@ export type Database = {
           horario_fim?: string | null
           horario_ini?: string | null
           id?: string
+          imagem_url?: string | null
           local?: string | null
           lucro_liquido?: number | null
           markup_percent?: number | null
@@ -868,6 +872,7 @@ export type Database = {
           valor_total?: number | null
         }
         Update: {
+          categoria?: string | null
           cliente_id?: string | null
           created_at?: string | null
           custo_encargos?: number | null
@@ -879,6 +884,7 @@ export type Database = {
           horario_fim?: string | null
           horario_ini?: string | null
           id?: string
+          imagem_url?: string | null
           local?: string | null
           lucro_liquido?: number | null
           markup_percent?: number | null
