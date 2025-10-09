@@ -206,31 +206,40 @@ export default function FunilVendas() {
   }
 
   return (
-    <div className="p-6 space-y-6 bg-gradient-to-br from-background to-muted/20 min-h-screen">
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <TrendingUp className="h-8 w-8 text-primary" />
-          <div>
-            <h1 className="text-3xl font-bold">Funil de Vendas</h1>
-            <p className="text-muted-foreground">Arraste e solte as oportunidades para organizar seu fluxo de vendas</p>
+    <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-muted/20">
+      <div className="p-6 pb-4">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <TrendingUp className="h-8 w-8 text-primary" />
+            <div>
+              <h1 className="text-3xl font-bold">Funil de Vendas</h1>
+              <p className="text-muted-foreground">Arraste e solte as oportunidades para organizar seu fluxo de vendas</p>
+            </div>
           </div>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowConfigurarEtapas(true)}>
-            <Settings className="mr-2 h-4 w-4" />
-            Configurar Etapas
-          </Button>
-          <Button onClick={() => setShowNovoLead(true)}>
-            <UserPlus className="mr-2 h-4 w-4" />
-            Adicionar Novo Lead
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setShowConfigurarEtapas(true)}>
+              <Settings className="mr-2 h-4 w-4" />
+              Configurar Etapas
+            </Button>
+            <Button onClick={() => setShowNovoLead(true)}>
+              <UserPlus className="mr-2 h-4 w-4" />
+              Adicionar Novo Lead
+            </Button>
+          </div>
         </div>
       </div>
 
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+        <div className="flex-1 px-6 pb-6 overflow-hidden">
+          <div 
+            className="flex flex-row gap-4 overflow-x-auto overflow-y-hidden pb-3 scroll-smooth"
+            style={{
+              scrollbarWidth: 'thin',
+              scrollbarColor: '#bbb #f1f1f1'
+            }}
+          >
           {etapas.map(etapa => (
-            <div key={etapa.id} className="space-y-3">
+            <div key={etapa.id} className="flex flex-col gap-3 flex-shrink-0" style={{ width: '320px' }}>
               <div className="flex flex-col p-4 rounded-lg border-2 bg-card shadow-sm" style={{ borderTopColor: etapa.cor, borderTopWidth: '4px' }}>
                 <div className="flex items-center justify-between mb-1">
                   <h3 className="font-semibold text-base">{etapa.nome}</h3>
@@ -248,7 +257,7 @@ export default function FunilVendas() {
                   <div
                     {...provided.droppableProps}
                     ref={provided.innerRef}
-                    className="min-h-[500px] space-y-3 p-2 rounded-lg bg-muted/30"
+                    className="flex-1 min-h-[500px] space-y-3 p-2 rounded-lg bg-muted/30 overflow-y-auto"
                   >
                     {getCardsByEtapa(etapa.id).map((card, index) => (
                       <Draggable key={card.id} draggableId={card.id} index={index}>
@@ -257,7 +266,8 @@ export default function FunilVendas() {
                             ref={provided.innerRef}
                             {...provided.draggableProps}
                             {...provided.dragHandleProps}
-                            className="cursor-move hover:shadow-lg transition-all bg-card rounded-xl p-4 space-y-3"
+                            className="cursor-move hover:shadow-lg transition-all bg-card rounded-xl p-4 space-y-3 flex flex-col justify-between"
+                            style={{ minHeight: '200px' }}
                           >
                             {/* Header com código e badge de orçamento */}
                             <div className="flex justify-between items-start">
@@ -373,8 +383,26 @@ export default function FunilVendas() {
               </Droppable>
             </div>
           ))}
+          </div>
         </div>
       </DragDropContext>
+
+      <style>{`
+        .flex.flex-row.gap-4::-webkit-scrollbar {
+          height: 10px;
+        }
+        .flex.flex-row.gap-4::-webkit-scrollbar-track {
+          background: hsl(var(--muted));
+          border-radius: 10px;
+        }
+        .flex.flex-row.gap-4::-webkit-scrollbar-thumb {
+          background: hsl(var(--muted-foreground) / 0.3);
+          border-radius: 10px;
+        }
+        .flex.flex-row.gap-4::-webkit-scrollbar-thumb:hover {
+          background: hsl(var(--muted-foreground) / 0.5);
+        }
+      `}</style>
 
       {/* Dialogs */}
       {selectedCard && (
