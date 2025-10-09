@@ -69,7 +69,7 @@ export function CardDetailsDialog({ open, onOpenChange, card }: CardDetailsDialo
     try {
       const { data, error } = await supabase
         .from('funil_anotacoes')
-        .select('*, usuarios(nome)')
+        .select('*')
         .eq('card_id', card.id)
         .order('created_at', { ascending: false });
       
@@ -84,7 +84,7 @@ export function CardDetailsDialog({ open, onOpenChange, card }: CardDetailsDialo
     try {
       const { data, error } = await supabase
         .from('funil_mensagens')
-        .select('*, usuarios(nome)')
+        .select('*')
         .eq('card_id', card.id)
         .order('created_at', { ascending: false });
       
@@ -207,7 +207,7 @@ export function CardDetailsDialog({ open, onOpenChange, card }: CardDetailsDialo
                       <CardContent className="pt-6">
                         <p className="mb-2">{anot.mensagem}</p>
                         <div className="flex justify-between text-sm text-muted-foreground">
-                          <span>{anot.usuarios?.nome || 'Usuário'}</span>
+                          <span>Usuário</span>
                           <span>{format(new Date(anot.created_at), "PPp", { locale: ptBR })}</span>
                         </div>
                       </CardContent>
@@ -228,7 +228,7 @@ export function CardDetailsDialog({ open, onOpenChange, card }: CardDetailsDialo
                       <CardContent className="pt-6">
                         <p className="mb-2">{msg.mensagem}</p>
                         <div className="flex justify-between text-sm text-muted-foreground">
-                          <span>{msg.usuarios?.nome || 'Usuário'}</span>
+                          <span>Usuário</span>
                           <span>{format(new Date(msg.created_at), "PPp", { locale: ptBR })}</span>
                         </div>
                       </CardContent>
@@ -252,6 +252,7 @@ export function CardDetailsDialog({ open, onOpenChange, card }: CardDetailsDialo
         open={showAddTask}
         onOpenChange={setShowAddTask}
         clienteId={card?.cliente_id}
+        cardId={card?.id}
         onTaskCreated={() => {
           toast.success('Tarefa registrada com sucesso!');
           setShowAddTask(false);

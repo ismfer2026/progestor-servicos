@@ -535,6 +535,13 @@ export type Database = {
             referencedRelation: "funil_cards"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "funil_anotacoes_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
         ]
       }
       funil_cards: {
@@ -549,6 +556,7 @@ export type Database = {
           orcamento_id: string | null
           ordem: number | null
           responsavel_id: string | null
+          servicos: Json | null
           titulo: string
           updated_at: string | null
           valor: number | null
@@ -564,6 +572,7 @@ export type Database = {
           orcamento_id?: string | null
           ordem?: number | null
           responsavel_id?: string | null
+          servicos?: Json | null
           titulo: string
           updated_at?: string | null
           valor?: number | null
@@ -579,6 +588,7 @@ export type Database = {
           orcamento_id?: string | null
           ordem?: number | null
           responsavel_id?: string | null
+          servicos?: Json | null
           titulo?: string
           updated_at?: string | null
           valor?: number | null
@@ -649,6 +659,13 @@ export type Database = {
             columns: ["card_id"]
             isOneToOne: false
             referencedRelation: "funil_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funil_mensagens_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
             referencedColumns: ["id"]
           },
         ]
@@ -1077,7 +1094,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      criar_etapas_padrao_funil: {
+        Args: { p_empresa_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

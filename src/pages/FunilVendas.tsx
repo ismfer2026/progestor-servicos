@@ -4,7 +4,7 @@ import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MessageCircle, FileText, StickyNote, Settings, UserPlus } from 'lucide-react';
+import { MessageCircle, FileText, StickyNote, Settings, UserPlus, TrendingUp } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -178,11 +178,14 @@ export default function FunilVendas() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 bg-gradient-to-br from-background to-muted/20 min-h-screen">
       <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Funil de Vendas</h1>
-          <p className="text-muted-foreground">Arraste e solte as oportunidades para organizar seu fluxo de vendas</p>
+        <div className="flex items-center gap-3">
+          <TrendingUp className="h-8 w-8 text-primary" />
+          <div>
+            <h1 className="text-3xl font-bold">Funil de Vendas</h1>
+            <p className="text-muted-foreground">Arraste e solte as oportunidades para organizar seu fluxo de vendas</p>
+          </div>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setShowConfigurarEtapas(true)}>
@@ -197,20 +200,18 @@ export default function FunilVendas() {
       </div>
 
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
           {etapas.map(etapa => (
             <div key={etapa.id} className="space-y-3">
-              <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
-                <div>
-                  <h3 className="font-semibold">{etapa.nome}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {getCardsByEtapa(etapa.id).length} cards
-                  </p>
+              <div className="flex flex-col p-4 rounded-lg border-2 bg-card shadow-sm" style={{ borderTopColor: etapa.cor, borderTopWidth: '4px' }}>
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="font-semibold text-base">{etapa.nome}</h3>
+                  <Badge variant="secondary" className="text-xs">
+                    {getCardsByEtapa(etapa.id).length}
+                  </Badge>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-medium">
-                    {formatCurrency(getTotalValueByEtapa(etapa.id))}
-                  </p>
+                <div className="text-sm font-medium text-muted-foreground">
+                  {formatCurrency(getTotalValueByEtapa(etapa.id))}
                 </div>
               </div>
 
@@ -219,7 +220,7 @@ export default function FunilVendas() {
                   <div
                     {...provided.droppableProps}
                     ref={provided.innerRef}
-                    className="min-h-[400px] space-y-2"
+                    className="min-h-[500px] space-y-3 p-2 rounded-lg bg-muted/30"
                   >
                     {getCardsByEtapa(etapa.id).map((card, index) => (
                       <Draggable key={card.id} draggableId={card.id} index={index}>

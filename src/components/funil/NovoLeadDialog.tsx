@@ -4,10 +4,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { X } from "lucide-react";
 
 interface NovoLeadDialogProps {
   open: boolean;
@@ -16,18 +17,84 @@ interface NovoLeadDialogProps {
   onLeadCreated?: () => void;
 }
 
+interface Servico {
+  id: string;
+  nome: string;
+  preco_venda: number;
+}
+
+interface ServicoSelecionado {
+  servico_id: string;
+  nome: string;
+  quantidade: number;
+  valor_unitario: number;
+  valor_total: number;
+}
+
 export function NovoLeadDialog({ open, onOpenChange, etapas, onLeadCreated }: NovoLeadDialogProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [servicos, setServicos] = useState<Servico[]>([]);
+  const [servicosSelecionados, setServicosSelecionados] = useState<ServicoSelecionado[]>([]);
+  const [servicoAtual, setServicoAtual] = useState('');
   const [formData, setFormData] = useState({
     nome: '',
     telefone: '',
     email: '',
     endereco: '',
-    valor: '',
     etapa_id: '',
     observacoes: ''
   });
+
+  useEffect(() => {
+    if (open && user?.empresa_id) {
+      loadServicos();
+    }
+  }, [open, user]);
+
+  const loadServicos = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('servicos')
+        .select('id, nome, preco_venda')
+        .eq('empresa_id', user?.empresa_id)
+        .order('nome');
+
+      if (error) throw error;
+      setServicos(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar serviços:', error);
+    }
+  };
+
+  const adicionarServico = () => {
+    if (!servicoAtual) {
+      toast.error('Selecione um serviço');
+      return;
+    }
+
+    const servico = servicos.find(s => s.id === servicoAtual);
+    if (!servico) return;
+
+    const novoServico: ServicoSelecionado = {
+      servico_id: servico.id,
+      nome: servico.nome,
+      quantidade: 1,
+      valor_unitario: servico.preco_venda,
+      valor_total: servico.preco_venda
+    };
+
+    setServicosSelecionados([...servicosSelecionados, novoServico]);
+    setServicoAtual('');
+  };
+
+  const removerServico = (index: number) => {
+    setServicosSelecionados(servicosSelecionados.filter((_, i) => i !== index));
+  };
+
+  const calcularValorTotal = () => {
+    return servicosSelecionados.reduce((total, s) => total + s.valor_total, 0);
+  };
 
   const handleSubmit = async () => {
     if (!formData.nome || !formData.etapa_id) {
@@ -59,6 +126,7 @@ export function NovoLeadDialog({ open, onOpenChange, etapas, onLeadCreated }: No
       if (clienteError) throw clienteError;
 
       // Depois, criar o card no funil
+      const valorTotal = calcularValorTotal();
       const { error: cardError } = await supabase
         .from('funil_cards')
         .insert([{
@@ -66,9 +134,10 @@ export function NovoLeadDialog({ open, onOpenChange, etapas, onLeadCreated }: No
           cliente_id: cliente.id,
           etapa_id: formData.etapa_id,
           titulo: formData.nome,
-          valor: formData.valor ? parseFloat(formData.valor) : null,
+          valor: valorTotal > 0 ? valorTotal : null,
           observacoes: formData.observacoes,
-          responsavel_id: user.id
+          responsavel_id: user.id,
+          servicos: servicosSelecionados as any
         }]);
 
       if (cardError) throw cardError;
@@ -81,10 +150,10 @@ export function NovoLeadDialog({ open, onOpenChange, etapas, onLeadCreated }: No
         telefone: '',
         email: '',
         endereco: '',
-        valor: '',
         etapa_id: '',
         observacoes: ''
       });
+      setServicosSelecionados([]);
 
       if (onLeadCreated) {
         onLeadCreated();
@@ -144,15 +213,49 @@ export function NovoLeadDialog({ open, onOpenChange, etapas, onLeadCreated }: No
                 placeholder="Endereço completo"
               />
             </div>
-            <div>
-              <Label htmlFor="valor">Valor Estimado</Label>
-              <Input
-                id="valor"
-                type="number"
-                value={formData.valor}
-                onChange={(e) => setFormData({ ...formData, valor: e.target.value })}
-                placeholder="R$ 0,00"
-              />
+            <div className="col-span-2">
+              <Label htmlFor="servico">Serviços Desejados</Label>
+              <div className="flex gap-2">
+                <Select value={servicoAtual} onValueChange={setServicoAtual}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um serviço" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {servicos.map((servico) => (
+                      <SelectItem key={servico.id} value={servico.id}>
+                        {servico.nome} - {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(servico.preco_venda)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button type="button" onClick={adicionarServico} variant="outline">
+                  Adicionar
+                </Button>
+              </div>
+              
+              {servicosSelecionados.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {servicosSelecionados.map((servico, index) => (
+                    <div key={index} className="flex justify-between items-center p-2 bg-muted rounded">
+                      <span className="text-sm">
+                        {servico.nome} - {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(servico.valor_total)}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removerServico(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <div className="flex justify-between items-center pt-2 border-t font-semibold">
+                    <span>Total:</span>
+                    <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calcularValorTotal())}</span>
+                  </div>
+                </div>
+              )}
             </div>
             <div>
               <Label htmlFor="etapa">Etapa do Funil *</Label>

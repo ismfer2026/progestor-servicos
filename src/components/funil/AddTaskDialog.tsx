@@ -18,10 +18,11 @@ interface AddTaskDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   clienteId?: string;
+  cardId?: string;
   onTaskCreated?: () => void;
 }
 
-export function AddTaskDialog({ open, onOpenChange, clienteId, onTaskCreated }: AddTaskDialogProps) {
+export function AddTaskDialog({ open, onOpenChange, clienteId, cardId, onTaskCreated }: AddTaskDialogProps) {
   const { user } = useAuth();
   const [titulo, setTitulo] = useState('');
   const [descricao, setDescricao] = useState('');
@@ -61,6 +62,26 @@ export function AddTaskDialog({ open, onOpenChange, clienteId, onTaskCreated }: 
         }]);
 
       if (error) throw error;
+
+      // Atualizar o card do funil para adicionar a informação da tarefa nas observações
+      if (cardId) {
+        const { data: cardData } = await supabase
+          .from('funil_cards')
+          .select('observacoes')
+          .eq('id', cardId)
+          .single();
+
+        const observacaoAtual = cardData?.observacoes || '';
+        const dataFormatada = format(dateTime, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+        const novaObservacao = `${observacaoAtual}\n\n[${new Date().toLocaleString('pt-BR')}] Tarefa registrada: ${titulo} - Agendada para ${dataFormatada}`;
+
+        await supabase
+          .from('funil_cards')
+          .update({ observacoes: novaObservacao })
+          .eq('id', cardId);
+      }
+
+      toast.success('Tarefa criada com sucesso!');
 
       setTitulo('');
       setDescricao('');

@@ -43,6 +43,21 @@ export function AnotacaoDialog({ open, onOpenChange, cardId, onSaved }: Anotacao
 
       if (error) throw error;
 
+      // Atualizar as observações do card também
+      const { data: cardData } = await supabase
+        .from('funil_cards')
+        .select('observacoes')
+        .eq('id', cardId)
+        .single();
+
+      const observacaoAtual = cardData?.observacoes || '';
+      const novaObservacao = `${observacaoAtual}\n\n[${new Date().toLocaleString('pt-BR')}] Anotação: ${mensagem}`;
+
+      await supabase
+        .from('funil_cards')
+        .update({ observacoes: novaObservacao })
+        .eq('id', cardId);
+
       toast.success('Anotação salva com sucesso!');
       setMensagem('');
       
