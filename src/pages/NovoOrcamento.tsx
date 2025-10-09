@@ -151,6 +151,26 @@ export function NovoOrcamento() {
     }
   }, [servicoSelecionado, servicos]);
 
+  const loadClienteFromId = async (clienteId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('clientes')
+        .select('*')
+        .eq('id', clienteId)
+        .single();
+      
+      if (error) throw error;
+      
+      if (data) {
+        setClienteSelecionado(data.id);
+        setBuscaCliente(data.nome);
+        toast.success(`Cliente ${data.nome} selecionado automaticamente`);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar cliente:', error);
+    }
+  };
+
   const fetchClientes = async () => {
     try {
       let query = supabase

@@ -32,6 +32,9 @@ interface FunilCard {
   observacoes?: string;
   data_limite?: string;
   orcamento_id?: string;
+  servicos?: any[];
+  created_at?: string;
+  orcamento_id?: string;
   created_at?: string;
   servicos?: any[];
 }
