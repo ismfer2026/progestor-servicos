@@ -214,7 +214,8 @@ export default function FunilVendas() {
 
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-muted/20">
-      <div className="p-6 pb-4">
+      {/* Header fixo */}
+      <div className="sticky top-0 z-20 bg-gradient-to-br from-background to-muted/20 border-b px-6 py-4">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-3">
             <TrendingUp className="h-8 w-8 text-primary" />
@@ -223,6 +224,8 @@ export default function FunilVendas() {
               <p className="text-muted-foreground">Arraste e solte as oportunidades para organizar seu fluxo de vendas</p>
             </div>
           </div>
+          
+          {/* Botões fixos no canto direito */}
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setShowConfigurarEtapas(true)}>
               <Settings className="mr-2 h-4 w-4" />
