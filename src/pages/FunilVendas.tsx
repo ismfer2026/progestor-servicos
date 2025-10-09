@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, MessageCircle, FileText, Users, DollarSign, Eye } from 'lucide-react';
+import { MessageCircle, FileText, StickyNote, Settings, UserPlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { CardDetailsDialog } from '@/components/funil/CardDetailsDialog';
+import { WhatsAppDialog } from '@/components/funil/WhatsAppDialog';
+import { AnotacaoDialog } from '@/components/funil/AnotacaoDialog';
+import { ConfigurarEtapasDialog } from '@/components/funil/ConfigurarEtapasDialog';
+import { NovoLeadDialog } from '@/components/funil/NovoLeadDialog';
 
 interface FunilEtapa {
   id: string;
@@ -29,17 +30,23 @@ interface FunilCard {
   responsavel_id?: string;
   observacoes?: string;
   data_limite?: string;
-  cliente?: { nome: string };
-  responsavel?: { nome: string };
 }
 
 export default function FunilVendas() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [etapas, setEtapas] = useState<FunilEtapa[]>([]);
   const [cards, setCards] = useState<FunilCard[]>([]);
+  const [clientes, setClientes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showNewCard, setShowNewCard] = useState(false);
-  const [selectedEtapa, setSelectedEtapa] = useState<string>('');
+  
+  // Dialogs state
+  const [selectedCard, setSelectedCard] = useState<any>(null);
+  const [showCardDetails, setShowCardDetails] = useState(false);
+  const [showWhatsApp, setShowWhatsApp] = useState(false);
+  const [showAnotacao, setShowAnotacao] = useState(false);
+  const [showConfigurarEtapas, setShowConfigurarEtapas] = useState(false);
+  const [showNovoLead, setShowNovoLead] = useState(false);
 
   useEffect(() => {
     loadFunilData();
@@ -67,8 +74,17 @@ export default function FunilVendas() {
 
       if (cardsError) throw cardsError;
 
+      // Load all clientes
+      const { data: clientesData, error: clientesError } = await supabase
+        .from('clientes')
+        .select('*')
+        .eq('empresa_id', user.empresa_id);
+
+      if (clientesError) throw clientesError;
+
       setEtapas(etapasData || []);
       setCards(cardsData || []);
+      setClientes(clientesData || []);
     } catch (error) {
       console.error('Error loading funil data:', error);
       toast.error('Erro ao carregar dados do funil');
@@ -120,9 +136,37 @@ export default function FunilVendas() {
     }).format(value);
   };
 
-  const openWhatsApp = (phone: string, message: string) => {
-    const encodedMessage = encodeURIComponent(message);
-    window.open(`https://wa.me/55${phone}?text=${encodedMessage}`, '_blank');
+  const handleCardClick = (card: any) => {
+    setSelectedCard(card);
+    setShowCardDetails(true);
+  };
+
+  const handleWhatsAppClick = (card: any) => {
+    setSelectedCard(card);
+    setShowWhatsApp(true);
+  };
+
+  const handleAnotacaoClick = (card: any) => {
+    setSelectedCard(card);
+    setShowAnotacao(true);
+  };
+
+  const handleOrcamentoClick = (card: any) => {
+    if (card.cliente_id) {
+      navigate(`/novo-orcamento?cliente_id=${card.cliente_id}`);
+    } else {
+      toast.error('Este card não possui um cliente associado');
+    }
+  };
+
+  const getClienteTelefone = (card: any) => {
+    const cliente = clientes.find(c => c.id === card.cliente_id);
+    return cliente?.telefone;
+  };
+
+  const getClienteNome = (card: any) => {
+    const cliente = clientes.find(c => c.id === card.cliente_id);
+    return cliente?.nome;
   };
 
   if (loading) {
@@ -138,56 +182,18 @@ export default function FunilVendas() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Funil de Vendas</h1>
-          <p className="text-muted-foreground">Gerencie suas oportunidades de vendas</p>
+          <p className="text-muted-foreground">Arraste e solte as oportunidades para organizar seu fluxo de vendas</p>
         </div>
-        <Dialog open={showNewCard} onOpenChange={setShowNewCard}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Card
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Novo Card do Funil</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">Título</label>
-                <Input placeholder="Digite o título do card" />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Etapa</label>
-                <Select value={selectedEtapa} onValueChange={setSelectedEtapa}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione uma etapa" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {etapas.map(etapa => (
-                      <SelectItem key={etapa.id} value={etapa.id}>
-                        {etapa.nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-sm font-medium">Valor</label>
-                <Input type="number" placeholder="R$ 0,00" />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Observações</label>
-                <Textarea placeholder="Observações sobre esta oportunidade" />
-              </div>
-              <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={() => setShowNewCard(false)}>
-                  Cancelar
-                </Button>
-                <Button>Criar Card</Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowConfigurarEtapas(true)}>
+            <Settings className="mr-2 h-4 w-4" />
+            Configurar Etapas
+          </Button>
+          <Button onClick={() => setShowNovoLead(true)}>
+            <UserPlus className="mr-2 h-4 w-4" />
+            Adicionar Novo Lead
+          </Button>
+        </div>
       </div>
 
       <DragDropContext onDragEnd={onDragEnd}>
@@ -225,7 +231,12 @@ export default function FunilVendas() {
                             className="cursor-move hover:shadow-md transition-shadow"
                           >
                             <CardHeader className="pb-2">
-                              <CardTitle className="text-sm">{card.titulo}</CardTitle>
+                              <CardTitle 
+                                className="text-sm cursor-pointer hover:text-primary"
+                                onClick={() => handleCardClick(card)}
+                              >
+                                {card.titulo}
+                              </CardTitle>
                               {card.valor && (
                                 <Badge variant="secondary" className="w-fit">
                                   {formatCurrency(card.valor)}
@@ -233,41 +244,49 @@ export default function FunilVendas() {
                               )}
                             </CardHeader>
                             <CardContent className="pt-0">
-                              {card.cliente_id && (
-                                <div className="flex items-center space-x-2 mb-2">
-                                  <Avatar className="h-6 w-6">
-                                    <AvatarFallback className="text-xs">
-                                      CL
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <span className="text-xs text-muted-foreground">
-                                    Cliente #{card.cliente_id.slice(-8)}
-                                  </span>
-                                </div>
-                              )}
-                              {card.responsavel_id && (
+                              {getClienteNome(card) && (
                                 <p className="text-xs text-muted-foreground mb-2">
-                                  Resp.: #{card.responsavel_id.slice(-8)}
+                                  {getClienteNome(card)}
                                 </p>
                               )}
-                              <div className="flex justify-between items-center">
-                                <div className="flex space-x-1">
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-6 w-6 p-0"
-                                    onClick={() => openWhatsApp('', 'Olá! Gostaria de conversar sobre sua proposta.')}
-                                  >
-                                    <MessageCircle className="h-3 w-3" />
-                                  </Button>
-                                  <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
-                                    <FileText className="h-3 w-3" />
-                                  </Button>
-                                  <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
-                                    <Eye className="h-3 w-3" />
-                                  </Button>
-                                </div>
+                              <div className="flex justify-between items-center gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 text-xs flex-1"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleWhatsAppClick(card);
+                                  }}
+                                >
+                                  <MessageCircle className="h-3 w-3 mr-1" />
+                                  WhatsApp
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 text-xs flex-1"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOrcamentoClick(card);
+                                  }}
+                                >
+                                  <FileText className="h-3 w-3 mr-1" />
+                                  Orçamento
+                                </Button>
                               </div>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 text-xs w-full mt-1"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAnotacaoClick(card);
+                                }}
+                              >
+                                <StickyNote className="h-3 w-3 mr-1" />
+                                Anotação
+                              </Button>
                             </CardContent>
                           </Card>
                         )}
@@ -281,6 +300,42 @@ export default function FunilVendas() {
           ))}
         </div>
       </DragDropContext>
+
+      {/* Dialogs */}
+      {selectedCard && (
+        <>
+          <CardDetailsDialog
+            open={showCardDetails}
+            onOpenChange={setShowCardDetails}
+            card={selectedCard}
+          />
+          <WhatsAppDialog
+            open={showWhatsApp}
+            onOpenChange={setShowWhatsApp}
+            telefone={getClienteTelefone(selectedCard)}
+            cardId={selectedCard.id}
+          />
+          <AnotacaoDialog
+            open={showAnotacao}
+            onOpenChange={setShowAnotacao}
+            cardId={selectedCard.id}
+            onSaved={loadFunilData}
+          />
+        </>
+      )}
+
+      <ConfigurarEtapasDialog
+        open={showConfigurarEtapas}
+        onOpenChange={setShowConfigurarEtapas}
+        onEtapasChanged={loadFunilData}
+      />
+
+      <NovoLeadDialog
+        open={showNovoLead}
+        onOpenChange={setShowNovoLead}
+        etapas={etapas}
+        onLeadCreated={loadFunilData}
+      />
     </div>
   );
 }

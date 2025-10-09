@@ -502,6 +502,41 @@ export type Database = {
         }
         Relationships: []
       }
+      funil_anotacoes: {
+        Row: {
+          card_id: string
+          created_at: string
+          empresa_id: string
+          id: string
+          mensagem: string
+          usuario_id: string
+        }
+        Insert: {
+          card_id: string
+          created_at?: string
+          empresa_id: string
+          id?: string
+          mensagem: string
+          usuario_id: string
+        }
+        Update: {
+          card_id?: string
+          created_at?: string
+          empresa_id?: string
+          id?: string
+          mensagem?: string
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funil_anotacoes_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "funil_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       funil_cards: {
         Row: {
           cliente_id: string | null
@@ -579,6 +614,44 @@ export type Database = {
           ordem?: number
         }
         Relationships: []
+      }
+      funil_mensagens: {
+        Row: {
+          card_id: string
+          created_at: string
+          empresa_id: string
+          id: string
+          mensagem: string
+          telefone: string | null
+          usuario_id: string
+        }
+        Insert: {
+          card_id: string
+          created_at?: string
+          empresa_id: string
+          id?: string
+          mensagem: string
+          telefone?: string | null
+          usuario_id: string
+        }
+        Update: {
+          card_id?: string
+          created_at?: string
+          empresa_id?: string
+          id?: string
+          mensagem?: string
+          telefone?: string | null
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funil_mensagens_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "funil_cards"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       logs_envio: {
         Row: {
