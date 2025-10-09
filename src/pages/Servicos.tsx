@@ -157,7 +157,6 @@ export function Servicos() {
         custo_produto: parseFloat(formData.custo_produto || '0'),
         custo_mao_obra: parseFloat(formData.custo_mao_obra || '0'),
         markup_percent: markup,
-        preco_venda: precoVenda,
         categoria: formData.categoria || null,
         imagem_url: formData.imagem_url || null,
         status: formData.status,
@@ -257,7 +256,7 @@ export function Servicos() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Catálogo de Serviços</h1>
-          <p className="text-muted-foreground">Gerencie os serviços oferecidos pela empresa</p>
+          <p className="text-muted-foreground">Adicione e gerencie os serviços e produtos que sua empresa oferece.</p>
         </div>
         <Button onClick={() => handleOpenModal()} className="gap-2">
           <Plus className="w-4 h-4" />
@@ -335,7 +334,6 @@ export function Servicos() {
                 <TableHead>Imagem</TableHead>
                 <TableHead>Nome do Serviço</TableHead>
                 <TableHead>Categoria</TableHead>
-                <TableHead>Descrição</TableHead>
                 <TableHead>Preço de Venda</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Ações</TableHead>
@@ -359,11 +357,6 @@ export function Servicos() {
                   <TableCell>
                     <div className="text-sm text-muted-foreground">
                       {servico.categoria || '-'}
-                    </div>
-                  </TableCell>
-                  <TableCell className="max-w-md">
-                    <div className="text-sm text-muted-foreground truncate">
-                      {servico.descricao || '-'}
                     </div>
                   </TableCell>
                   <TableCell className="font-medium">
