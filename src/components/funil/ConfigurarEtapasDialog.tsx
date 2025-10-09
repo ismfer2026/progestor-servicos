@@ -7,6 +7,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 
 interface ConfigurarEtapasDialogProps {
   open: boolean;
@@ -108,6 +109,39 @@ export function ConfigurarEtapasDialog({ open, onOpenChange, onEtapasChanged }: 
     }
   };
 
+  const onDragEnd = async (result: any) => {
+    if (!result.destination) return;
+
+    const items = Array.from(etapas);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+
+    // Update local state immediately for better UX
+    setEtapas(items);
+
+    // Update order in database
+    try {
+      const updates = items.map((etapa, index) => 
+        supabase
+          .from('funil_etapas')
+          .update({ ordem: index })
+          .eq('id', etapa.id)
+      );
+
+      await Promise.all(updates);
+      toast.success('Ordem das etapas atualizada!');
+      
+      if (onEtapasChanged) {
+        onEtapasChanged();
+      }
+    } catch (error) {
+      console.error('Erro ao atualizar ordem:', error);
+      toast.error('Erro ao atualizar ordem das etapas');
+      // Reload on error to restore correct order
+      loadEtapas();
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
@@ -128,33 +162,62 @@ export function ConfigurarEtapasDialog({ open, onOpenChange, onEtapasChanged }: 
             </Button>
           </div>
 
-          <div className="space-y-2">
-            {etapas.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">
-                Nenhuma etapa cadastrada
-              </p>
-            ) : (
-              etapas.map((etapa) => (
-                <div
-                  key={etapa.id}
-                  className="flex items-center justify-between p-3 border rounded-lg"
-                >
-                  <div className="flex items-center gap-2">
-                    <GripVertical className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium">{etapa.nome}</span>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleRemoverEtapa(etapa.id)}
-                    disabled={loading}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
-              ))
-            )}
-          </div>
+          <DragDropContext onDragEnd={onDragEnd}>
+            <div className="space-y-2">
+              {etapas.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">
+                  Nenhuma etapa cadastrada
+                </p>
+              ) : (
+                <Droppable droppableId="etapas-list">
+                  {(provided) => (
+                    <div
+                      {...provided.droppableProps}
+                      ref={provided.innerRef}
+                      className="space-y-2"
+                    >
+                      {etapas.map((etapa, index) => (
+                        <Draggable key={etapa.id} draggableId={etapa.id} index={index}>
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              className={`flex items-center justify-between p-3 border rounded-lg bg-card transition-shadow ${
+                                snapshot.isDragging ? 'shadow-lg' : ''
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <div {...provided.dragHandleProps}>
+                                  <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab active:cursor-grabbing" />
+                                </div>
+                                <div
+                                  className="w-4 h-4 rounded-full"
+                                  style={{ backgroundColor: etapa.cor }}
+                                />
+                                <span className="font-medium">{etapa.nome}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  (Ordem: {index + 1})
+                                </span>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRemoverEtapa(etapa.id)}
+                                disabled={loading}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+              )}
+            </div>
+          </DragDropContext>
         </div>
       </DialogContent>
     </Dialog>
