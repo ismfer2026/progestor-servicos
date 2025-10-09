@@ -314,7 +314,10 @@ export function CardDetailsDialog({ open, onOpenChange, card }: CardDetailsDialo
               </TabsContent>
             </Tabs>
 
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Fechar
+              </Button>
               <Button onClick={() => setShowAddTask(true)}>
                 <Calendar className="mr-2 h-4 w-4" />
                 Registrar Tarefa
