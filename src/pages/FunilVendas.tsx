@@ -4,11 +4,12 @@ import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MessageCircle, FileText, StickyNote, Settings, UserPlus, TrendingUp } from 'lucide-react';
+import { MessageCircle, FileText, StickyNote, Settings, UserPlus, TrendingUp, Calendar, CheckSquare } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { CardDetailsDialog } from '@/components/funil/CardDetailsDialog';
+import { AddTaskDialog } from '@/components/funil/AddTaskDialog';
 import { WhatsAppDialog } from '@/components/funil/WhatsAppDialog';
 import { AnotacaoDialog } from '@/components/funil/AnotacaoDialog';
 import { ConfigurarEtapasDialog } from '@/components/funil/ConfigurarEtapasDialog';
@@ -30,6 +31,9 @@ interface FunilCard {
   responsavel_id?: string;
   observacoes?: string;
   data_limite?: string;
+  orcamento_id?: string;
+  created_at?: string;
+  servicos?: any[];
 }
 
 export default function FunilVendas() {
@@ -45,6 +49,7 @@ export default function FunilVendas() {
   const [showCardDetails, setShowCardDetails] = useState(false);
   const [showWhatsApp, setShowWhatsApp] = useState(false);
   const [showAnotacao, setShowAnotacao] = useState(false);
+  const [showAddTask, setShowAddTask] = useState(false);
   const [showConfigurarEtapas, setShowConfigurarEtapas] = useState(false);
   const [showNovoLead, setShowNovoLead] = useState(false);
 
@@ -83,7 +88,7 @@ export default function FunilVendas() {
       if (clientesError) throw clientesError;
 
       setEtapas(etapasData || []);
-      setCards(cardsData || []);
+      setCards(cardsData as FunilCard[] || []);
       setClientes(clientesData || []);
     } catch (error) {
       console.error('Error loading funil data:', error);
@@ -151,6 +156,11 @@ export default function FunilVendas() {
     setShowAnotacao(true);
   };
 
+  const handleAddTaskClick = (card: any) => {
+    setSelectedCard(card);
+    setShowAddTask(true);
+  };
+
   const handleOrcamentoClick = (card: any) => {
     if (card.cliente_id) {
       navigate(`/novo-orcamento?cliente_id=${card.cliente_id}`);
@@ -167,6 +177,24 @@ export default function FunilVendas() {
   const getClienteNome = (card: any) => {
     const cliente = clientes.find(c => c.id === card.cliente_id);
     return cliente?.nome;
+  };
+
+  const getClienteCodigo = (card: any) => {
+    const cliente = clientes.find(c => c.id === card.cliente_id);
+    return cliente?.id?.substring(0, 8).toUpperCase();
+  };
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('pt-BR');
+  };
+
+  const getServicosFromCard = (card: any) => {
+    if (card.servicos && Array.isArray(card.servicos)) {
+      return card.servicos;
+    }
+    return [];
   };
 
   if (loading) {
@@ -229,32 +257,62 @@ export default function FunilVendas() {
                             ref={provided.innerRef}
                             {...provided.draggableProps}
                             {...provided.dragHandleProps}
-                            className="cursor-move hover:shadow-md transition-shadow"
+                            className="cursor-move hover:shadow-lg transition-all bg-card rounded-xl p-4 space-y-3"
                           >
-                            <CardHeader className="pb-2">
-                              <CardTitle 
-                                className="text-sm cursor-pointer hover:text-primary"
+                            {/* Header com código e badge de orçamento */}
+                            <div className="flex justify-between items-start">
+                              <span 
+                                className="text-base font-semibold text-primary cursor-pointer hover:underline"
                                 onClick={() => handleCardClick(card)}
                               >
-                                {card.titulo}
-                              </CardTitle>
-                              {card.valor && (
-                                <Badge variant="secondary" className="w-fit">
-                                  {formatCurrency(card.valor)}
+                                #{getClienteCodigo(card)}
+                              </span>
+                              {card.orcamento_id && (
+                                <Badge variant="secondary" className="text-xs">
+                                  Orçamento
                                 </Badge>
                               )}
-                            </CardHeader>
-                            <CardContent className="pt-0">
-                              {getClienteNome(card) && (
-                                <p className="text-xs text-muted-foreground mb-2">
-                                  {getClienteNome(card)}
-                                </p>
-                              )}
-                              <div className="flex justify-between items-center gap-1">
+                            </div>
+
+                            {/* Nome do cliente */}
+                            {getClienteNome(card) && (
+                              <p className="text-sm text-foreground/80 font-medium">
+                                {getClienteNome(card)}
+                              </p>
+                            )}
+
+                            {/* Serviços */}
+                            {getServicosFromCard(card).length > 0 && (
+                              <div className="space-y-1">
+                                {getServicosFromCard(card).map((servico: any, idx: number) => (
+                                  <p key={idx} className="text-xs text-muted-foreground">
+                                    • {servico.nome}
+                                  </p>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Valor da negociação */}
+                            {card.valor && (
+                              <div className="text-xl font-bold text-foreground">
+                                {formatCurrency(card.valor)}
+                              </div>
+                            )}
+
+                            {/* Data de criação */}
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <Calendar className="h-3 w-3" />
+                              <span>{formatDate(card.created_at)}</span>
+                            </div>
+
+                            {/* Botões de ação */}
+                            <div className="space-y-2 pt-2 border-t">
+                              {/* Linha 1: WhatsApp e Orçamento */}
+                              <div className="grid grid-cols-2 gap-2">
                                 <Button
                                   size="sm"
-                                  variant="ghost"
-                                  className="h-8 text-xs flex-1"
+                                  variant="outline"
+                                  className="h-9 text-xs"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleWhatsAppClick(card);
@@ -265,8 +323,8 @@ export default function FunilVendas() {
                                 </Button>
                                 <Button
                                   size="sm"
-                                  variant="ghost"
-                                  className="h-8 text-xs flex-1"
+                                  variant="outline"
+                                  className="h-9 text-xs"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleOrcamentoClick(card);
@@ -276,19 +334,35 @@ export default function FunilVendas() {
                                   Orçamento
                                 </Button>
                               </div>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-8 text-xs w-full mt-1"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleAnotacaoClick(card);
-                                }}
-                              >
-                                <StickyNote className="h-3 w-3 mr-1" />
-                                Anotação
-                              </Button>
-                            </CardContent>
+                              
+                              {/* Linha 2: Anotações e Tarefas */}
+                              <div className="grid grid-cols-2 gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-9 text-xs"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleAnotacaoClick(card);
+                                  }}
+                                >
+                                  <StickyNote className="h-3 w-3 mr-1" />
+                                  Anotação
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-9 text-xs"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleAddTaskClick(card);
+                                  }}
+                                >
+                                  <CheckSquare className="h-3 w-3 mr-1" />
+                                  Tarefa
+                                </Button>
+                              </div>
+                            </div>
                           </Card>
                         )}
                       </Draggable>
@@ -321,6 +395,12 @@ export default function FunilVendas() {
             onOpenChange={setShowAnotacao}
             cardId={selectedCard.id}
             onSaved={loadFunilData}
+          />
+          <AddTaskDialog
+            open={showAddTask}
+            onOpenChange={setShowAddTask}
+            cardId={selectedCard.id}
+            onTaskCreated={loadFunilData}
           />
         </>
       )}

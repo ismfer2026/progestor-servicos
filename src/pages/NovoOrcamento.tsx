@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,6 +48,7 @@ export function NovoOrcamento() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { id: orcamentoId } = useParams();
+  const [searchParams] = useSearchParams();
   const isEditing = !!orcamentoId;
 
   // Estados principais
@@ -87,6 +88,12 @@ export function NovoOrcamento() {
 
   useEffect(() => {
     fetchServicos();
+    
+    // Carregar cliente via query params
+    const clienteIdFromUrl = searchParams.get('cliente_id');
+    if (clienteIdFromUrl && !isEditing) {
+      loadClienteFromUrl(clienteIdFromUrl);
+    }
   }, []);
 
   useEffect(() => {
@@ -176,6 +183,25 @@ export function NovoOrcamento() {
       setServicos(data || []);
     } catch (error) {
       console.error("Erro ao buscar serviços:", error);
+    }
+  };
+
+  const loadClienteFromUrl = async (clienteId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('clientes')
+        .select('*')
+        .eq('id', clienteId)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setClienteSelecionado(data.id);
+        setBuscaCliente(data.nome);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar cliente:', error);
     }
   };
 
