@@ -63,23 +63,6 @@ export function AddTaskDialog({ open, onOpenChange, cardId, clienteId, onTaskCre
 
       if (error) throw error;
 
-      // Atualizar o card do funil para adicionar a informação da tarefa nas observações
-      const { data: cardData } = await supabase
-        .from('funil_cards')
-        .select('observacoes')
-        .eq('id', cardId)
-        .single();
-
-      const observacaoAtual = cardData?.observacoes || '';
-      const dataFormatada = format(dateTime, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
-      const tarefaInfo = `\n\n📋 Tarefa: ${titulo}\n⏰ ${dataFormatada}${descricao ? `\n📝 ${descricao}` : ''}`;
-      const novaObservacao = observacaoAtual + tarefaInfo;
-
-      await supabase
-        .from('funil_cards')
-        .update({ observacoes: novaObservacao })
-        .eq('id', cardId);
-
       toast.success('Tarefa criada com sucesso!');
 
       setTitulo('');

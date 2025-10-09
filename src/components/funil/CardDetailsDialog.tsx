@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { FileText, MessageSquare, Calendar, DollarSign } from "lucide-react";
+import { FileText, MessageSquare, Calendar, DollarSign, CheckSquare } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -24,6 +24,7 @@ export function CardDetailsDialog({ open, onOpenChange, card }: CardDetailsDialo
   const [orcamentos, setOrcamentos] = useState<any[]>([]);
   const [anotacoes, setAnotacoes] = useState<any[]>([]);
   const [mensagens, setMensagens] = useState<any[]>([]);
+  const [tarefas, setTarefas] = useState<any[]>([]);
   const [showAddTask, setShowAddTask] = useState(false);
 
   useEffect(() => {
@@ -32,6 +33,7 @@ export function CardDetailsDialog({ open, onOpenChange, card }: CardDetailsDialo
       loadOrcamentos();
       loadAnotacoes();
       loadMensagens();
+      loadTarefas();
     }
   }, [open, card]);
 
@@ -92,6 +94,49 @@ export function CardDetailsDialog({ open, onOpenChange, card }: CardDetailsDialo
       setMensagens(data || []);
     } catch (error) {
       console.error('Erro ao carregar mensagens:', error);
+    }
+  };
+
+  const loadTarefas = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('tarefas')
+        .select('*')
+        .eq('empresa_id', user?.empresa_id)
+        .eq('cliente_id', card.cliente_id)
+        .eq('origem', 'funil')
+        .order('data_hora', { ascending: false });
+      
+      if (error) throw error;
+      setTarefas(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar tarefas:', error);
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'concluida':
+        return 'Concluída';
+      case 'em_andamento':
+        return 'Em Andamento';
+      case 'pendente':
+        return 'Pendente';
+      default:
+        return status;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'concluida':
+        return 'default';
+      case 'em_andamento':
+        return 'secondary';
+      case 'pendente':
+        return 'outline';
+      default:
+        return 'outline';
     }
   };
 
@@ -159,10 +204,11 @@ export function CardDetailsDialog({ open, onOpenChange, card }: CardDetailsDialo
             </Card>
 
             <Tabs defaultValue="orcamentos" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="orcamentos">Orçamentos</TabsTrigger>
                 <TabsTrigger value="anotacoes">Anotações</TabsTrigger>
                 <TabsTrigger value="mensagens">Mensagens</TabsTrigger>
+                <TabsTrigger value="tarefas">Tarefas</TabsTrigger>
               </TabsList>
 
               <TabsContent value="orcamentos" className="space-y-4">
@@ -236,6 +282,36 @@ export function CardDetailsDialog({ open, onOpenChange, card }: CardDetailsDialo
                   ))
                 )}
               </TabsContent>
+
+              <TabsContent value="tarefas" className="space-y-4">
+                {tarefas.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <CheckSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>Nenhuma tarefa cadastrada</p>
+                  </div>
+                ) : (
+                  tarefas.map((tarefa) => (
+                    <Card key={tarefa.id}>
+                      <CardContent className="pt-6">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <h4 className="font-semibold">{tarefa.titulo}</h4>
+                            {tarefa.descricao && (
+                              <p className="text-sm text-muted-foreground mt-1">{tarefa.descricao}</p>
+                            )}
+                          </div>
+                          <Badge variant={getStatusColor(tarefa.status)}>
+                            {getStatusLabel(tarefa.status)}
+                          </Badge>
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          📅 {format(new Date(tarefa.data_hora), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </TabsContent>
             </Tabs>
 
             <div className="flex justify-end">
@@ -255,6 +331,7 @@ export function CardDetailsDialog({ open, onOpenChange, card }: CardDetailsDialo
         cardId={card?.id}
         onTaskCreated={() => {
           toast.success('Tarefa registrada com sucesso!');
+          loadTarefas();
           setShowAddTask(false);
         }}
       />

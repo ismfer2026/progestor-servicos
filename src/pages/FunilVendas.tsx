@@ -14,6 +14,7 @@ import { WhatsAppDialog } from '@/components/funil/WhatsAppDialog';
 import { AnotacaoDialog } from '@/components/funil/AnotacaoDialog';
 import { ConfigurarEtapasDialog } from '@/components/funil/ConfigurarEtapasDialog';
 import { NovoLeadDialog } from '@/components/funil/NovoLeadDialog';
+import { TarefasDialog } from '@/components/funil/TarefasDialog';
 
 interface FunilEtapa {
   id: string;
@@ -52,6 +53,7 @@ export default function FunilVendas() {
   const [showAddTask, setShowAddTask] = useState(false);
   const [showConfigurarEtapas, setShowConfigurarEtapas] = useState(false);
   const [showNovoLead, setShowNovoLead] = useState(false);
+  const [showTarefas, setShowTarefas] = useState(false);
 
   useEffect(() => {
     loadFunilData();
@@ -159,6 +161,11 @@ export default function FunilVendas() {
   const handleAddTaskClick = (card: any) => {
     setSelectedCard(card);
     setShowAddTask(true);
+  };
+
+  const handleTarefasClick = (card: any) => {
+    setSelectedCard(card);
+    setShowTarefas(true);
   };
 
   const handleOrcamentoClick = (card: any) => {
@@ -365,11 +372,11 @@ export default function FunilVendas() {
                                   className="h-9 text-xs"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleAddTaskClick(card);
+                                    handleTarefasClick(card);
                                   }}
                                 >
                                   <CheckSquare className="h-3 w-3 mr-1" />
-                                  Tarefa
+                                  Tarefas
                                 </Button>
                               </div>
                             </div>
@@ -428,7 +435,14 @@ export default function FunilVendas() {
             open={showAddTask}
             onOpenChange={setShowAddTask}
             cardId={selectedCard.id}
+            clienteId={selectedCard.cliente_id}
             onTaskCreated={loadFunilData}
+          />
+          <TarefasDialog
+            open={showTarefas}
+            onOpenChange={setShowTarefas}
+            cardId={selectedCard.id}
+            clienteId={selectedCard.cliente_id}
           />
         </>
       )}
