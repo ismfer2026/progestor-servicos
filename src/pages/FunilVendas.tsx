@@ -214,9 +214,9 @@ export default function FunilVendas() {
 
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-muted/20">
-      {/* Header fixo */}
-      <div className="sticky top-0 z-20 bg-gradient-to-br from-background to-muted/20 border-b px-6 py-4">
-        <div className="flex justify-between items-center">
+      {/* Header fixo com título */}
+      <div className="sticky top-0 z-30 bg-background border-b shadow-sm">
+        <div className="flex justify-between items-center px-6 py-4">
           <div className="flex items-center gap-3">
             <TrendingUp className="h-8 w-8 text-primary" />
             <div>
@@ -271,13 +271,18 @@ export default function FunilVendas() {
                   >
                     {getCardsByEtapa(etapa.id).map((card, index) => (
                       <Draggable key={card.id} draggableId={card.id} index={index}>
-                        {(provided) => (
+                        {(provided, snapshot) => (
                           <Card
                             ref={provided.innerRef}
                             {...provided.draggableProps}
                             {...provided.dragHandleProps}
-                            className="cursor-move hover:shadow-lg transition-all bg-card rounded-xl p-4 space-y-3 flex flex-col justify-between"
-                            style={{ minHeight: '200px' }}
+                            className={`cursor-grab active:cursor-grabbing hover:shadow-lg transition-all bg-card rounded-xl p-4 space-y-3 flex flex-col justify-between ${
+                              snapshot.isDragging ? 'shadow-2xl scale-105 rotate-2 ring-2 ring-primary' : ''
+                            }`}
+                            style={{ 
+                              minHeight: '200px',
+                              ...provided.draggableProps.style
+                            }}
                           >
                             {/* Header com código e badge de orçamento */}
                             <div className="flex justify-between items-start">
