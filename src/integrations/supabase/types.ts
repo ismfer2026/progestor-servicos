@@ -1008,6 +1008,7 @@ export type Database = {
           id: string
           lembrete: boolean | null
           origem: string | null
+          prioridade: string | null
           servico_id: string | null
           status: string | null
           tipo: string | null
@@ -1025,6 +1026,7 @@ export type Database = {
           id?: string
           lembrete?: boolean | null
           origem?: string | null
+          prioridade?: string | null
           servico_id?: string | null
           status?: string | null
           tipo?: string | null
@@ -1042,6 +1044,7 @@ export type Database = {
           id?: string
           lembrete?: boolean | null
           origem?: string | null
+          prioridade?: string | null
           servico_id?: string | null
           status?: string | null
           tipo?: string | null

@@ -23,20 +23,31 @@ interface Tarefa {
   data_fim?: string;
   status: string;
   tipo: string;
+  prioridade?: string;
   cliente_id?: string;
   usuario_id?: string;
+}
+
+interface Cliente {
+  id: string;
+  nome: string;
+  telefone?: string;
 }
 
 export default function Agenda() {
   const { user } = useAuth();
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showNewTask, setShowNewTask] = useState(false);
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'day' | 'timeline'>('month');
+  const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
+  const [showClienteDialog, setShowClienteDialog] = useState(false);
 
   useEffect(() => {
     loadTarefas();
+    loadClientes();
   }, [user]);
 
   const loadTarefas = async () => {
@@ -59,10 +70,40 @@ export default function Agenda() {
     }
   };
 
+  const loadClientes = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('clientes')
+        .select('id, nome, telefone')
+        .eq('empresa_id', user.empresa_id);
+
+      if (error) throw error;
+      setClientes(data || []);
+    } catch (error) {
+      console.error('Error loading clientes:', error);
+    }
+  };
+
   const getTarefasForDate = (date: Date) => {
     return tarefas.filter(tarefa => 
       isSameDay(new Date(tarefa.data_hora), date)
     );
+  };
+
+  const getClienteById = (clienteId?: string) => {
+    if (!clienteId) return null;
+    return clientes.find(c => c.id === clienteId);
+  };
+
+  const handleClienteClick = (clienteId?: string) => {
+    if (!clienteId) return;
+    const cliente = getClienteById(clienteId);
+    if (cliente) {
+      setSelectedCliente(cliente);
+      setShowClienteDialog(true);
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -80,6 +121,26 @@ export default function Agenda() {
       case 'em_andamento': return 'Em Andamento';
       case 'cancelado': return 'Cancelado';
       default: return 'Pendente';
+    }
+  };
+
+  const getPrioridadeColor = (prioridade?: string) => {
+    switch (prioridade) {
+      case 'urgente': return 'bg-red-500';
+      case 'alta': return 'bg-orange-500';
+      case 'media': return 'bg-yellow-500';
+      case 'baixa': return 'bg-green-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getPrioridadeLabel = (prioridade?: string) => {
+    switch (prioridade) {
+      case 'urgente': return 'Urgente';
+      case 'alta': return 'Alta';
+      case 'media': return 'Média';
+      case 'baixa': return 'Baixa';
+      default: return 'Média';
     }
   };
 
@@ -142,6 +203,92 @@ export default function Agenda() {
     );
   };
 
+  const renderWeekView = () => {
+    const weekStart = startOfWeek(currentDate, { locale: ptBR });
+    const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold">
+            {format(weekStart, "d", { locale: ptBR })} - {format(addDays(weekStart, 6), "d 'de' MMMM 'de' yyyy", { locale: ptBR })}
+          </h3>
+          <div className="flex space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentDate(addDays(currentDate, -7))}
+            >
+              Anterior
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentDate(new Date())}
+            >
+              Hoje
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentDate(addDays(currentDate, 7))}
+            >
+              Próxima
+            </Button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-7 gap-2">
+          {weekDays.map(day => {
+            const dayTasks = getTarefasForDate(day);
+            const isToday = isSameDay(day, new Date());
+
+            return (
+              <div key={day.toISOString()} className="space-y-2">
+                <div className={`text-center p-2 rounded-md ${isToday ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                  <div className="font-semibold text-sm">
+                    {format(day, 'EEE', { locale: ptBR })}
+                  </div>
+                  <div className="text-lg">{format(day, 'd')}</div>
+                </div>
+                <div className="space-y-1">
+                  {dayTasks.map(tarefa => {
+                    const cliente = getClienteById(tarefa.cliente_id);
+                    return (
+                      <Card 
+                        key={tarefa.id} 
+                        className="p-2 cursor-pointer hover:shadow-md transition-shadow"
+                        onClick={() => handleClienteClick(tarefa.cliente_id)}
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-medium">{format(new Date(tarefa.data_hora), 'HH:mm')}</span>
+                            <Badge className={`${getPrioridadeColor(tarefa.prioridade)} text-white text-[10px] px-1`}>
+                              {getPrioridadeLabel(tarefa.prioridade)}
+                            </Badge>
+                          </div>
+                          <p className="text-xs font-semibold truncate">{tarefa.titulo}</p>
+                          {cliente && (
+                            <div className="space-y-0.5">
+                              <p className="text-[10px] text-muted-foreground truncate">{cliente.nome}</p>
+                              {cliente.telefone && (
+                                <p className="text-[10px] text-muted-foreground">{cliente.telefone}</p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   const renderDayView = () => {
     const dayTasks = getTarefasForDate(currentDate);
     
@@ -175,40 +322,151 @@ export default function Agenda() {
               Nenhuma tarefa agendada para este dia
             </div>
           ) : (
-            dayTasks.map(tarefa => (
-              <Card key={tarefa.id}>
-                <CardHeader className="pb-2">
-                  <div className="flex justify-between items-start">
-                    <CardTitle className="text-base">{tarefa.titulo}</CardTitle>
-                    <Badge
-                      variant="secondary"
-                      className={`${getStatusColor(tarefa.status)} text-white`}
-                    >
-                      {getStatusLabel(tarefa.status)}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                    <div className="flex items-center">
-                      <Clock className="mr-1 h-4 w-4" />
-                      {format(new Date(tarefa.data_hora), 'HH:mm')}
-                      {tarefa.data_fim && ` - ${format(new Date(tarefa.data_fim), 'HH:mm')}`}
-                    </div>
-                    {tarefa.cliente_id && (
-                      <div className="flex items-center">
-                        <Users className="mr-1 h-4 w-4" />
-                        Cliente #{tarefa.cliente_id.slice(-8)}
+            dayTasks.map(tarefa => {
+              const cliente = getClienteById(tarefa.cliente_id);
+              return (
+                <Card 
+                  key={tarefa.id}
+                  className="cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => handleClienteClick(tarefa.cliente_id)}
+                >
+                  <CardHeader className="pb-2">
+                    <div className="flex justify-between items-start">
+                      <CardTitle className="text-base">{tarefa.titulo}</CardTitle>
+                      <div className="flex gap-2">
+                        <Badge className={`${getPrioridadeColor(tarefa.prioridade)} text-white`}>
+                          {getPrioridadeLabel(tarefa.prioridade)}
+                        </Badge>
+                        <Badge
+                          variant="secondary"
+                          className={`${getStatusColor(tarefa.status)} text-white`}
+                        >
+                          {getStatusLabel(tarefa.status)}
+                        </Badge>
                       </div>
-                    )}
-                  </div>
-                  {tarefa.descricao && (
-                    <p className="mt-2 text-sm">{tarefa.descricao}</p>
-                  )}
-                </CardContent>
-              </Card>
-            ))
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                        <div className="flex items-center">
+                          <Clock className="mr-1 h-4 w-4" />
+                          {format(new Date(tarefa.data_hora), 'HH:mm')}
+                          {tarefa.data_fim && ` - ${format(new Date(tarefa.data_fim), 'HH:mm')}`}
+                        </div>
+                      </div>
+                      {cliente && (
+                        <div className="flex items-center space-x-2 text-sm">
+                          <Users className="h-4 w-4 text-muted-foreground" />
+                          <div>
+                            <p className="font-medium">{cliente.nome}</p>
+                            {cliente.telefone && (
+                              <p className="text-xs text-muted-foreground">{cliente.telefone}</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      {tarefa.descricao && (
+                        <p className="mt-2 text-sm">{tarefa.descricao}</p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })
           )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderTimelineView = () => {
+    const hours = Array.from({ length: 24 }, (_, i) => i);
+    const dayTasks = getTarefasForDate(currentDate);
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold">
+            {format(currentDate, "d 'de' MMMM 'de' yyyy", { locale: ptBR })}
+          </h3>
+          <div className="flex space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentDate(addDays(currentDate, -1))}
+            >
+              Anterior
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentDate(new Date())}
+            >
+              Hoje
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentDate(addDays(currentDate, 1))}
+            >
+              Próximo
+            </Button>
+          </div>
+        </div>
+
+        <div className="border rounded-lg overflow-hidden">
+          {hours.map(hour => {
+            const hourTasks = dayTasks.filter(tarefa => {
+              const taskHour = new Date(tarefa.data_hora).getHours();
+              return taskHour === hour;
+            });
+
+            return (
+              <div key={hour} className="flex border-b last:border-b-0">
+                <div className="w-20 flex-shrink-0 p-3 bg-muted text-sm font-medium text-center border-r">
+                  {String(hour).padStart(2, '0')}:00
+                </div>
+                <div className="flex-1 p-2 min-h-[60px]">
+                  {hourTasks.map(tarefa => {
+                    const cliente = getClienteById(tarefa.cliente_id);
+                    return (
+                      <Card 
+                        key={tarefa.id} 
+                        className="mb-2 p-3 cursor-pointer hover:shadow-md transition-shadow"
+                        onClick={() => handleClienteClick(tarefa.cliente_id)}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-medium">
+                                {format(new Date(tarefa.data_hora), 'HH:mm')}
+                                {tarefa.data_fim && ` - ${format(new Date(tarefa.data_fim), 'HH:mm')}`}
+                              </span>
+                              <Badge className={`${getPrioridadeColor(tarefa.prioridade)} text-white text-xs`}>
+                                {getPrioridadeLabel(tarefa.prioridade)}
+                              </Badge>
+                            </div>
+                            <p className="font-semibold text-sm">{tarefa.titulo}</p>
+                            {cliente && (
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <Users className="h-3 w-3" />
+                                <span>{cliente.nome}</span>
+                                {cliente.telefone && <span>• {cliente.telefone}</span>}
+                              </div>
+                            )}
+                            {tarefa.descricao && (
+                              <p className="text-xs text-muted-foreground line-clamp-2">{tarefa.descricao}</p>
+                            )}
+                          </div>
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     );
@@ -329,17 +587,39 @@ export default function Agenda() {
         </TabsContent>
 
         <TabsContent value="week" className="mt-6">
-          <div className="text-center py-8 text-muted-foreground">
-            Visualização em semana em desenvolvimento
-          </div>
+          {renderWeekView()}
         </TabsContent>
 
         <TabsContent value="timeline" className="mt-6">
-          <div className="text-center py-8 text-muted-foreground">
-            Visualização em timeline em desenvolvimento
-          </div>
+          {renderTimelineView()}
         </TabsContent>
       </Tabs>
+
+      {/* Dialog de informações do cliente */}
+      <Dialog open={showClienteDialog} onOpenChange={setShowClienteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Informações do Cliente</DialogTitle>
+          </DialogHeader>
+          {selectedCliente && (
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Nome</label>
+                <p className="text-lg font-semibold">{selectedCliente.nome}</p>
+              </div>
+              {selectedCliente.telefone && (
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Telefone</label>
+                  <p className="text-lg">{selectedCliente.telefone}</p>
+                </div>
+              )}
+              <div className="flex justify-end">
+                <Button onClick={() => setShowClienteDialog(false)}>Fechar</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

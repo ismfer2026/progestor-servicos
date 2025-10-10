@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -27,11 +28,13 @@ export function AddTaskDialog({ open, onOpenChange, cardId, clienteId, onTaskCre
   const [titulo, setTitulo] = useState('');
   const [descricao, setDescricao] = useState('');
   const [dataHora, setDataHora] = useState<Date>();
-  const [horario, setHorario] = useState('');
+  const [horarioInicio, setHorarioInicio] = useState('');
+  const [horarioFim, setHorarioFim] = useState('');
+  const [prioridade, setPrioridade] = useState('media');
   const [loading, setLoading] = useState(false);
 
   const handleSave = async () => {
-    if (!titulo || !dataHora || !horario) {
+    if (!titulo || !dataHora || !horarioInicio || !horarioFim) {
       toast.error('Preencha todos os campos obrigatórios');
       return;
     }
@@ -41,11 +44,35 @@ export function AddTaskDialog({ open, onOpenChange, cardId, clienteId, onTaskCre
       return;
     }
 
+    // Validar se horário de início é antes do horário de fim
+    if (horarioInicio >= horarioFim) {
+      toast.error('O horário de início deve ser anterior ao horário de fim');
+      return;
+    }
+
     setLoading(true);
     try {
-      const dateTime = new Date(dataHora);
-      const [hours, minutes] = horario.split(':');
-      dateTime.setHours(parseInt(hours), parseInt(minutes));
+      // Verificar se já existe uma tarefa no mesmo horário
+      const dataInicio = new Date(dataHora);
+      const [hoursInicio, minutesInicio] = horarioInicio.split(':');
+      dataInicio.setHours(parseInt(hoursInicio), parseInt(minutesInicio));
+
+      const dataFim = new Date(dataHora);
+      const [hoursFim, minutesFim] = horarioFim.split(':');
+      dataFim.setHours(parseInt(hoursFim), parseInt(minutesFim));
+
+      // Verificar conflitos de horário
+      const { data: tarefasExistentes } = await supabase
+        .from('tarefas')
+        .select('*')
+        .eq('empresa_id', user.empresa_id)
+        .gte('data_hora', dataInicio.toISOString())
+        .lte('data_fim', dataFim.toISOString());
+
+      if (tarefasExistentes && tarefasExistentes.length > 0) {
+        toast.error('Já existe uma tarefa agendada neste horário');
+        return;
+      }
 
       const { error } = await supabase
         .from('tarefas')
@@ -55,7 +82,9 @@ export function AddTaskDialog({ open, onOpenChange, cardId, clienteId, onTaskCre
           usuario_id: user.id,
           titulo,
           descricao,
-          data_hora: dateTime.toISOString(),
+          data_hora: dataInicio.toISOString(),
+          data_fim: dataFim.toISOString(),
+          prioridade,
           tipo: 'tarefa',
           status: 'pendente',
           origem: 'funil'
@@ -68,7 +97,9 @@ export function AddTaskDialog({ open, onOpenChange, cardId, clienteId, onTaskCre
       setTitulo('');
       setDescricao('');
       setDataHora(undefined);
-      setHorario('');
+      setHorarioInicio('');
+      setHorarioFim('');
+      setPrioridade('media');
       
       if (onTaskCreated) {
         onTaskCreated();
@@ -133,14 +164,39 @@ export function AddTaskDialog({ open, onOpenChange, cardId, clienteId, onTaskCre
               </PopoverContent>
             </Popover>
           </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="horarioInicio">Horário Início *</Label>
+              <Input
+                id="horarioInicio"
+                type="time"
+                value={horarioInicio}
+                onChange={(e) => setHorarioInicio(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="horarioFim">Horário Fim *</Label>
+              <Input
+                id="horarioFim"
+                type="time"
+                value={horarioFim}
+                onChange={(e) => setHorarioFim(e.target.value)}
+              />
+            </div>
+          </div>
           <div>
-            <Label htmlFor="horario">Horário *</Label>
-            <Input
-              id="horario"
-              type="time"
-              value={horario}
-              onChange={(e) => setHorario(e.target.value)}
-            />
+            <Label htmlFor="prioridade">Prioridade *</Label>
+            <Select value={prioridade} onValueChange={setPrioridade}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione a prioridade" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="baixa">Baixa</SelectItem>
+                <SelectItem value="media">Média</SelectItem>
+                <SelectItem value="alta">Alta</SelectItem>
+                <SelectItem value="urgente">Urgente</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex justify-end space-x-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
