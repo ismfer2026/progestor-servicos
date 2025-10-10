@@ -14,7 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { format, addDays, startOfWeek, endOfWeek, isSameMonth, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { NovoLeadDialog } from '@/components/funil/NovoLeadDialog';
+import { AddTaskDialog } from '@/components/funil/AddTaskDialog';
 import { CardDetailsDialog } from '@/components/funil/CardDetailsDialog';
 
 interface Tarefa {
@@ -586,12 +586,12 @@ export default function Agenda() {
         </TabsContent>
       </Tabs>
 
-      {/* Dialog de novo lead */}
-      <NovoLeadDialog
+      {/* Dialog de nova tarefa */}
+      <AddTaskDialog
         open={showNewTask}
         onOpenChange={setShowNewTask}
-        etapas={etapas}
-        onLeadCreated={() => {
+        cardId=""
+        onTaskCreated={() => {
           loadTarefas();
           loadClientes();
         }}
