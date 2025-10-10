@@ -191,7 +191,7 @@ Data: ${dataAtual}
 CONTRATANTE:
 Nome: ${cliente?.nome || 'N/A'}
 CPF/CNPJ: ${cliente?.cpf_cnpj || 'N/A'}
-Endereço: ${cliente?.endereco || 'N/A'}
+Endereço: ${cliente?.endereco ? `${cliente.endereco.rua || ''}, ${cliente.endereco.numero || ''} - ${cliente.endereco.bairro || ''}, ${cliente.endereco.cidade || ''}/${cliente.endereco.estado || ''} - CEP: ${cliente.endereco.cep || ''}` : 'N/A'}
 Email: ${cliente?.email || 'N/A'}
 Telefone: ${cliente?.telefone || 'N/A'}
 
@@ -292,7 +292,18 @@ CONTRATANTE                     CONTRATADO
               </div>
               <div>
                 <Label className="text-sm text-muted-foreground">Endereço</Label>
-                <p className="text-sm">{cliente?.endereco || 'N/A'}</p>
+                <p className="text-sm">
+                  {cliente?.endereco ? (
+                    <>
+                      {cliente.endereco.rua && `${cliente.endereco.rua}, `}
+                      {cliente.endereco.numero && `${cliente.endereco.numero} - `}
+                      {cliente.endereco.bairro && `${cliente.endereco.bairro}, `}
+                      {cliente.endereco.cidade && cliente.endereco.cidade}
+                      {cliente.endereco.estado && `/${cliente.endereco.estado}`}
+                      {cliente.endereco.cep && ` - CEP: ${cliente.endereco.cep}`}
+                    </>
+                  ) : 'N/A'}
+                </p>
               </div>
               
               {/* Service Details */}

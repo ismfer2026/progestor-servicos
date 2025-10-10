@@ -115,9 +115,9 @@ export function NovoLeadDialog({ open, onOpenChange, etapas, onLeadCreated }: No
         .insert([{
           empresa_id: user.empresa_id,
           nome: formData.nome,
-          telefone: formData.telefone,
+          telefones: formData.telefone ? [formData.telefone] : [],
           email: formData.email,
-          endereco: formData.endereco,
+          endereco: formData.endereco ? { rua: formData.endereco } : null,
           fase_crm: 'Lead'
         }])
         .select()
