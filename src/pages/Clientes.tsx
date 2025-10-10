@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Eye, Edit, Phone, Mail, Save, User, Building } from 'lucide-react';
+import { Search, Plus, Eye, Edit, Phone, Mail, Save, User, Building, MessageCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -234,12 +234,11 @@ export default function Clientes() {
 
         if (error) throw error;
         clienteId = data.id;
-        toast.success('Cliente cadastrado com sucesso!');
-
+        
         // Create card in sales funnel
         const etapa = etapas.find(e => e.nome === formData.fase_crm);
         if (etapa) {
-          await supabase.from('funil_cards').insert([{
+          const { error: cardError } = await supabase.from('funil_cards').insert([{
             empresa_id: user.empresa_id,
             cliente_id: clienteId,
             etapa_id: etapa.id,
@@ -247,6 +246,15 @@ export default function Clientes() {
             observacoes: formData.observacoes,
             ordem: 0
           }]);
+          
+          if (cardError) {
+            console.error('Error creating funnel card:', cardError);
+            toast.error('Cliente criado, mas erro ao criar card no funil');
+          } else {
+            toast.success('Cliente e card no funil criados com sucesso!');
+          }
+        } else {
+          toast.success('Cliente cadastrado com sucesso!');
         }
       }
 
@@ -374,7 +382,7 @@ export default function Clientes() {
                         variant="ghost"
                         onClick={() => openWhatsApp(cliente)}
                       >
-                        <Phone className="h-4 w-4" />
+                        <MessageCircle className="h-4 w-4" />
                       </Button>
                     )}
                   </div>
@@ -459,7 +467,7 @@ export default function Clientes() {
                     variant="ghost"
                     onClick={() => openWhatsApp(cliente)}
                   >
-                    <Phone className="h-4 w-4" />
+                    <MessageCircle className="h-4 w-4" />
                   </Button>
                 )}
               </div>

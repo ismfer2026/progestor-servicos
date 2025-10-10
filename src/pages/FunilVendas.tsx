@@ -425,35 +425,35 @@ export default function FunilVendas() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent className="p-4">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Código</TableHead>
-                      <TableHead>Cliente</TableHead>
-                      <TableHead>Serviços</TableHead>
-                      <TableHead>Valor</TableHead>
-                      <TableHead>Data</TableHead>
-                      <TableHead>Ações</TableHead>
+                      <TableHead className="py-2">Código</TableHead>
+                      <TableHead className="py-2">Cliente</TableHead>
+                      <TableHead className="py-2">Serviços</TableHead>
+                      <TableHead className="py-2">Valor</TableHead>
+                      <TableHead className="py-2">Data</TableHead>
+                      <TableHead className="py-2">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {getCardsByEtapa(etapa.id).map(card => (
                       <TableRow key={card.id}>
-                        <TableCell className="font-medium">#{getClienteCodigo(card)}</TableCell>
-                        <TableCell>{getClienteNome(card)}</TableCell>
-                        <TableCell>
+                        <TableCell className="py-3 font-medium">#{getClienteCodigo(card)}</TableCell>
+                        <TableCell className="py-3">{getClienteNome(card)}</TableCell>
+                        <TableCell className="py-3">
                           {getServicosFromCard(card).length > 0 ? (
-                            <div className="space-y-1">
+                            <div className="space-y-0.5">
                               {getServicosFromCard(card).map((servico: any, idx: number) => (
                                 <p key={idx} className="text-xs text-muted-foreground">• {servico.nome}</p>
                               ))}
                             </div>
                           ) : '-'}
                         </TableCell>
-                        <TableCell className="font-medium">{card.valor ? formatCurrency(card.valor) : '-'}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{formatDate(card.created_at)}</TableCell>
-                        <TableCell>
+                        <TableCell className="py-3 font-medium">{card.valor ? formatCurrency(card.valor) : '-'}</TableCell>
+                        <TableCell className="py-3 text-sm text-muted-foreground">{formatDate(card.created_at)}</TableCell>
+                        <TableCell className="py-3">
                           <div className="flex gap-1">
                             <Button size="sm" variant="ghost" onClick={() => handleCardClick(card)}>
                               <Eye className="h-4 w-4" />
@@ -478,169 +478,6 @@ export default function FunilVendas() {
           ))}
         </div>
       )}
-
-      <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex-1 px-6 pb-6 overflow-hidden">
-          <div 
-            className="flex flex-row gap-4 overflow-x-auto overflow-y-hidden pb-3 scroll-smooth"
-            style={{
-              scrollbarWidth: 'thin',
-              scrollbarColor: '#bbb #f1f1f1'
-            }}
-          >
-          {etapas.map(etapa => (
-            <div key={etapa.id} className="flex flex-col gap-3 flex-shrink-0" style={{ width: '320px' }}>
-              <div className="flex flex-col p-4 rounded-lg border-2 bg-card shadow-sm" style={{ borderTopColor: etapa.cor, borderTopWidth: '4px' }}>
-                <div className="flex items-center justify-between mb-1">
-                  <h3 className="font-semibold text-base">{etapa.nome}</h3>
-                  <Badge variant="secondary" className="text-xs">
-                    {getCardsByEtapa(etapa.id).length}
-                  </Badge>
-                </div>
-                <div className="text-sm font-medium text-muted-foreground">
-                  {formatCurrency(getTotalValueByEtapa(etapa.id))}
-                </div>
-              </div>
-
-              <Droppable droppableId={etapa.id}>
-                {(provided) => (
-                  <div
-                    {...provided.droppableProps}
-                    ref={provided.innerRef}
-                    className="flex-1 min-h-[500px] space-y-3 p-2 rounded-lg bg-muted/30 overflow-y-auto"
-                  >
-                    {getCardsByEtapa(etapa.id).map((card, index) => (
-                      <Draggable key={card.id} draggableId={card.id} index={index}>
-                        {(provided, snapshot) => (
-                          <Card
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            {...provided.dragHandleProps}
-                            className={`cursor-grab active:cursor-grabbing hover:shadow-lg transition-all bg-card rounded-xl p-4 space-y-3 flex flex-col justify-between ${
-                              snapshot.isDragging ? 'shadow-2xl scale-105 rotate-2 ring-2 ring-primary' : ''
-                            }`}
-                            style={{ 
-                              minHeight: '200px',
-                              ...provided.draggableProps.style
-                            }}
-                          >
-                            {/* Header com código e badge de orçamento */}
-                            <div className="flex justify-between items-start">
-                              <span 
-                                className="text-base font-semibold text-primary cursor-pointer hover:underline"
-                                onClick={() => handleCardClick(card)}
-                              >
-                                #{getClienteCodigo(card)}
-                              </span>
-                              {card.orcamento_id && (
-                                <Badge variant="secondary" className="text-xs">
-                                  Orçamento
-                                </Badge>
-                              )}
-                            </div>
-
-                            {/* Nome do cliente */}
-                            {getClienteNome(card) && (
-                              <p className="text-sm text-foreground/80 font-medium">
-                                {getClienteNome(card)}
-                              </p>
-                            )}
-
-                            {/* Serviços */}
-                            {getServicosFromCard(card).length > 0 && (
-                              <div className="space-y-1">
-                                {getServicosFromCard(card).map((servico: any, idx: number) => (
-                                  <p key={idx} className="text-xs text-muted-foreground">
-                                    • {servico.nome}
-                                  </p>
-                                ))}
-                              </div>
-                            )}
-
-                            {/* Valor da negociação */}
-                            {card.valor && (
-                              <div className="text-xl font-bold text-foreground">
-                                {formatCurrency(card.valor)}
-                              </div>
-                            )}
-
-                            {/* Data de criação */}
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <Calendar className="h-3 w-3" />
-                              <span>{formatDate(card.created_at)}</span>
-                            </div>
-
-                            {/* Botões de ação */}
-                            <div className="space-y-2 pt-2 border-t">
-                              {/* Linha 1: WhatsApp e Orçamento */}
-                              <div className="grid grid-cols-2 gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-9 text-xs"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleWhatsAppClick(card);
-                                  }}
-                                >
-                                  <MessageCircle className="h-3 w-3 mr-1" />
-                                  WhatsApp
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-9 text-xs"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleOrcamentoClick(card);
-                                  }}
-                                >
-                                  <FileText className="h-3 w-3 mr-1" />
-                                  Orçamento
-                                </Button>
-                              </div>
-                              
-                              {/* Linha 2: Anotações e Tarefas */}
-                              <div className="grid grid-cols-2 gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-9 text-xs"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleAnotacaoClick(card);
-                                  }}
-                                >
-                                  <StickyNote className="h-3 w-3 mr-1" />
-                                  Anotação
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-9 text-xs"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleTarefasClick(card);
-                                  }}
-                                >
-                                  <CheckSquare className="h-3 w-3 mr-1" />
-                                  Tarefas
-                                </Button>
-                              </div>
-                            </div>
-                          </Card>
-                        )}
-                      </Draggable>
-                    ))}
-                    {provided.placeholder}
-                  </div>
-                )}
-              </Droppable>
-            </div>
-          ))}
-          </div>
-        </div>
-      </DragDropContext>
 
       <style>{`
         .flex.flex-row.gap-4::-webkit-scrollbar {
