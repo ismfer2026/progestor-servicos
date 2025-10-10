@@ -72,38 +72,53 @@ export type Database = {
       clientes: {
         Row: {
           data_cadastro: string | null
+          documento: string | null
           email: string | null
           empresa_id: string | null
-          endereco: string | null
+          endereco: Json | null
           fase_crm: string | null
           id: string
           nome: string
           observacoes: string | null
+          servico_id: string | null
+          tags: string[] | null
           telefone: string | null
+          telefones: string[] | null
+          tipo_pessoa: string | null
           valor_estimado: number | null
         }
         Insert: {
           data_cadastro?: string | null
+          documento?: string | null
           email?: string | null
           empresa_id?: string | null
-          endereco?: string | null
+          endereco?: Json | null
           fase_crm?: string | null
           id?: string
           nome: string
           observacoes?: string | null
+          servico_id?: string | null
+          tags?: string[] | null
           telefone?: string | null
+          telefones?: string[] | null
+          tipo_pessoa?: string | null
           valor_estimado?: number | null
         }
         Update: {
           data_cadastro?: string | null
+          documento?: string | null
           email?: string | null
           empresa_id?: string | null
-          endereco?: string | null
+          endereco?: Json | null
           fase_crm?: string | null
           id?: string
           nome?: string
           observacoes?: string | null
+          servico_id?: string | null
+          tags?: string[] | null
           telefone?: string | null
+          telefones?: string[] | null
+          tipo_pessoa?: string | null
           valor_estimado?: number | null
         }
         Relationships: [
