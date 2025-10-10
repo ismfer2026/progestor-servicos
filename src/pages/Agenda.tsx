@@ -14,6 +14,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { format, addDays, startOfWeek, endOfWeek, isSameMonth, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { NovoLeadDialog } from '@/components/funil/NovoLeadDialog';
+import { CardDetailsDialog } from '@/components/funil/CardDetailsDialog';
 
 interface Tarefa {
   id: string;
@@ -38,16 +40,18 @@ export default function Agenda() {
   const { user } = useAuth();
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [etapas, setEtapas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showNewTask, setShowNewTask] = useState(false);
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'day' | 'timeline'>('month');
-  const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
-  const [showClienteDialog, setShowClienteDialog] = useState(false);
+  const [selectedCard, setSelectedCard] = useState<any>(null);
+  const [showCardDetails, setShowCardDetails] = useState(false);
 
   useEffect(() => {
     loadTarefas();
     loadClientes();
+    loadEtapas();
   }, [user]);
 
   const loadTarefas = async () => {
@@ -86,6 +90,24 @@ export default function Agenda() {
     }
   };
 
+  const loadEtapas = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('funil_etapas')
+        .select('*')
+        .eq('empresa_id', user.empresa_id)
+        .eq('ativo', true)
+        .order('ordem');
+
+      if (error) throw error;
+      setEtapas(data || []);
+    } catch (error) {
+      console.error('Error loading etapas:', error);
+    }
+  };
+
   const getTarefasForDate = (date: Date) => {
     return tarefas.filter(tarefa => 
       isSameDay(new Date(tarefa.data_hora), date)
@@ -97,12 +119,30 @@ export default function Agenda() {
     return clientes.find(c => c.id === clienteId);
   };
 
-  const handleClienteClick = (clienteId?: string) => {
-    if (!clienteId) return;
-    const cliente = getClienteById(clienteId);
-    if (cliente) {
-      setSelectedCliente(cliente);
-      setShowClienteDialog(true);
+  const handleCardClick = async (tarefa: Tarefa) => {
+    if (!tarefa.cliente_id) return;
+
+    try {
+      // Buscar o card do funil relacionado a esta tarefa
+      const { data: cards, error } = await supabase
+        .from('funil_cards')
+        .select('*')
+        .eq('empresa_id', user?.empresa_id)
+        .eq('cliente_id', tarefa.cliente_id)
+        .limit(1)
+        .single();
+
+      if (error) {
+        console.error('Error loading card:', error);
+        return;
+      }
+
+      if (cards) {
+        setSelectedCard(cards);
+        setShowCardDetails(true);
+      }
+    } catch (error) {
+      console.error('Error:', error);
     }
   };
 
@@ -258,7 +298,7 @@ export default function Agenda() {
                       <Card 
                         key={tarefa.id} 
                         className="p-2 cursor-pointer hover:shadow-md transition-shadow"
-                        onClick={() => handleClienteClick(tarefa.cliente_id)}
+                        onClick={() => handleCardClick(tarefa)}
                       >
                         <div className="space-y-1">
                           <div className="flex items-center justify-between">
@@ -328,7 +368,7 @@ export default function Agenda() {
                 <Card 
                   key={tarefa.id}
                   className="cursor-pointer hover:shadow-md transition-shadow"
-                  onClick={() => handleClienteClick(tarefa.cliente_id)}
+                  onClick={() => handleCardClick(tarefa)}
                 >
                   <CardHeader className="pb-2">
                     <div className="flex justify-between items-start">
@@ -434,7 +474,7 @@ export default function Agenda() {
                       <Card 
                         key={tarefa.id} 
                         className="mb-2 p-3 cursor-pointer hover:shadow-md transition-shadow"
-                        onClick={() => handleClienteClick(tarefa.cliente_id)}
+                        onClick={() => handleCardClick(tarefa)}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1 space-y-1">
@@ -487,59 +527,10 @@ export default function Agenda() {
           <h1 className="text-3xl font-bold">Agenda</h1>
           <p className="text-muted-foreground">Gerencie seus compromissos e tarefas</p>
         </div>
-        <Dialog open={showNewTask} onOpenChange={setShowNewTask}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Nova Tarefa
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Nova Tarefa</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">Título</label>
-                <Input placeholder="Digite o título da tarefa" />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Descrição</label>
-                <Textarea placeholder="Descreva a tarefa" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium">Data</label>
-                  <Input type="date" />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Horário</label>
-                  <Input type="time" />
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium">Tipo</label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="tarefa">Tarefa</SelectItem>
-                    <SelectItem value="reuniao">Reunião</SelectItem>
-                    <SelectItem value="servico">Serviço</SelectItem>
-                    <SelectItem value="ligacao">Ligação</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={() => setShowNewTask(false)}>
-                  Cancelar
-                </Button>
-                <Button>Criar Tarefa</Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={() => setShowNewTask(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Nova Tarefa
+        </Button>
       </div>
 
       <Tabs value={viewMode} onValueChange={(value: any) => setViewMode(value)}>
@@ -595,31 +586,25 @@ export default function Agenda() {
         </TabsContent>
       </Tabs>
 
-      {/* Dialog de informações do cliente */}
-      <Dialog open={showClienteDialog} onOpenChange={setShowClienteDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Informações do Cliente</DialogTitle>
-          </DialogHeader>
-          {selectedCliente && (
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Nome</label>
-                <p className="text-lg font-semibold">{selectedCliente.nome}</p>
-              </div>
-              {selectedCliente.telefone && (
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Telefone</label>
-                  <p className="text-lg">{selectedCliente.telefone}</p>
-                </div>
-              )}
-              <div className="flex justify-end">
-                <Button onClick={() => setShowClienteDialog(false)}>Fechar</Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Dialog de novo lead */}
+      <NovoLeadDialog
+        open={showNewTask}
+        onOpenChange={setShowNewTask}
+        etapas={etapas}
+        onLeadCreated={() => {
+          loadTarefas();
+          loadClientes();
+        }}
+      />
+
+      {/* Dialog de detalhes do card */}
+      {selectedCard && (
+        <CardDetailsDialog
+          open={showCardDetails}
+          onOpenChange={setShowCardDetails}
+          card={selectedCard}
+        />
+      )}
     </div>
   );
 }
