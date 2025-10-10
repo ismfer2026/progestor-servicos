@@ -10,7 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { CardDetailsDialog } from '@/components/funil/CardDetailsDialog';
 import { AddTaskDialog } from '@/components/funil/AddTaskDialog';
-import { WhatsAppDialog } from '@/components/funil/WhatsAppDialog';
+import { WhatsAppMessageDialog } from '@/components/shared/WhatsAppMessageDialog';
 import { AnotacaoDialog } from '@/components/funil/AnotacaoDialog';
 import { ConfigurarEtapasDialog } from '@/components/funil/ConfigurarEtapasDialog';
 import { NovoLeadDialog } from '@/components/funil/NovoLeadDialog';
@@ -427,11 +427,13 @@ export default function FunilVendas() {
             onOpenChange={setShowCardDetails}
             card={selectedCard}
           />
-          <WhatsAppDialog
+          <WhatsAppMessageDialog
             open={showWhatsApp}
             onOpenChange={setShowWhatsApp}
-            telefone={getClienteTelefone(selectedCard)}
-            cardId={selectedCard.id}
+            recipientPhone={getClienteTelefone(selectedCard)}
+            defaultMessage={`Olá! Segue informações sobre: ${selectedCard.titulo}`}
+            context="funil"
+            contextId={selectedCard.id}
           />
           <AnotacaoDialog
             open={showAnotacao}

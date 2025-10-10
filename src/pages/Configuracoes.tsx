@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Settings, Users, Building, Mail, MessageCircle, Palette, Bell, CreditCard } from 'lucide-react';
+import { useWhatsAppConfig } from '@/hooks/useWhatsAppConfig';
+import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,6 +33,23 @@ export default function Configuracoes() {
   const [activeTab, setActiveTab] = useState('empresa');
   const [showInviteUser, setShowInviteUser] = useState(false);
   const [showNewCategory, setShowNewCategory] = useState(false);
+  const { defaultPhone, saveWhatsAppConfig } = useWhatsAppConfig();
+  const [whatsappPhone, setWhatsappPhone] = useState('');
+
+  useEffect(() => {
+    if (defaultPhone) {
+      setWhatsappPhone(defaultPhone);
+    }
+  }, [defaultPhone]);
+
+  const handleSaveWhatsApp = async () => {
+    const success = await saveWhatsAppConfig(whatsappPhone);
+    if (success) {
+      toast.success('Configuração do WhatsApp salva com sucesso!');
+    } else {
+      toast.error('Erro ao salvar configuração do WhatsApp');
+    }
+  };
 
   const renderEmpresaTab = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -404,23 +423,30 @@ export default function Configuracoes() {
         <CardHeader>
           <CardTitle className="flex items-center">
             <MessageCircle className="mr-2 h-5 w-5" />
-            WhatsApp Business
+            Integração WhatsApp (Gratuita)
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="whatsappToken">Token da API</Label>
-            <Input id="whatsappToken" placeholder="Cole aqui o token do WhatsApp Business" />
+          <div className="bg-muted p-3 rounded-lg text-sm">
+            <p className="font-medium mb-1">Integração gratuita via WhatsApp Web</p>
+            <p className="text-muted-foreground">
+              Configure o número padrão do WhatsApp da empresa. 
+              Ao enviar mensagens pelo sistema, o WhatsApp Web será aberto automaticamente.
+            </p>
           </div>
           <div>
-            <Label htmlFor="whatsappPhone">Número do Telefone</Label>
-            <Input id="whatsappPhone" placeholder="5511999999999" />
+            <Label htmlFor="whatsappPhone">Número do Telefone *</Label>
+            <Input 
+              id="whatsappPhone" 
+              placeholder="5511999999999" 
+              value={whatsappPhone}
+              onChange={(e) => setWhatsappPhone(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Formato: Código do país + DDD + número (ex: 5511999999999)
+            </p>
           </div>
-          <div className="flex items-center space-x-2">
-            <Switch id="whatsappEnabled" />
-            <Label htmlFor="whatsappEnabled">Habilitar integração</Label>
-          </div>
-          <Button>Conectar WhatsApp</Button>
+          <Button onClick={handleSaveWhatsApp}>Salvar Configuração</Button>
         </CardContent>
       </Card>
     </div>

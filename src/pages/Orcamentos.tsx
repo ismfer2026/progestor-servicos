@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { PDFViewer } from "@/components/orcamento/PDFViewer";
+import { WhatsAppMessageDialog } from "@/components/shared/WhatsAppMessageDialog";
 
 interface Orcamento {
   id: string;
@@ -55,6 +56,7 @@ export function Orcamentos() {
   
   // Dialog de envio
   const [dialogEnvio, setDialogEnvio] = useState(false);
+  const [showWhatsApp, setShowWhatsApp] = useState(false);
   const [orcamentoSelecionado, setOrcamentoSelecionado] = useState<Orcamento | null>(null);
   const [mensagemEnvio, setMensagemEnvio] = useState("");
   
@@ -122,42 +124,39 @@ export function Orcamentos() {
     setDialogEnvio(true);
   };
 
-  const handleEnviarWhatsApp = async () => {
-    if (!orcamentoSelecionado?.clientes?.telefone) {
-      toast.error("Cliente não possui telefone cadastrado");
-      return;
-    }
+  const handleEnviarWhatsAppDialog = () => {
+    setDialogEnvio(false);
+    setShowWhatsApp(true);
+  };
 
-    const telefone = orcamentoSelecionado.clientes.telefone.replace(/\D/g, '');
-    const mensagemCompleta = `${mensagemEnvio}\n\nOrçamento #${orcamentoSelecionado.id.slice(0, 8)}\nValor Total: ${formatCurrency(orcamentoSelecionado.valor_total)}`;
-    const whatsappUrl = `https://wa.me/55${telefone}?text=${encodeURIComponent(mensagemCompleta)}`;
-    
-    // Log sending
+  const handleWhatsAppSent = async () => {
+    if (!orcamentoSelecionado) return;
+
     try {
+      // Registrar log de envio
       await supabase.from('logs_envio').insert({
         orcamento_id: orcamentoSelecionado.id,
-        empresa_id: user?.empresa_id,
-        enviado_por: user?.id,
-        destinatario: telefone,
+        empresa_id: user!.empresa_id,
+        enviado_por: user!.id,
+        destinatario: orcamentoSelecionado.clientes?.telefone || '',
         tipo_envio: 'whatsapp',
         status: 'enviado',
       });
-      
+
+      // Atualizar status do orçamento
       await supabase
         .from('orcamentos')
         .update({ 
-          data_envio: new Date().toISOString(),
-          status: 'Enviado'
+          status: 'Enviado',
+          data_envio: new Date().toISOString()
         })
         .eq('id', orcamentoSelecionado.id);
+
+      toast.success("Orçamento enviado via WhatsApp!");
+      fetchOrcamentos();
     } catch (error) {
-      console.error("Erro ao registrar envio:", error);
+      console.error('Erro ao registrar envio:', error);
     }
-    
-    window.open(whatsappUrl, '_blank');
-    setDialogEnvio(false);
-    toast.success("Redirecionando para WhatsApp...");
-    fetchOrcamentos();
   };
 
   const handleEnviarEmail = async () => {
@@ -433,7 +432,7 @@ export function Orcamentos() {
               Como deseja enviar para {orcamentoSelecionado?.clientes?.nome}?
             </p>
             <div className="flex flex-col gap-2">
-              <Button onClick={handleEnviarWhatsApp} className="gap-2">
+              <Button onClick={handleEnviarWhatsAppDialog} className="gap-2">
                 <Send className="h-4 w-4" />
                 Enviar via WhatsApp
               </Button>
@@ -443,7 +442,7 @@ export function Orcamentos() {
               </Button>
               <Button 
                 onClick={() => {
-                  handleEnviarWhatsApp();
+                  handleEnviarWhatsAppDialog();
                   handleEnviarEmail();
                 }} 
                 variant="outline"
@@ -467,6 +466,17 @@ export function Orcamentos() {
           }}
         />
       )}
+
+      {/* WhatsApp Message Dialog */}
+      <WhatsAppMessageDialog
+        open={showWhatsApp}
+        onOpenChange={setShowWhatsApp}
+        recipientPhone={orcamentoSelecionado?.clientes?.telefone}
+        defaultMessage={`${mensagemEnvio}\n\nOrçamento #${orcamentoSelecionado?.id.slice(0, 8)}\nValor Total: ${formatCurrency(orcamentoSelecionado?.valor_total || 0)}`}
+        context="orcamento"
+        contextId={orcamentoSelecionado?.id}
+        onSent={handleWhatsAppSent}
+      />
     </div>
   );
 }

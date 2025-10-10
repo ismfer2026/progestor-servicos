@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { WhatsAppMessageDialog } from '@/components/shared/WhatsAppMessageDialog';
 
 interface Cliente {
   id: string;
@@ -95,9 +96,12 @@ export default function Clientes() {
     return phone.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
   };
 
-  const openWhatsApp = (phone: string) => {
-    const cleanPhone = phone.replace(/\D/g, '');
-    window.open(`https://wa.me/55${cleanPhone}`, '_blank');
+  const [showWhatsApp, setShowWhatsApp] = useState(false);
+  const [selectedCliente, setSelectedCliente] = useState<any>(null);
+
+  const openWhatsApp = (cliente: any) => {
+    setSelectedCliente(cliente);
+    setShowWhatsApp(true);
   };
 
   const renderTableView = () => (
@@ -197,7 +201,7 @@ export default function Clientes() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => openWhatsApp(cliente.telefones![0])}
+                        onClick={() => openWhatsApp(cliente)}
                       >
                         <Phone className="h-4 w-4" />
                       </Button>
@@ -284,7 +288,7 @@ export default function Clientes() {
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => openWhatsApp(cliente.telefones![0])}
+                    onClick={() => openWhatsApp(cliente)}
                   >
                     <Phone className="h-4 w-4" />
                   </Button>
@@ -465,6 +469,14 @@ export default function Clientes() {
           )}
         </DialogContent>
       </Dialog>
+
+      <WhatsAppMessageDialog
+        open={showWhatsApp}
+        onOpenChange={setShowWhatsApp}
+        recipientPhone={selectedCliente?.telefones?.[0]}
+        defaultMessage={`Olá ${selectedCliente?.nome || ''}!`}
+        context="cliente"
+      />
     </div>
   );
 }
