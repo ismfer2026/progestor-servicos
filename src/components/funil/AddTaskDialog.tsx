@@ -6,11 +6,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarIcon } from "lucide-react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { CalendarIcon, Check, ChevronsUpDown } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -31,7 +32,33 @@ export function AddTaskDialog({ open, onOpenChange, cardId, clienteId, onTaskCre
   const [horarioInicio, setHorarioInicio] = useState('');
   const [horarioFim, setHorarioFim] = useState('');
   const [prioridade, setPrioridade] = useState('media');
+  const [selectedClienteId, setSelectedClienteId] = useState(clienteId || '');
+  const [clientes, setClientes] = useState<any[]>([]);
+  const [openCliente, setOpenCliente] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (open && user?.empresa_id) {
+      loadClientes();
+    }
+  }, [open, user?.empresa_id]);
+
+  const loadClientes = async () => {
+    if (!user?.empresa_id) return;
+
+    const { data, error } = await supabase
+      .from('clientes')
+      .select('*')
+      .eq('empresa_id', user.empresa_id)
+      .order('nome');
+
+    if (error) {
+      console.error('Erro ao carregar clientes:', error);
+      return;
+    }
+
+    setClientes(data || []);
+  };
 
   const handleSave = async () => {
     if (!titulo || !dataHora || !horarioInicio || !horarioFim) {
@@ -55,30 +82,62 @@ export function AddTaskDialog({ open, onOpenChange, cardId, clienteId, onTaskCre
       // Verificar se já existe uma tarefa no mesmo horário
       const dataInicio = new Date(dataHora);
       const [hoursInicio, minutesInicio] = horarioInicio.split(':');
-      dataInicio.setHours(parseInt(hoursInicio), parseInt(minutesInicio));
+      dataInicio.setHours(parseInt(hoursInicio), parseInt(minutesInicio), 0, 0);
 
       const dataFim = new Date(dataHora);
       const [hoursFim, minutesFim] = horarioFim.split(':');
-      dataFim.setHours(parseInt(hoursFim), parseInt(minutesFim));
+      dataFim.setHours(parseInt(hoursFim), parseInt(minutesFim), 0, 0);
 
-      // Verificar conflitos de horário
-      const { data: tarefasExistentes } = await supabase
+      // Verificar conflitos de horário - buscar todas as tarefas do mesmo dia
+      const startOfDay = new Date(dataHora);
+      startOfDay.setHours(0, 0, 0, 0);
+      
+      const endOfDay = new Date(dataHora);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      const { data: tarefasExistentes, error: fetchError } = await supabase
         .from('tarefas')
-        .select('*')
+        .select('data_hora, data_fim')
         .eq('empresa_id', user.empresa_id)
-        .gte('data_hora', dataInicio.toISOString())
-        .lte('data_fim', dataFim.toISOString());
+        .gte('data_hora', startOfDay.toISOString())
+        .lte('data_hora', endOfDay.toISOString());
 
-      if (tarefasExistentes && tarefasExistentes.length > 0) {
-        toast.error('Já existe uma tarefa agendada neste horário');
+      if (fetchError) {
+        console.error('Erro ao verificar conflitos:', fetchError);
+        toast.error('Erro ao verificar horários disponíveis');
+        setLoading(false);
         return;
+      }
+
+      // Verificar se há sobreposição de intervalos
+      if (tarefasExistentes && tarefasExistentes.length > 0) {
+        const novoInicio = dataInicio.getTime();
+        const novoFim = dataFim.getTime();
+
+        const temConflito = tarefasExistentes.some((tarefa) => {
+          const tarefaInicio = new Date(tarefa.data_hora).getTime();
+          const tarefaFim = new Date(tarefa.data_fim).getTime();
+
+          // Verifica se há sobreposição entre os intervalos
+          return (
+            (novoInicio >= tarefaInicio && novoInicio < tarefaFim) || // Início dentro do intervalo existente
+            (novoFim > tarefaInicio && novoFim <= tarefaFim) || // Fim dentro do intervalo existente
+            (novoInicio <= tarefaInicio && novoFim >= tarefaFim) // Nova tarefa engloba tarefa existente
+          );
+        });
+
+        if (temConflito) {
+          toast.error('Já existe uma tarefa agendada neste horário');
+          setLoading(false);
+          return;
+        }
       }
 
       const { error } = await supabase
         .from('tarefas')
         .insert([{
           empresa_id: user.empresa_id,
-          cliente_id: clienteId,
+          cliente_id: selectedClienteId || null,
           usuario_id: user.id,
           titulo,
           descricao,
@@ -87,7 +146,7 @@ export function AddTaskDialog({ open, onOpenChange, cardId, clienteId, onTaskCre
           prioridade,
           tipo: 'tarefa',
           status: 'pendente',
-          origem: 'funil'
+          origem: 'agenda'
         }]);
 
       if (error) throw error;
@@ -100,6 +159,7 @@ export function AddTaskDialog({ open, onOpenChange, cardId, clienteId, onTaskCre
       setHorarioInicio('');
       setHorarioFim('');
       setPrioridade('media');
+      setSelectedClienteId('');
       
       if (onTaskCreated) {
         onTaskCreated();
@@ -138,6 +198,50 @@ export function AddTaskDialog({ open, onOpenChange, cardId, clienteId, onTaskCre
               onChange={(e) => setDescricao(e.target.value)}
               placeholder="Descreva a tarefa"
             />
+          </div>
+          <div>
+            <Label>Cliente</Label>
+            <Popover open={openCliente} onOpenChange={setOpenCliente}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={openCliente}
+                  className="w-full justify-between"
+                >
+                  {selectedClienteId
+                    ? clientes.find((cliente) => cliente.id === selectedClienteId)?.nome
+                    : "Selecione um cliente"}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-full p-0">
+                <Command>
+                  <CommandInput placeholder="Buscar cliente..." />
+                  <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                  <CommandGroup>
+                    {clientes.map((cliente) => (
+                      <CommandItem
+                        key={cliente.id}
+                        value={cliente.nome}
+                        onSelect={() => {
+                          setSelectedClienteId(cliente.id);
+                          setOpenCliente(false);
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            selectedClienteId === cliente.id ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        {cliente.nome}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
           <div>
             <Label>Data *</Label>
