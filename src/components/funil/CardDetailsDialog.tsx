@@ -173,11 +173,22 @@ export function CardDetailsDialog({ open, onOpenChange, card }: CardDetailsDialo
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Telefone</p>
-                    <p className="font-medium">{cliente.telefone || '-'}</p>
+                    <p className="font-medium">{cliente.telefones?.[0] || cliente.telefone || '-'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Endereço</p>
-                    <p className="font-medium">{cliente.endereco || '-'}</p>
+                    <p className="font-medium">
+                      {cliente.endereco ? (
+                        <>
+                          {cliente.endereco.rua && `${cliente.endereco.rua}, `}
+                          {cliente.endereco.numero && `${cliente.endereco.numero} - `}
+                          {cliente.endereco.bairro && `${cliente.endereco.bairro}, `}
+                          {cliente.endereco.cidade && cliente.endereco.cidade}
+                          {cliente.endereco.estado && `/${cliente.endereco.estado}`}
+                          {cliente.endereco.cep && ` - CEP: ${cliente.endereco.cep}`}
+                        </>
+                      ) : '-'}
+                    </p>
                   </div>
                 </CardContent>
               </Card>
