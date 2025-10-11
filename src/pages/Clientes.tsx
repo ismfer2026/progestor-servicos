@@ -238,12 +238,42 @@ export default function Clientes() {
         // Create card in sales funnel
         const etapa = etapas.find(e => e.nome === formData.fase_crm);
         if (etapa) {
+          // Get service details if selected
+          let valorCard = null;
+          let servicosCard = [];
+          
+          if (formData.servico_id) {
+            const servico = servicos.find(s => s.id === formData.servico_id);
+            if (servico) {
+              // Load full service details including price
+              const { data: servicoData } = await supabase
+                .from('servicos')
+                .select('id, nome, preco_venda')
+                .eq('id', formData.servico_id)
+                .single();
+              
+              if (servicoData) {
+                valorCard = servicoData.preco_venda || 0;
+                servicosCard = [{
+                  servico_id: servicoData.id,
+                  nome: servicoData.nome,
+                  quantidade: 1,
+                  valor_unitario: servicoData.preco_venda || 0,
+                  valor_total: servicoData.preco_venda || 0
+                }];
+              }
+            }
+          }
+          
           const { error: cardError } = await supabase.from('funil_cards').insert([{
             empresa_id: user.empresa_id,
             cliente_id: clienteId,
             etapa_id: etapa.id,
             titulo: formData.nome,
+            valor: valorCard,
+            servicos: servicosCard,
             observacoes: formData.observacoes,
+            responsavel_id: user.id,
             ordem: 0
           }]);
           
