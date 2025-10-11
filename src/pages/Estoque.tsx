@@ -106,8 +106,18 @@ export default function Estoque() {
       const expiring = getExpiringItems();
       const expired = getExpiredItems();
 
+      // Verificar notificações existentes não lidas
+      const { data: existingNotifications } = await supabase
+        .from('notificacoes')
+        .select('tipo')
+        .eq('empresa_id', user.empresa_id)
+        .eq('lida', false)
+        .in('tipo', ['alerta_estoque_baixo', 'alerta_vencimento_proximo', 'alerta_estoque_vencido']);
+
+      const existingTypes = new Set(existingNotifications?.map(n => n.tipo) || []);
+
       // Notificação para baixo estoque
-      if (lowStock.length > 0) {
+      if (lowStock.length > 0 && !existingTypes.has('alerta_estoque_baixo')) {
         await supabase.from('notificacoes').insert({
           empresa_id: user.empresa_id,
           usuario_id: user.id,
@@ -119,7 +129,7 @@ export default function Estoque() {
       }
 
       // Notificação para itens próximos do vencimento
-      if (expiring.length > 0) {
+      if (expiring.length > 0 && !existingTypes.has('alerta_vencimento_proximo')) {
         await supabase.from('notificacoes').insert({
           empresa_id: user.empresa_id,
           usuario_id: user.id,
@@ -131,7 +141,7 @@ export default function Estoque() {
       }
 
       // Notificação para itens vencidos
-      if (expired.length > 0) {
+      if (expired.length > 0 && !existingTypes.has('alerta_estoque_vencido')) {
         await supabase.from('notificacoes').insert({
           empresa_id: user.empresa_id,
           usuario_id: user.id,
