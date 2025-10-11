@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Bell, Sun, Moon, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,10 +13,98 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
+
+interface Notificacao {
+  id: string;
+  titulo: string;
+  mensagem: string;
+  tipo: string;
+  link?: string;
+  lida: boolean;
+  created_at: string;
+}
 
 export function Header() {
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const [notificacoes, setNotificacoes] = useState<Notificacao[]>([]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    fetchNotificacoes();
+
+    // Inscrever para atualizações em tempo real
+    const channel = supabase
+      .channel('notificacoes-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notificacoes',
+          filter: `usuario_id=eq.${user.id}`,
+        },
+        () => {
+          fetchNotificacoes();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
+  const fetchNotificacoes = async () => {
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('notificacoes')
+      .select('*')
+      .eq('usuario_id', user.id)
+      .eq('lida', false)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (!error && data) {
+      setNotificacoes(data);
+    }
+  };
+
+  const handleNotificationClick = async (notificacao: Notificacao) => {
+    // Marcar como lida
+    await supabase
+      .from('notificacoes')
+      .update({ lida: true, data_leitura: new Date().toISOString() })
+      .eq('id', notificacao.id);
+
+    // Navegar para o link se existir
+    if (notificacao.link) {
+      navigate(notificacao.link);
+    }
+
+    fetchNotificacoes();
+  };
+
+  const formatRelativeTime = (date: string) => {
+    const now = new Date();
+    const notifDate = new Date(date);
+    const diffMs = now.getTime() - notifDate.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    
+    if (diffMins < 1) return 'agora';
+    if (diffMins < 60) return `há ${diffMins} min`;
+    
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `há ${diffHours}h`;
+    
+    const diffDays = Math.floor(diffHours / 24);
+    return `há ${diffDays}d`;
+  };
 
   return (
     <header className="h-16 border-b border-border bg-background/80 backdrop-blur-sm px-6 flex items-center justify-between">
@@ -38,28 +126,39 @@ export function Header() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="sm" className="relative">
               <Bell className="w-5 h-5" />
-              <Badge className="absolute -top-1 -right-1 w-5 h-5 p-0 text-xs bg-primary">
-                3
-              </Badge>
+              {notificacoes.length > 0 && (
+                <Badge className="absolute -top-1 -right-1 w-5 h-5 p-0 text-xs bg-primary">
+                  {notificacoes.length}
+                </Badge>
+              )}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80">
             <div className="p-3">
               <h4 className="font-medium text-sm mb-2">Notificações</h4>
-              <div className="space-y-2">
-                <div className="p-2 bg-muted/50 rounded text-sm">
-                  <p className="font-medium">Novo orçamento pendente</p>
-                  <p className="text-xs text-muted-foreground">João Silva - há 5 min</p>
+              {notificacoes.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  Nenhuma notificação
+                </p>
+              ) : (
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {notificacoes.map((notif) => (
+                    <div
+                      key={notif.id}
+                      onClick={() => handleNotificationClick(notif)}
+                      className={`p-2 rounded text-sm cursor-pointer hover:bg-muted/70 transition-colors ${
+                        notif.tipo === 'alerta_estoque_critico' ? 'bg-destructive/10' : 'bg-muted/50'
+                      }`}
+                    >
+                      <p className="font-medium">{notif.titulo}</p>
+                      <p className="text-xs text-muted-foreground">{notif.mensagem}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {formatRelativeTime(notif.created_at)}
+                      </p>
+                    </div>
+                  ))}
                 </div>
-                <div className="p-2 bg-muted/50 rounded text-sm">
-                  <p className="font-medium">Contrato vencendo</p>
-                  <p className="text-xs text-muted-foreground">Maria Santos - amanhã</p>
-                </div>
-                <div className="p-2 bg-muted/50 rounded text-sm">
-                  <p className="font-medium">Pagamento recebido</p>
-                  <p className="text-xs text-muted-foreground">R$ 2.500,00 - há 1h</p>
-                </div>
-              </div>
+              )}
             </div>
           </DropdownMenuContent>
         </DropdownMenu>
