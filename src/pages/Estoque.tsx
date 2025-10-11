@@ -15,6 +15,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import jsPDF from 'jspdf';
 
 interface EstoqueItem {
   id: string;
@@ -268,78 +269,136 @@ export default function Estoque() {
 
   const downloadLowStockList = () => {
     const items = getLowStockItems();
-    const csv = [
-      ['Nome', 'SKU', 'Categoria', 'Saldo Atual', 'Saldo Mínimo', 'Unidade'].join(','),
-      ...items.map(item => [
-        item.nome,
-        item.sku || '',
-        item.categoria || '',
-        item.saldo,
-        item.saldo_minimo,
-        item.unidade
-      ].join(','))
-    ].join('\n');
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `estoque_baixo_${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-    toast.success('Lista baixada com sucesso!');
+    const doc = new jsPDF();
+    
+    doc.setFontSize(16);
+    doc.text('Itens com Estoque Baixo', 14, 15);
+    
+    doc.setFontSize(10);
+    doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 14, 22);
+    doc.text(`Total de itens: ${items.length}`, 14, 27);
+    
+    let y = 35;
+    doc.setFontSize(9);
+    doc.text('Nome', 14, y);
+    doc.text('SKU', 70, y);
+    doc.text('Categoria', 100, y);
+    doc.text('Atual', 135, y);
+    doc.text('Mín', 155, y);
+    doc.text('Un', 175, y);
+    
+    y += 5;
+    doc.line(14, y, 195, y);
+    y += 5;
+    
+    items.forEach(item => {
+      if (y > 280) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.text(item.nome.substring(0, 30), 14, y);
+      doc.text(item.sku || '-', 70, y);
+      doc.text((item.categoria || '-').substring(0, 15), 100, y);
+      doc.text(item.saldo.toString(), 135, y);
+      doc.text(item.saldo_minimo.toString(), 155, y);
+      doc.text(item.unidade, 175, y);
+      y += 6;
+    });
+    
+    doc.save(`estoque_baixo_${new Date().toISOString().split('T')[0]}.pdf`);
+    toast.success('PDF baixado com sucesso!');
   };
 
   const downloadExpiringList = () => {
     const items = getExpiringItems();
-    const csv = [
-      ['Nome', 'SKU', 'Categoria', 'Saldo', 'Validade', 'Dias para Vencer'].join(','),
-      ...items.map(item => {
-        const today = new Date();
-        const validadeDate = new Date(item.validade!);
-        const diasRestantes = Math.ceil((validadeDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-        return [
-          item.nome,
-          item.sku || '',
-          item.categoria || '',
-          item.saldo,
-          new Date(item.validade!).toLocaleDateString('pt-BR'),
-          diasRestantes
-        ].join(',');
-      })
-    ].join('\n');
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `itens_vencendo_${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-    toast.success('Lista baixada com sucesso!');
+    const doc = new jsPDF();
+    
+    doc.setFontSize(16);
+    doc.text('Itens Próximos do Vencimento', 14, 15);
+    
+    doc.setFontSize(10);
+    doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 14, 22);
+    doc.text(`Total de itens: ${items.length}`, 14, 27);
+    
+    let y = 35;
+    doc.setFontSize(9);
+    doc.text('Nome', 14, y);
+    doc.text('SKU', 70, y);
+    doc.text('Categoria', 100, y);
+    doc.text('Saldo', 130, y);
+    doc.text('Validade', 150, y);
+    doc.text('Dias', 180, y);
+    
+    y += 5;
+    doc.line(14, y, 195, y);
+    y += 5;
+    
+    items.forEach(item => {
+      if (y > 280) {
+        doc.addPage();
+        y = 20;
+      }
+      const today = new Date();
+      const validadeDate = new Date(item.validade!);
+      const diasRestantes = Math.ceil((validadeDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      
+      doc.text(item.nome.substring(0, 25), 14, y);
+      doc.text(item.sku || '-', 70, y);
+      doc.text((item.categoria || '-').substring(0, 12), 100, y);
+      doc.text(item.saldo.toString(), 130, y);
+      doc.text(new Date(item.validade!).toLocaleDateString('pt-BR'), 150, y);
+      doc.text(diasRestantes.toString(), 180, y);
+      y += 6;
+    });
+    
+    doc.save(`itens_vencendo_${new Date().toISOString().split('T')[0]}.pdf`);
+    toast.success('PDF baixado com sucesso!');
   };
 
   const downloadExpiredList = () => {
     const items = getExpiredItems();
-    const csv = [
-      ['Nome', 'SKU', 'Categoria', 'Saldo', 'Validade', 'Dias Vencido'].join(','),
-      ...items.map(item => {
-        const today = new Date();
-        const validadeDate = new Date(item.validade!);
-        const diasVencido = Math.ceil((today.getTime() - validadeDate.getTime()) / (1000 * 60 * 60 * 24));
-        return [
-          item.nome,
-          item.sku || '',
-          item.categoria || '',
-          item.saldo,
-          new Date(item.validade!).toLocaleDateString('pt-BR'),
-          diasVencido
-        ].join(',');
-      })
-    ].join('\n');
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `itens_vencidos_${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-    toast.success('Lista baixada com sucesso!');
+    const doc = new jsPDF();
+    
+    doc.setFontSize(16);
+    doc.text('Itens Vencidos', 14, 15);
+    
+    doc.setFontSize(10);
+    doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 14, 22);
+    doc.text(`Total de itens: ${items.length}`, 14, 27);
+    
+    let y = 35;
+    doc.setFontSize(9);
+    doc.text('Nome', 14, y);
+    doc.text('SKU', 70, y);
+    doc.text('Categoria', 100, y);
+    doc.text('Saldo', 130, y);
+    doc.text('Validade', 150, y);
+    doc.text('Dias', 180, y);
+    
+    y += 5;
+    doc.line(14, y, 195, y);
+    y += 5;
+    
+    items.forEach(item => {
+      if (y > 280) {
+        doc.addPage();
+        y = 20;
+      }
+      const today = new Date();
+      const validadeDate = new Date(item.validade!);
+      const diasVencido = Math.ceil((today.getTime() - validadeDate.getTime()) / (1000 * 60 * 60 * 24));
+      
+      doc.text(item.nome.substring(0, 25), 14, y);
+      doc.text(item.sku || '-', 70, y);
+      doc.text((item.categoria || '-').substring(0, 12), 100, y);
+      doc.text(item.saldo.toString(), 130, y);
+      doc.text(new Date(item.validade!).toLocaleDateString('pt-BR'), 150, y);
+      doc.text(diasVencido.toString(), 180, y);
+      y += 6;
+    });
+    
+    doc.save(`itens_vencidos_${new Date().toISOString().split('T')[0]}.pdf`);
+    toast.success('PDF baixado com sucesso!');
   };
 
   const handleSaveItem = async () => {
