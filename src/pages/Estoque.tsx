@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Package, Search, Plus, AlertTriangle, Wrench, Calendar, Eye, Edit2, Lock } from 'lucide-react';
+import { Package, Search, Plus, AlertTriangle, Wrench, Calendar, Eye, Edit2, Lock, Download, MoreVertical } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -66,12 +67,16 @@ export default function Estoque() {
   const [editItem, setEditItem] = useState<EstoqueItem | null>(null);
   const [reserveItem, setReserveItem] = useState<EstoqueItem | null>(null);
   const [maintenanceItem, setMaintenanceItem] = useState<EstoqueItem | null>(null);
+  const [showLowStockDialog, setShowLowStockDialog] = useState(false);
+  const [showExpiringDialog, setShowExpiringDialog] = useState(false);
+  const [showExpiredDialog, setShowExpiredDialog] = useState(false);
   const [reservaData, setReservaData] = useState({ quantidade: 0, observacoes: '' });
   const [manutencaoData, setManutencaoData] = useState({ 
     defeito: '', 
     previsao_retorno: '', 
     custo_manutencao: 0, 
-    observacoes: '' 
+    observacoes: '',
+    quantidade: 1
   });
   const [newItem, setNewItem] = useState({
     nome: '',
@@ -91,6 +96,55 @@ export default function Estoque() {
   useEffect(() => {
     loadEstoqueData();
   }, [user]);
+
+  // Criar notificações para alertas de estoque
+  useEffect(() => {
+    if (!user || itens.length === 0) return;
+
+    const createNotifications = async () => {
+      const lowStock = getLowStockItems();
+      const expiring = getExpiringItems();
+      const expired = getExpiredItems();
+
+      // Notificação para baixo estoque
+      if (lowStock.length > 0) {
+        await supabase.from('notificacoes').insert({
+          empresa_id: user.empresa_id,
+          usuario_id: user.id,
+          tipo: 'alerta_estoque_baixo',
+          titulo: 'Itens com estoque baixo',
+          mensagem: `${lowStock.length} ${lowStock.length === 1 ? 'item precisa' : 'itens precisam'} de reposição`,
+          link: '/estoque'
+        });
+      }
+
+      // Notificação para itens próximos do vencimento
+      if (expiring.length > 0) {
+        await supabase.from('notificacoes').insert({
+          empresa_id: user.empresa_id,
+          usuario_id: user.id,
+          tipo: 'alerta_vencimento_proximo',
+          titulo: 'Itens próximos do vencimento',
+          mensagem: `${expiring.length} ${expiring.length === 1 ? 'item está' : 'itens estão'} próximos do vencimento`,
+          link: '/estoque'
+        });
+      }
+
+      // Notificação para itens vencidos
+      if (expired.length > 0) {
+        await supabase.from('notificacoes').insert({
+          empresa_id: user.empresa_id,
+          usuario_id: user.id,
+          tipo: 'alerta_estoque_vencido',
+          titulo: 'Itens vencidos',
+          mensagem: `${expired.length} ${expired.length === 1 ? 'item vencido' : 'itens vencidos'} no estoque!`,
+          link: '/estoque'
+        });
+      }
+    };
+
+    createNotifications();
+  }, [itens, user]);
 
   const loadEstoqueData = async () => {
     if (!user) return;
@@ -180,22 +234,102 @@ export default function Estoque() {
 
   const getExpiringItems = () => {
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
     return itens.filter(item => {
       if (!item.validade) return false;
       const validadeDate = new Date(item.validade);
+      validadeDate.setHours(0, 0, 0, 0);
       const diasRestantes = Math.ceil((validadeDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
       const diasAviso = item.dias_aviso_vencimento || 7;
-      return diasRestantes <= diasAviso && diasRestantes >= 0;
+      return diasRestantes <= diasAviso && diasRestantes > 0;
     });
   };
 
   const getExpiredItems = () => {
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
     return itens.filter(item => {
       if (!item.validade) return false;
       const validadeDate = new Date(item.validade);
-      return validadeDate < today;
+      validadeDate.setHours(0, 0, 0, 0);
+      return validadeDate <= today;
     });
+  };
+
+  const downloadLowStockList = () => {
+    const items = getLowStockItems();
+    const csv = [
+      ['Nome', 'SKU', 'Categoria', 'Saldo Atual', 'Saldo Mínimo', 'Unidade'].join(','),
+      ...items.map(item => [
+        item.nome,
+        item.sku || '',
+        item.categoria || '',
+        item.saldo,
+        item.saldo_minimo,
+        item.unidade
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `estoque_baixo_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    toast.success('Lista baixada com sucesso!');
+  };
+
+  const downloadExpiringList = () => {
+    const items = getExpiringItems();
+    const csv = [
+      ['Nome', 'SKU', 'Categoria', 'Saldo', 'Validade', 'Dias para Vencer'].join(','),
+      ...items.map(item => {
+        const today = new Date();
+        const validadeDate = new Date(item.validade!);
+        const diasRestantes = Math.ceil((validadeDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        return [
+          item.nome,
+          item.sku || '',
+          item.categoria || '',
+          item.saldo,
+          new Date(item.validade!).toLocaleDateString('pt-BR'),
+          diasRestantes
+        ].join(',');
+      })
+    ].join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `itens_vencendo_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    toast.success('Lista baixada com sucesso!');
+  };
+
+  const downloadExpiredList = () => {
+    const items = getExpiredItems();
+    const csv = [
+      ['Nome', 'SKU', 'Categoria', 'Saldo', 'Validade', 'Dias Vencido'].join(','),
+      ...items.map(item => {
+        const today = new Date();
+        const validadeDate = new Date(item.validade!);
+        const diasVencido = Math.ceil((today.getTime() - validadeDate.getTime()) / (1000 * 60 * 60 * 24));
+        return [
+          item.nome,
+          item.sku || '',
+          item.categoria || '',
+          item.saldo,
+          new Date(item.validade!).toLocaleDateString('pt-BR'),
+          diasVencido
+        ].join(',');
+      })
+    ].join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `itens_vencidos_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    toast.success('Lista baixada com sucesso!');
   };
 
   const handleSaveItem = async () => {
@@ -281,8 +415,14 @@ export default function Estoque() {
   const handleReserveItem = async () => {
     if (!user || !reserveItem) return;
 
+    if (reservaData.quantidade <= 0 || reservaData.quantidade > reserveItem.saldo) {
+      toast.error('Quantidade inválida!');
+      return;
+    }
+
     try {
-      const { error } = await supabase.from('estoque_reservas').insert([{
+      // Criar reserva
+      const { error: reservaError } = await supabase.from('estoque_reservas').insert([{
         empresa_id: user.empresa_id,
         item_id: reserveItem.id,
         quantidade: reservaData.quantidade,
@@ -291,9 +431,17 @@ export default function Estoque() {
         status: 'reservado'
       }]);
 
-      if (error) throw error;
+      if (reservaError) throw reservaError;
 
-      toast.success('Item reservado!');
+      // Atualizar saldo do item
+      const { error: updateError } = await supabase
+        .from('estoque_itens')
+        .update({ saldo: reserveItem.saldo - reservaData.quantidade })
+        .eq('id', reserveItem.id);
+
+      if (updateError) throw updateError;
+
+      toast.success('Item reservado e estoque atualizado!');
       setReserveItem(null);
       setReservaData({ quantidade: 0, observacoes: '' });
       loadEstoqueData();
@@ -306,8 +454,19 @@ export default function Estoque() {
   const handleMaintenanceItem = async () => {
     if (!user || !maintenanceItem) return;
 
+    if (!manutencaoData.defeito) {
+      toast.error('Descreva o defeito!');
+      return;
+    }
+
+    if (manutencaoData.quantidade <= 0 || manutencaoData.quantidade > maintenanceItem.saldo) {
+      toast.error('Quantidade inválida!');
+      return;
+    }
+
     try {
-      const { error } = await supabase.from('estoque_manutencao').insert([{
+      // Criar registro de manutenção
+      const { error: manutencaoError } = await supabase.from('estoque_manutencao').insert([{
         empresa_id: user.empresa_id,
         item_id: maintenanceItem.id,
         defeito: manutencaoData.defeito,
@@ -318,11 +477,19 @@ export default function Estoque() {
         status: 'em_manutencao'
       }]);
 
-      if (error) throw error;
+      if (manutencaoError) throw manutencaoError;
 
-      toast.success('Item enviado para manutenção!');
+      // Atualizar saldo do item
+      const { error: updateError } = await supabase
+        .from('estoque_itens')
+        .update({ saldo: maintenanceItem.saldo - manutencaoData.quantidade })
+        .eq('id', maintenanceItem.id);
+
+      if (updateError) throw updateError;
+
+      toast.success('Item enviado para manutenção e estoque atualizado!');
       setMaintenanceItem(null);
-      setManutencaoData({ defeito: '', previsao_retorno: '', custo_manutencao: 0, observacoes: '' });
+      setManutencaoData({ defeito: '', previsao_retorno: '', custo_manutencao: 0, observacoes: '', quantidade: 1 });
       loadEstoqueData();
     } catch (error) {
       console.error('Error sending to maintenance:', error);
@@ -331,6 +498,16 @@ export default function Estoque() {
   };
 
   const categories = [...new Set(itens.map(item => item.categoria).filter(Boolean))];
+
+  // Agrupar itens por categoria
+  const itensPorCategoria = filteredItens.reduce((acc, item) => {
+    const categoria = item.categoria || 'Sem Categoria';
+    if (!acc[categoria]) {
+      acc[categoria] = [];
+    }
+    acc[categoria].push(item);
+    return acc;
+  }, {} as Record<string, EstoqueItem[]>);
 
   const renderItensTab = () => (
     <div className="space-y-4">
@@ -370,106 +547,117 @@ export default function Estoque() {
       </div>
 
       {getLowStockItems().length > 0 && (
-        <Alert>
+        <Alert className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setShowLowStockDialog(true)}>
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            {getLowStockItems().length} itens com estoque baixo precisam de atenção.
+            {getLowStockItems().length} itens com estoque baixo precisam de atenção. Clique para ver detalhes.
           </AlertDescription>
         </Alert>
       )}
 
       {getExpiringItems().length > 0 && (
-        <Alert className="border-yellow-500">
+        <Alert className="border-yellow-500 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setShowExpiringDialog(true)}>
           <Calendar className="h-4 w-4 text-yellow-600" />
           <AlertDescription className="text-yellow-600">
-            {getExpiringItems().length} itens próximos do vencimento.
+            {getExpiringItems().length} itens próximos do vencimento. Clique para ver detalhes.
           </AlertDescription>
         </Alert>
       )}
 
       {getExpiredItems().length > 0 && (
-        <Alert variant="destructive">
+        <Alert variant="destructive" className="cursor-pointer hover:bg-destructive/90 transition-colors" onClick={() => setShowExpiredDialog(true)}>
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            {getExpiredItems().length} itens vencidos no estoque!
+            {getExpiredItems().length} itens vencidos no estoque! Clique para ver detalhes.
           </AlertDescription>
         </Alert>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Itens do Estoque</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Item</TableHead>
-                <TableHead>SKU</TableHead>
-                <TableHead>Categoria</TableHead>
-                <TableHead>Saldo</TableHead>
-                <TableHead>Custo</TableHead>
-                <TableHead>Venda</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredItens.map(item => (
-                <TableRow key={item.id}>
-                  <TableCell>
-                    <div>
-                      <p className="font-medium">{item.nome}</p>
-                      {item.localizacao && (
-                        <p className="text-sm text-muted-foreground">{item.localizacao}</p>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>{item.sku || '-'}</TableCell>
-                  <TableCell>{item.categoria || '-'}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center space-x-1">
-                      <span className={item.saldo <= item.saldo_minimo ? 'text-yellow-600 font-semibold' : ''}>
-                        {item.saldo}
-                      </span>
-                      <span className="text-muted-foreground">{item.unidade}</span>
-                    </div>
-                    {item.saldo <= item.saldo_minimo && (
-                      <p className="text-xs text-yellow-600">Mín: {item.saldo_minimo}</p>
-                    )}
-                  </TableCell>
-                  <TableCell>{formatCurrency(item.custo)}</TableCell>
-                  <TableCell>{formatCurrency(item.venda)}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="secondary"
-                      className={`${getStatusColor(item.status)} text-white`}
-                    >
-                      {getStatusLabel(item.status)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex space-x-1">
-                      <Button size="sm" variant="ghost" onClick={() => setViewItem(item)}>
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setEditItem(item)}>
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setReserveItem(item)}>
-                        <Lock className="h-4 w-4" />
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setMaintenanceItem(item)}>
-                        <Wrench className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
+      {Object.entries(itensPorCategoria).map(([categoria, items]) => (
+        <Card key={categoria}>
+          <CardHeader>
+            <CardTitle>{categoria}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Item</TableHead>
+                  <TableHead>SKU</TableHead>
+                  <TableHead>Saldo</TableHead>
+                  <TableHead>Custo</TableHead>
+                  <TableHead>Venda</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Ações</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+              </TableHeader>
+              <TableBody>
+                {items.map(item => (
+                  <TableRow key={item.id}>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium">{item.nome}</p>
+                        {item.localizacao && (
+                          <p className="text-sm text-muted-foreground">{item.localizacao}</p>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>{item.sku || '-'}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center space-x-1">
+                        <span className={item.saldo <= item.saldo_minimo ? 'text-yellow-600 font-semibold' : ''}>
+                          {item.saldo}
+                        </span>
+                        <span className="text-muted-foreground">{item.unidade}</span>
+                      </div>
+                      {item.saldo <= item.saldo_minimo && (
+                        <p className="text-xs text-yellow-600">Mín: {item.saldo_minimo}</p>
+                      )}
+                    </TableCell>
+                    <TableCell>{formatCurrency(item.custo)}</TableCell>
+                    <TableCell>{formatCurrency(item.venda)}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="secondary"
+                        className={`${getStatusColor(item.status)} text-white`}
+                      >
+                        {getStatusLabel(item.status)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setViewItem(item)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            Visualizar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setEditItem(item)}>
+                            <Edit2 className="mr-2 h-4 w-4" />
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setReserveItem(item)}>
+                            <Lock className="mr-2 h-4 w-4" />
+                            Reservar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setMaintenanceItem(item)}>
+                            <Wrench className="mr-2 h-4 w-4" />
+                            Enviar para Manutenção
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 
@@ -951,6 +1139,17 @@ export default function Estoque() {
               <div>
                 <Label>Item</Label>
                 <p className="font-medium">{maintenanceItem.nome}</p>
+                <p className="text-sm text-muted-foreground">Saldo disponível: {maintenanceItem.saldo} {maintenanceItem.unidade}</p>
+              </div>
+              <div>
+                <Label>Quantidade *</Label>
+                <Input 
+                  type="number" 
+                  min="1"
+                  max={maintenanceItem.saldo}
+                  value={manutencaoData.quantidade} 
+                  onChange={(e) => setManutencaoData({...manutencaoData, quantidade: parseInt(e.target.value) || 1})} 
+                />
               </div>
               <div>
                 <Label>Defeito *</Label>
@@ -990,6 +1189,156 @@ export default function Estoque() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Low Stock Alert Dialog */}
+      <Dialog open={showLowStockDialog} onOpenChange={setShowLowStockDialog}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Itens com Estoque Baixo</DialogTitle>
+            <DialogDescription>
+              Lista de itens que precisam de reposição
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex justify-end">
+              <Button onClick={downloadLowStockList} size="sm">
+                <Download className="mr-2 h-4 w-4" />
+                Baixar Lista
+              </Button>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Item</TableHead>
+                  <TableHead>SKU</TableHead>
+                  <TableHead>Categoria</TableHead>
+                  <TableHead>Saldo Atual</TableHead>
+                  <TableHead>Saldo Mínimo</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {getLowStockItems().map(item => (
+                  <TableRow key={item.id}>
+                    <TableCell className="font-medium">{item.nome}</TableCell>
+                    <TableCell>{item.sku || '-'}</TableCell>
+                    <TableCell>{item.categoria || '-'}</TableCell>
+                    <TableCell className="text-yellow-600 font-semibold">
+                      {item.saldo} {item.unidade}
+                    </TableCell>
+                    <TableCell>{item.saldo_minimo} {item.unidade}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Expiring Items Alert Dialog */}
+      <Dialog open={showExpiringDialog} onOpenChange={setShowExpiringDialog}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Itens Próximos do Vencimento</DialogTitle>
+            <DialogDescription>
+              Lista de itens que estão próximos da data de validade
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex justify-end">
+              <Button onClick={downloadExpiringList} size="sm">
+                <Download className="mr-2 h-4 w-4" />
+                Baixar Lista
+              </Button>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Item</TableHead>
+                  <TableHead>SKU</TableHead>
+                  <TableHead>Categoria</TableHead>
+                  <TableHead>Saldo</TableHead>
+                  <TableHead>Validade</TableHead>
+                  <TableHead>Dias Restantes</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {getExpiringItems().map(item => {
+                  const today = new Date();
+                  const validadeDate = new Date(item.validade!);
+                  const diasRestantes = Math.ceil((validadeDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                  return (
+                    <TableRow key={item.id}>
+                      <TableCell className="font-medium">{item.nome}</TableCell>
+                      <TableCell>{item.sku || '-'}</TableCell>
+                      <TableCell>{item.categoria || '-'}</TableCell>
+                      <TableCell>{item.saldo} {item.unidade}</TableCell>
+                      <TableCell className="text-yellow-600">
+                        {new Date(item.validade!).toLocaleDateString('pt-BR')}
+                      </TableCell>
+                      <TableCell className="text-yellow-600 font-semibold">
+                        {diasRestantes} {diasRestantes === 1 ? 'dia' : 'dias'}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Expired Items Alert Dialog */}
+      <Dialog open={showExpiredDialog} onOpenChange={setShowExpiredDialog}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Itens Vencidos</DialogTitle>
+            <DialogDescription>
+              Lista de itens que já passaram da data de validade
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex justify-end">
+              <Button onClick={downloadExpiredList} size="sm" variant="destructive">
+                <Download className="mr-2 h-4 w-4" />
+                Baixar Lista
+              </Button>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Item</TableHead>
+                  <TableHead>SKU</TableHead>
+                  <TableHead>Categoria</TableHead>
+                  <TableHead>Saldo</TableHead>
+                  <TableHead>Validade</TableHead>
+                  <TableHead>Dias Vencido</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {getExpiredItems().map(item => {
+                  const today = new Date();
+                  const validadeDate = new Date(item.validade!);
+                  const diasVencido = Math.ceil((today.getTime() - validadeDate.getTime()) / (1000 * 60 * 60 * 24));
+                  return (
+                    <TableRow key={item.id}>
+                      <TableCell className="font-medium">{item.nome}</TableCell>
+                      <TableCell>{item.sku || '-'}</TableCell>
+                      <TableCell>{item.categoria || '-'}</TableCell>
+                      <TableCell>{item.saldo} {item.unidade}</TableCell>
+                      <TableCell className="text-destructive">
+                        {new Date(item.validade!).toLocaleDateString('pt-BR')}
+                      </TableCell>
+                      <TableCell className="text-destructive font-semibold">
+                        {diasVencido} {diasVencido === 1 ? 'dia' : 'dias'}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
