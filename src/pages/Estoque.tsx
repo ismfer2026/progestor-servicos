@@ -16,6 +16,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
+import LiberarReservaDialog from '@/components/estoque/LiberarReservaDialog';
+import LiberarManutencaoDialog from '@/components/estoque/LiberarManutencaoDialog';
 
 interface EstoqueItem {
   id: string;
@@ -71,6 +73,8 @@ export default function Estoque() {
   const [showLowStockDialog, setShowLowStockDialog] = useState(false);
   const [showExpiringDialog, setShowExpiringDialog] = useState(false);
   const [showExpiredDialog, setShowExpiredDialog] = useState(false);
+  const [liberarReservaDialog, setLiberarReservaDialog] = useState<{open: boolean, reserva: any}>({open: false, reserva: null});
+  const [liberarManutencaoDialog, setLiberarManutencaoDialog] = useState<{open: boolean, manutencao: any}>({open: false, manutencao: null});
   const [reservaData, setReservaData] = useState({ quantidade: 0, observacoes: '' });
   const [manutencaoData, setManutencaoData] = useState({ 
     defeito: '', 
@@ -768,7 +772,11 @@ export default function Estoque() {
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <Button size="sm" variant="ghost">
+                  <Button 
+                    size="sm" 
+                    variant="ghost"
+                    onClick={() => setLiberarReservaDialog({open: true, reserva})}
+                  >
                     Liberar
                   </Button>
                 </TableCell>
@@ -819,7 +827,11 @@ export default function Estoque() {
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <Button size="sm" variant="ghost">
+                  <Button 
+                    size="sm" 
+                    variant="ghost"
+                    onClick={() => setLiberarManutencaoDialog({open: true, manutencao})}
+                  >
                     <Wrench className="h-4 w-4" />
                   </Button>
                 </TableCell>
@@ -1410,6 +1422,20 @@ export default function Estoque() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <LiberarReservaDialog
+        open={liberarReservaDialog.open}
+        onOpenChange={(open) => setLiberarReservaDialog({open, reserva: null})}
+        reserva={liberarReservaDialog.reserva}
+        onSuccess={loadEstoqueData}
+      />
+
+      <LiberarManutencaoDialog
+        open={liberarManutencaoDialog.open}
+        onOpenChange={(open) => setLiberarManutencaoDialog({open, manutencao: null})}
+        manutencao={liberarManutencaoDialog.manutencao}
+        onSuccess={loadEstoqueData}
+      />
     </div>
   );
 }

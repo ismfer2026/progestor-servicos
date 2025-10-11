@@ -258,6 +258,60 @@ export type Database = {
         }
         Relationships: []
       }
+      estoque_historico: {
+        Row: {
+          contrato_id: string | null
+          created_at: string | null
+          data_hora: string | null
+          detalhes: Json | null
+          empresa_id: string
+          id: string
+          item_id: string
+          manutencao_id: string | null
+          motivo: string | null
+          quantidade: number
+          reserva_id: string | null
+          tipo_movimentacao: string
+          usuario_id: string
+          valor_custo: number | null
+          venda_id: string | null
+        }
+        Insert: {
+          contrato_id?: string | null
+          created_at?: string | null
+          data_hora?: string | null
+          detalhes?: Json | null
+          empresa_id: string
+          id?: string
+          item_id: string
+          manutencao_id?: string | null
+          motivo?: string | null
+          quantidade: number
+          reserva_id?: string | null
+          tipo_movimentacao: string
+          usuario_id: string
+          valor_custo?: number | null
+          venda_id?: string | null
+        }
+        Update: {
+          contrato_id?: string | null
+          created_at?: string | null
+          data_hora?: string | null
+          detalhes?: Json | null
+          empresa_id?: string
+          id?: string
+          item_id?: string
+          manutencao_id?: string | null
+          motivo?: string | null
+          quantidade?: number
+          reserva_id?: string | null
+          tipo_movimentacao?: string
+          usuario_id?: string
+          valor_custo?: number | null
+          venda_id?: string | null
+        }
+        Relationships: []
+      }
       estoque_itens: {
         Row: {
           categoria: string | null
