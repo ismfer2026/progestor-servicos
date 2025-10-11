@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Package, Search, Plus, AlertTriangle, Wrench, Calendar } from 'lucide-react';
+import { Package, Search, Plus, AlertTriangle, Wrench, Calendar, Eye, Edit2, Lock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -61,6 +62,17 @@ export default function Estoque() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showNewItem, setShowNewItem] = useState(false);
   const [activeTab, setActiveTab] = useState('itens');
+  const [viewItem, setViewItem] = useState<EstoqueItem | null>(null);
+  const [editItem, setEditItem] = useState<EstoqueItem | null>(null);
+  const [reserveItem, setReserveItem] = useState<EstoqueItem | null>(null);
+  const [maintenanceItem, setMaintenanceItem] = useState<EstoqueItem | null>(null);
+  const [reservaData, setReservaData] = useState({ quantidade: 0, observacoes: '' });
+  const [manutencaoData, setManutencaoData] = useState({ 
+    defeito: '', 
+    previsao_retorno: '', 
+    custo_manutencao: 0, 
+    observacoes: '' 
+  });
   const [newItem, setNewItem] = useState({
     nome: '',
     sku: '',
@@ -235,6 +247,89 @@ export default function Estoque() {
     }
   };
 
+  const handleUpdateItem = async () => {
+    if (!user || !editItem) return;
+
+    try {
+      const { error } = await supabase
+        .from('estoque_itens')
+        .update({
+          nome: editItem.nome,
+          sku: editItem.sku,
+          categoria: editItem.categoria,
+          saldo: editItem.saldo,
+          saldo_minimo: editItem.saldo_minimo,
+          custo: editItem.custo,
+          venda: editItem.venda,
+          localizacao: editItem.localizacao,
+          validade: editItem.validade,
+          dias_aviso_vencimento: editItem.dias_aviso_vencimento
+        })
+        .eq('id', editItem.id);
+
+      if (error) throw error;
+
+      toast.success('Item atualizado!');
+      setEditItem(null);
+      loadEstoqueData();
+    } catch (error) {
+      console.error('Error updating item:', error);
+      toast.error('Erro ao atualizar item');
+    }
+  };
+
+  const handleReserveItem = async () => {
+    if (!user || !reserveItem) return;
+
+    try {
+      const { error } = await supabase.from('estoque_reservas').insert([{
+        empresa_id: user.empresa_id,
+        item_id: reserveItem.id,
+        quantidade: reservaData.quantidade,
+        data_reserva: new Date().toISOString().split('T')[0],
+        observacoes: reservaData.observacoes,
+        status: 'reservado'
+      }]);
+
+      if (error) throw error;
+
+      toast.success('Item reservado!');
+      setReserveItem(null);
+      setReservaData({ quantidade: 0, observacoes: '' });
+      loadEstoqueData();
+    } catch (error) {
+      console.error('Error reserving item:', error);
+      toast.error('Erro ao reservar item');
+    }
+  };
+
+  const handleMaintenanceItem = async () => {
+    if (!user || !maintenanceItem) return;
+
+    try {
+      const { error } = await supabase.from('estoque_manutencao').insert([{
+        empresa_id: user.empresa_id,
+        item_id: maintenanceItem.id,
+        defeito: manutencaoData.defeito,
+        data_entrada: new Date().toISOString().split('T')[0],
+        previsao_retorno: manutencaoData.previsao_retorno || null,
+        custo_manutencao: manutencaoData.custo_manutencao,
+        observacoes: manutencaoData.observacoes,
+        status: 'em_manutencao'
+      }]);
+
+      if (error) throw error;
+
+      toast.success('Item enviado para manutenção!');
+      setMaintenanceItem(null);
+      setManutencaoData({ defeito: '', previsao_retorno: '', custo_manutencao: 0, observacoes: '' });
+      loadEstoqueData();
+    } catch (error) {
+      console.error('Error sending to maintenance:', error);
+      toast.error('Erro ao enviar para manutenção');
+    }
+  };
+
   const categories = [...new Set(itens.map(item => item.categoria).filter(Boolean))];
 
   const renderItensTab = () => (
@@ -355,8 +450,17 @@ export default function Estoque() {
                   </TableCell>
                   <TableCell>
                     <div className="flex space-x-1">
-                      <Button size="sm" variant="ghost">
-                        <Package className="h-4 w-4" />
+                      <Button size="sm" variant="ghost" onClick={() => setViewItem(item)}>
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setEditItem(item)}>
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setReserveItem(item)}>
+                        <Lock className="h-4 w-4" />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setMaintenanceItem(item)}>
+                        <Wrench className="h-4 w-4" />
                       </Button>
                     </div>
                   </TableCell>
@@ -678,6 +782,216 @@ export default function Estoque() {
           {renderManutencaoTab()}
         </TabsContent>
       </Tabs>
+
+      {/* View Item Dialog */}
+      <Dialog open={!!viewItem} onOpenChange={() => setViewItem(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Detalhes do Item</DialogTitle>
+          </DialogHeader>
+          {viewItem && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Nome</Label>
+                  <p className="font-medium">{viewItem.nome}</p>
+                </div>
+                <div>
+                  <Label>SKU</Label>
+                  <p className="font-medium">{viewItem.sku || '-'}</p>
+                </div>
+                <div>
+                  <Label>Categoria</Label>
+                  <p className="font-medium">{viewItem.categoria || '-'}</p>
+                </div>
+                <div>
+                  <Label>Localização</Label>
+                  <p className="font-medium">{viewItem.localizacao || '-'}</p>
+                </div>
+                <div>
+                  <Label>Saldo</Label>
+                  <p className="font-medium">{viewItem.saldo} {viewItem.unidade}</p>
+                </div>
+                <div>
+                  <Label>Saldo Mínimo</Label>
+                  <p className="font-medium">{viewItem.saldo_minimo}</p>
+                </div>
+                <div>
+                  <Label>Custo</Label>
+                  <p className="font-medium">{formatCurrency(viewItem.custo)}</p>
+                </div>
+                <div>
+                  <Label>Venda</Label>
+                  <p className="font-medium">{formatCurrency(viewItem.venda)}</p>
+                </div>
+                {viewItem.validade && (
+                  <div>
+                    <Label>Validade</Label>
+                    <p className="font-medium">{new Date(viewItem.validade).toLocaleDateString('pt-BR')}</p>
+                  </div>
+                )}
+                <div>
+                  <Label>Status</Label>
+                  <Badge className={getStatusColor(viewItem.status)}>
+                    {getStatusLabel(viewItem.status)}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Item Dialog */}
+      <Dialog open={!!editItem} onOpenChange={() => setEditItem(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Editar Item</DialogTitle>
+          </DialogHeader>
+          {editItem && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Nome</Label>
+                  <Input value={editItem.nome} onChange={(e) => setEditItem({...editItem, nome: e.target.value})} />
+                </div>
+                <div>
+                  <Label>SKU</Label>
+                  <Input value={editItem.sku} onChange={(e) => setEditItem({...editItem, sku: e.target.value})} />
+                </div>
+                <div>
+                  <Label>Categoria</Label>
+                  <Input value={editItem.categoria} onChange={(e) => setEditItem({...editItem, categoria: e.target.value})} />
+                </div>
+                <div>
+                  <Label>Localização</Label>
+                  <Input value={editItem.localizacao} onChange={(e) => setEditItem({...editItem, localizacao: e.target.value})} />
+                </div>
+                <div>
+                  <Label>Saldo</Label>
+                  <Input type="number" value={editItem.saldo} onChange={(e) => setEditItem({...editItem, saldo: parseFloat(e.target.value)})} />
+                </div>
+                <div>
+                  <Label>Saldo Mínimo</Label>
+                  <Input type="number" value={editItem.saldo_minimo} onChange={(e) => setEditItem({...editItem, saldo_minimo: parseFloat(e.target.value)})} />
+                </div>
+                <div>
+                  <Label>Custo</Label>
+                  <Input type="number" step="0.01" value={editItem.custo} onChange={(e) => setEditItem({...editItem, custo: parseFloat(e.target.value)})} />
+                </div>
+                <div>
+                  <Label>Venda</Label>
+                  <Input type="number" step="0.01" value={editItem.venda} onChange={(e) => setEditItem({...editItem, venda: parseFloat(e.target.value)})} />
+                </div>
+                <div>
+                  <Label>Validade</Label>
+                  <Input type="date" value={editItem.validade} onChange={(e) => setEditItem({...editItem, validade: e.target.value})} />
+                </div>
+                <div>
+                  <Label>Avisar vencimento (dias)</Label>
+                  <Input type="number" value={editItem.dias_aviso_vencimento} onChange={(e) => setEditItem({...editItem, dias_aviso_vencimento: parseInt(e.target.value)})} />
+                </div>
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setEditItem(null)}>Cancelar</Button>
+                <Button onClick={handleUpdateItem}>Salvar</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Reserve Item Dialog */}
+      <Dialog open={!!reserveItem} onOpenChange={() => setReserveItem(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reservar Item</DialogTitle>
+          </DialogHeader>
+          {reserveItem && (
+            <div className="space-y-4">
+              <div>
+                <Label>Item</Label>
+                <p className="font-medium">{reserveItem.nome}</p>
+                <p className="text-sm text-muted-foreground">Saldo disponível: {reserveItem.saldo} {reserveItem.unidade}</p>
+              </div>
+              <div>
+                <Label>Quantidade</Label>
+                <Input 
+                  type="number" 
+                  min="0.01"
+                  max={reserveItem.saldo}
+                  value={reservaData.quantidade} 
+                  onChange={(e) => setReservaData({...reservaData, quantidade: parseFloat(e.target.value)})} 
+                />
+              </div>
+              <div>
+                <Label>Observações</Label>
+                <Textarea 
+                  value={reservaData.observacoes} 
+                  onChange={(e) => setReservaData({...reservaData, observacoes: e.target.value})} 
+                />
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setReserveItem(null)}>Cancelar</Button>
+                <Button onClick={handleReserveItem}>Reservar</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Maintenance Item Dialog */}
+      <Dialog open={!!maintenanceItem} onOpenChange={() => setMaintenanceItem(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enviar para Manutenção</DialogTitle>
+          </DialogHeader>
+          {maintenanceItem && (
+            <div className="space-y-4">
+              <div>
+                <Label>Item</Label>
+                <p className="font-medium">{maintenanceItem.nome}</p>
+              </div>
+              <div>
+                <Label>Defeito *</Label>
+                <Textarea 
+                  value={manutencaoData.defeito} 
+                  onChange={(e) => setManutencaoData({...manutencaoData, defeito: e.target.value})} 
+                  placeholder="Descreva o problema..."
+                />
+              </div>
+              <div>
+                <Label>Previsão de Retorno</Label>
+                <Input 
+                  type="date" 
+                  value={manutencaoData.previsao_retorno} 
+                  onChange={(e) => setManutencaoData({...manutencaoData, previsao_retorno: e.target.value})} 
+                />
+              </div>
+              <div>
+                <Label>Custo Estimado</Label>
+                <Input 
+                  type="number" 
+                  step="0.01"
+                  value={manutencaoData.custo_manutencao} 
+                  onChange={(e) => setManutencaoData({...manutencaoData, custo_manutencao: parseFloat(e.target.value)})} 
+                />
+              </div>
+              <div>
+                <Label>Observações</Label>
+                <Textarea 
+                  value={manutencaoData.observacoes} 
+                  onChange={(e) => setManutencaoData({...manutencaoData, observacoes: e.target.value})} 
+                />
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setMaintenanceItem(null)}>Cancelar</Button>
+                <Button onClick={handleMaintenanceItem}>Enviar para Manutenção</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

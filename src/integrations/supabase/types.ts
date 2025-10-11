@@ -1018,6 +1018,51 @@ export type Database = {
           },
         ]
       }
+      servicos_estoque_itens: {
+        Row: {
+          created_at: string | null
+          empresa_id: string
+          id: string
+          item_id: string
+          quantidade: number
+          servico_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          empresa_id: string
+          id?: string
+          item_id: string
+          quantidade?: number
+          servico_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          empresa_id?: string
+          id?: string
+          item_id?: string
+          quantidade?: number
+          servico_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "servicos_estoque_itens_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "estoque_itens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "servicos_estoque_itens_servico_id_fkey"
+            columns: ["servico_id"]
+            isOneToOne: false
+            referencedRelation: "servicos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tarefas: {
         Row: {
           cliente_id: string | null

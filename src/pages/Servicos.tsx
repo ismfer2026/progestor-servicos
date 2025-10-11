@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Search, Edit, Trash2, Package, Upload } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Package, Upload, Minus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -28,6 +29,19 @@ interface ServicoItem {
   created_at?: string;
 }
 
+interface EstoqueItem {
+  id: string;
+  nome: string;
+  saldo: number;
+  unidade: string;
+}
+
+interface ServicoEstoqueItem {
+  item_id: string;
+  quantidade: number;
+  item?: EstoqueItem;
+}
+
 export function Servicos() {
   const [servicos, setServicos] = useState<ServicoItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,6 +50,8 @@ export function Servicos() {
   const [editingServico, setEditingServico] = useState<ServicoItem | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const { user } = useAuth();
+  const [estoqueItems, setEstoqueItems] = useState<EstoqueItem[]>([]);
+  const [selectedEstoqueItems, setSelectedEstoqueItems] = useState<ServicoEstoqueItem[]>([]);
 
   const [formData, setFormData] = useState({
     nome: '',
@@ -50,7 +66,26 @@ export function Servicos() {
 
   useEffect(() => {
     fetchServicos();
+    fetchEstoqueItems();
   }, [user]);
+
+  const fetchEstoqueItems = async () => {
+    if (!user?.empresa_id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('estoque_itens')
+        .select('id, nome, saldo, unidade')
+        .eq('empresa_id', user.empresa_id)
+        .eq('status', 'ativo')
+        .order('nome');
+
+      if (error) throw error;
+      setEstoqueItems(data || []);
+    } catch (error) {
+      console.error('Error fetching estoque items:', error);
+    }
+  };
 
   const fetchServicos = async () => {
     if (!user?.empresa_id) return;
@@ -90,8 +125,25 @@ export function Servicos() {
         imagem_url: servico.imagem_url || '',
         status: servico.status || 'Ativo'
       });
+
+      // Fetch existing estoque items for this service
+      const { data } = await supabase
+        .from('servicos_estoque_itens')
+        .select('item_id, quantidade, estoque_itens(id, nome, saldo, unidade)')
+        .eq('servico_id', servico.id);
+
+      if (data) {
+        setSelectedEstoqueItems(
+          data.map((item: any) => ({
+            item_id: item.item_id,
+            quantidade: item.quantidade,
+            item: item.estoque_itens
+          }))
+        );
+      }
     } else {
       setEditingServico(null);
+      setSelectedEstoqueItems([]);
       setFormData({
         nome: '',
         descricao: '',
@@ -137,7 +189,7 @@ export function Servicos() {
 
   const handleSave = async () => {
     if (!formData.nome) {
-      toast.error('Nome do serviço é obrigatório');
+      toast.error('Nome do serviço/produto é obrigatório');
       return;
     }
 
@@ -163,6 +215,8 @@ export function Servicos() {
         empresa_id: user.empresa_id,
       };
 
+      let servicoId = editingServico?.id;
+
       if (editingServico) {
         // Update existing service
         const { error } = await supabase
@@ -171,27 +225,53 @@ export function Servicos() {
           .eq('id', editingServico.id);
 
         if (error) throw error;
-        toast.success('Serviço atualizado com sucesso!');
+
+        // Delete existing estoque items
+        await supabase
+          .from('servicos_estoque_itens')
+          .delete()
+          .eq('servico_id', editingServico.id);
+
+        toast.success('Serviço/Produto atualizado com sucesso!');
       } else {
         // Create new service
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('servicos')
-          .insert([servicoData]);
+          .insert([servicoData])
+          .select()
+          .single();
 
         if (error) throw error;
-        toast.success('Serviço cadastrado com sucesso!');
+        servicoId = data.id;
+        toast.success('Serviço/Produto cadastrado com sucesso!');
+      }
+
+      // Insert estoque items
+      if (selectedEstoqueItems.length > 0 && servicoId) {
+        const estoqueData = selectedEstoqueItems.map(item => ({
+          servico_id: servicoId,
+          item_id: item.item_id,
+          quantidade: item.quantidade,
+          empresa_id: user.empresa_id
+        }));
+
+        const { error } = await supabase
+          .from('servicos_estoque_itens')
+          .insert(estoqueData);
+
+        if (error) throw error;
       }
 
       setModalOpen(false);
       fetchServicos();
     } catch (error) {
       console.error('Error saving servico:', error);
-      toast.error('Erro ao salvar serviço');
+      toast.error('Erro ao salvar serviço/produto');
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir este serviço?')) {
+    if (!confirm('Tem certeza que deseja excluir este serviço/produto?')) {
       return;
     }
 
@@ -202,12 +282,31 @@ export function Servicos() {
         .eq('id', id);
 
       if (error) throw error;
-      toast.success('Serviço excluído com sucesso!');
+      toast.success('Serviço/Produto excluído com sucesso!');
       fetchServicos();
     } catch (error) {
       console.error('Error deleting servico:', error);
-      toast.error('Erro ao excluir serviço');
+      toast.error('Erro ao excluir serviço/produto');
     }
+  };
+
+  const addEstoqueItem = () => {
+    setSelectedEstoqueItems([...selectedEstoqueItems, { item_id: '', quantidade: 1 }]);
+  };
+
+  const removeEstoqueItem = (index: number) => {
+    setSelectedEstoqueItems(selectedEstoqueItems.filter((_, i) => i !== index));
+  };
+
+  const updateEstoqueItem = (index: number, field: 'item_id' | 'quantidade', value: string | number) => {
+    const updated = [...selectedEstoqueItems];
+    if (field === 'item_id') {
+      const item = estoqueItems.find(i => i.id === value);
+      updated[index] = { ...updated[index], item_id: value as string, item };
+    } else {
+      updated[index] = { ...updated[index], quantidade: value as number };
+    }
+    setSelectedEstoqueItems(updated);
   };
 
   const formatCurrency = (value?: number | null) => {
@@ -255,12 +354,12 @@ export function Servicos() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Catálogo de Serviços</h1>
+          <h1 className="text-3xl font-bold text-foreground">Catálogo de Serviços e Produtos</h1>
           <p className="text-muted-foreground">Adicione e gerencie os serviços e produtos que sua empresa oferece.</p>
         </div>
         <Button onClick={() => handleOpenModal()} className="gap-2">
           <Plus className="w-4 h-4" />
-          Novo Serviço
+          Novo Serviço/Produto
         </Button>
       </div>
 
@@ -270,7 +369,7 @@ export function Servicos() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Total de Serviços</p>
+                <p className="text-sm font-medium text-muted-foreground">Total de Serviços/Produtos</p>
                 <p className="text-2xl font-bold text-foreground">{servicos.length}</p>
               </div>
               <Package className="w-8 h-8 text-primary" />
@@ -282,7 +381,7 @@ export function Servicos() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Serviços Ativos</p>
+                <p className="text-sm font-medium text-muted-foreground">Ativos</p>
                 <p className="text-2xl font-bold text-foreground">
                   {servicos.filter(s => s.status === 'Ativo').length}
                 </p>
@@ -332,7 +431,7 @@ export function Servicos() {
             <TableHeader>
               <TableRow>
                 <TableHead>Imagem</TableHead>
-                <TableHead>Nome do Serviço</TableHead>
+                <TableHead>Nome do Serviço/Produto</TableHead>
                 <TableHead>Categoria</TableHead>
                 <TableHead>Preço de Venda</TableHead>
                 <TableHead>Status</TableHead>
@@ -394,18 +493,18 @@ export function Servicos() {
             <div className="text-center py-8">
               <Package className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-lg font-medium text-muted-foreground">
-                Nenhum serviço encontrado
+                Nenhum serviço/produto encontrado
               </p>
               <p className="text-muted-foreground mb-4">
                 {searchTerm
                   ? 'Tente ajustar os filtros de busca'
-                  : 'Comece criando seu primeiro serviço'
+                  : 'Comece criando seu primeiro serviço/produto'
                 }
               </p>
               {!searchTerm && (
                 <Button onClick={() => handleOpenModal()}>
                   <Plus className="w-4 h-4 mr-2" />
-                  Novo Serviço
+                  Novo Serviço/Produto
                 </Button>
               )}
             </div>
@@ -418,15 +517,15 @@ export function Servicos() {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              {editingServico ? 'Editar Serviço' : 'Novo Serviço'}
+              {editingServico ? 'Editar Serviço/Produto' : 'Novo Serviço/Produto'}
             </DialogTitle>
             <DialogDescription>
-              Cadastre os serviços que sua empresa oferece
+              Cadastre os serviços e produtos que sua empresa oferece
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 max-h-[70vh] overflow-y-auto px-1">
             <div>
-              <Label htmlFor="nome">Nome do Serviço *</Label>
+              <Label htmlFor="nome">Nome do Serviço/Produto *</Label>
               <Input
                 id="nome"
                 value={formData.nome}
@@ -476,9 +575,9 @@ export function Servicos() {
             <div className="border rounded-lg p-4 space-y-2">
               <div className="flex items-center justify-between">
                 <div>
-                  <Label htmlFor="status">Serviço Ativo</Label>
+                  <Label htmlFor="status">Serviço/Produto Ativo</Label>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Serviços inativos não aparecerão para seleção em novos orçamentos
+                    Serviços/Produtos inativos não aparecerão para seleção em novos orçamentos
                   </p>
                 </div>
                 <Switch
@@ -487,6 +586,68 @@ export function Servicos() {
                   onCheckedChange={(checked) => setFormData({...formData, status: checked ? 'Ativo' : 'Inativo'})}
                 />
               </div>
+            </div>
+
+            {/* Estoque Items Selection */}
+            <div className="border rounded-lg p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <Label>Itens do Estoque</Label>
+                <Button type="button" size="sm" variant="outline" onClick={addEstoqueItem}>
+                  <Plus className="w-4 h-4 mr-1" />
+                  Adicionar Item
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Vincule os itens do estoque que serão utilizados neste serviço/produto
+              </p>
+              
+              {selectedEstoqueItems.map((item, index) => (
+                <div key={index} className="flex gap-2 items-end">
+                  <div className="flex-1">
+                    <Label htmlFor={`item-${index}`}>Item</Label>
+                    <Select
+                      value={item.item_id}
+                      onValueChange={(value) => updateEstoqueItem(index, 'item_id', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um item" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {estoqueItems.map((estoqueItem) => (
+                          <SelectItem key={estoqueItem.id} value={estoqueItem.id}>
+                            {estoqueItem.nome} (Saldo: {estoqueItem.saldo} {estoqueItem.unidade})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="w-32">
+                    <Label htmlFor={`quantidade-${index}`}>Quantidade</Label>
+                    <Input
+                      id={`quantidade-${index}`}
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      value={item.quantidade}
+                      onChange={(e) => updateEstoqueItem(index, 'quantidade', parseFloat(e.target.value))}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => removeEstoqueItem(index)}
+                  >
+                    <Minus className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+              
+              {selectedEstoqueItems.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-2">
+                  Nenhum item vinculado
+                </p>
+              )}
             </div>
 
             <div>
@@ -553,7 +714,7 @@ export function Servicos() {
                 Cancelar
               </Button>
               <Button onClick={handleSave}>
-                {editingServico ? 'Atualizar' : 'Criar'} Serviço
+                {editingServico ? 'Atualizar' : 'Criar'} Serviço/Produto
               </Button>
             </div>
           </div>
