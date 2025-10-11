@@ -264,6 +264,7 @@ export type Database = {
           created_at: string | null
           custo: number | null
           descricao: string | null
+          dias_aviso_vencimento: number | null
           empresa_id: string
           id: string
           localizacao: string | null
@@ -275,6 +276,7 @@ export type Database = {
           tipo: string | null
           unidade: string | null
           updated_at: string | null
+          validade: string | null
           venda: number | null
         }
         Insert: {
@@ -282,6 +284,7 @@ export type Database = {
           created_at?: string | null
           custo?: number | null
           descricao?: string | null
+          dias_aviso_vencimento?: number | null
           empresa_id: string
           id?: string
           localizacao?: string | null
@@ -293,6 +296,7 @@ export type Database = {
           tipo?: string | null
           unidade?: string | null
           updated_at?: string | null
+          validade?: string | null
           venda?: number | null
         }
         Update: {
@@ -300,6 +304,7 @@ export type Database = {
           created_at?: string | null
           custo?: number | null
           descricao?: string | null
+          dias_aviso_vencimento?: number | null
           empresa_id?: string
           id?: string
           localizacao?: string | null
@@ -311,6 +316,7 @@ export type Database = {
           tipo?: string | null
           unidade?: string | null
           updated_at?: string | null
+          validade?: string | null
           venda?: number | null
         }
         Relationships: []

@@ -27,6 +27,8 @@ interface EstoqueItem {
   unidade: string;
   localizacao?: string;
   status: string;
+  validade?: string;
+  dias_aviso_vencimento?: number;
 }
 
 interface EstoqueReserva {
@@ -59,6 +61,20 @@ export default function Estoque() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showNewItem, setShowNewItem] = useState(false);
   const [activeTab, setActiveTab] = useState('itens');
+  const [newItem, setNewItem] = useState({
+    nome: '',
+    sku: '',
+    tipo: 'produto',
+    categoria: '',
+    saldo: 0,
+    saldo_minimo: 0,
+    custo: 0,
+    venda: 0,
+    unidade: 'UN',
+    localizacao: '',
+    validade: '',
+    dias_aviso_vencimento: 7
+  });
 
   useEffect(() => {
     loadEstoqueData();
@@ -150,6 +166,75 @@ export default function Estoque() {
     return itens.filter(item => item.saldo <= item.saldo_minimo);
   };
 
+  const getExpiringItems = () => {
+    const today = new Date();
+    return itens.filter(item => {
+      if (!item.validade) return false;
+      const validadeDate = new Date(item.validade);
+      const diasRestantes = Math.ceil((validadeDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      const diasAviso = item.dias_aviso_vencimento || 7;
+      return diasRestantes <= diasAviso && diasRestantes >= 0;
+    });
+  };
+
+  const getExpiredItems = () => {
+    const today = new Date();
+    return itens.filter(item => {
+      if (!item.validade) return false;
+      const validadeDate = new Date(item.validade);
+      return validadeDate < today;
+    });
+  };
+
+  const handleSaveItem = async () => {
+    if (!user || !newItem.nome) {
+      toast.error('Preencha o nome do item');
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from('estoque_itens').insert([{
+        empresa_id: user.empresa_id,
+        nome: newItem.nome,
+        sku: newItem.sku || null,
+        tipo: newItem.tipo,
+        categoria: newItem.categoria || null,
+        saldo: newItem.saldo,
+        saldo_minimo: newItem.saldo_minimo,
+        custo: newItem.custo,
+        venda: newItem.venda,
+        unidade: newItem.unidade,
+        localizacao: newItem.localizacao || null,
+        validade: newItem.validade || null,
+        dias_aviso_vencimento: newItem.dias_aviso_vencimento,
+        status: 'ativo'
+      }]);
+
+      if (error) throw error;
+
+      toast.success('Item adicionado com sucesso!');
+      setShowNewItem(false);
+      setNewItem({
+        nome: '',
+        sku: '',
+        tipo: 'produto',
+        categoria: '',
+        saldo: 0,
+        saldo_minimo: 0,
+        custo: 0,
+        venda: 0,
+        unidade: 'UN',
+        localizacao: '',
+        validade: '',
+        dias_aviso_vencimento: 7
+      });
+      loadEstoqueData();
+    } catch (error) {
+      console.error('Error saving item:', error);
+      toast.error('Erro ao salvar item');
+    }
+  };
+
   const categories = [...new Set(itens.map(item => item.categoria).filter(Boolean))];
 
   const renderItensTab = () => (
@@ -194,6 +279,24 @@ export default function Estoque() {
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
             {getLowStockItems().length} itens com estoque baixo precisam de atenção.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {getExpiringItems().length > 0 && (
+        <Alert className="border-yellow-500">
+          <Calendar className="h-4 w-4 text-yellow-600" />
+          <AlertDescription className="text-yellow-600">
+            {getExpiringItems().length} itens próximos do vencimento.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {getExpiredItems().length > 0 && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            {getExpiredItems().length} itens vencidos no estoque!
           </AlertDescription>
         </Alert>
       )}
@@ -396,16 +499,24 @@ export default function Estoque() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium">Nome</label>
-                  <Input placeholder="Nome do item" />
+                  <label className="text-sm font-medium">Nome *</label>
+                  <Input 
+                    placeholder="Nome do item" 
+                    value={newItem.nome}
+                    onChange={(e) => setNewItem({...newItem, nome: e.target.value})}
+                  />
                 </div>
                 <div>
                   <label className="text-sm font-medium">SKU</label>
-                  <Input placeholder="Código SKU" />
+                  <Input 
+                    placeholder="Código SKU" 
+                    value={newItem.sku}
+                    onChange={(e) => setNewItem({...newItem, sku: e.target.value})}
+                  />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Tipo</label>
-                  <Select>
+                  <Select value={newItem.tipo} onValueChange={(value) => setNewItem({...newItem, tipo: value})}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione o tipo" />
                     </SelectTrigger>
@@ -419,25 +530,95 @@ export default function Estoque() {
                 </div>
                 <div>
                   <label className="text-sm font-medium">Categoria</label>
-                  <Input placeholder="Categoria do item" />
+                  <Input 
+                    placeholder="Categoria do item" 
+                    value={newItem.categoria}
+                    onChange={(e) => setNewItem({...newItem, categoria: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Unidade de Medida</label>
+                  <Select value={newItem.unidade} onValueChange={(value) => setNewItem({...newItem, unidade: value})}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="UN">UN - Unidade</SelectItem>
+                      <SelectItem value="PC">PC - Peça</SelectItem>
+                      <SelectItem value="CJ">CJ - Conjunto</SelectItem>
+                      <SelectItem value="PÇ">PÇ - Peça</SelectItem>
+                      <SelectItem value="CX">CX - Caixa</SelectItem>
+                      <SelectItem value="FD">FD - Fardo</SelectItem>
+                      <SelectItem value="DZ">DZ - Dúzia</SelectItem>
+                      <SelectItem value="KT">KT - Kit</SelectItem>
+                      <SelectItem value="SC">SC - Saco</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Localização</label>
+                  <Input 
+                    placeholder="Ex: Prateleira A1" 
+                    value={newItem.localizacao}
+                    onChange={(e) => setNewItem({...newItem, localizacao: e.target.value})}
+                  />
                 </div>
               </div>
               <div className="space-y-4">
                 <div>
                   <label className="text-sm font-medium">Saldo Atual</label>
-                  <Input type="number" placeholder="0" />
+                  <Input 
+                    type="number" 
+                    placeholder="0" 
+                    value={newItem.saldo}
+                    onChange={(e) => setNewItem({...newItem, saldo: parseFloat(e.target.value) || 0})}
+                  />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Saldo Mínimo</label>
-                  <Input type="number" placeholder="0" />
+                  <Input 
+                    type="number" 
+                    placeholder="0" 
+                    value={newItem.saldo_minimo}
+                    onChange={(e) => setNewItem({...newItem, saldo_minimo: parseFloat(e.target.value) || 0})}
+                  />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Custo</label>
-                  <Input type="number" placeholder="R$ 0,00" />
+                  <Input 
+                    type="number" 
+                    step="0.01"
+                    placeholder="R$ 0,00" 
+                    value={newItem.custo}
+                    onChange={(e) => setNewItem({...newItem, custo: parseFloat(e.target.value) || 0})}
+                  />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Preço de Venda</label>
-                  <Input type="number" placeholder="R$ 0,00" />
+                  <Input 
+                    type="number" 
+                    step="0.01"
+                    placeholder="R$ 0,00" 
+                    value={newItem.venda}
+                    onChange={(e) => setNewItem({...newItem, venda: parseFloat(e.target.value) || 0})}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Data de Validade</label>
+                  <Input 
+                    type="date" 
+                    value={newItem.validade}
+                    onChange={(e) => setNewItem({...newItem, validade: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Avisar vencimento (dias antes)</label>
+                  <Input 
+                    type="number" 
+                    placeholder="7" 
+                    value={newItem.dias_aviso_vencimento}
+                    onChange={(e) => setNewItem({...newItem, dias_aviso_vencimento: parseInt(e.target.value) || 7})}
+                  />
                 </div>
               </div>
             </div>
@@ -445,7 +626,7 @@ export default function Estoque() {
               <Button variant="outline" onClick={() => setShowNewItem(false)}>
                 Cancelar
               </Button>
-              <Button>Salvar Item</Button>
+              <Button onClick={handleSaveItem}>Salvar Item</Button>
             </div>
           </DialogContent>
         </Dialog>
