@@ -271,6 +271,62 @@ export default function Estoque() {
     });
   };
 
+  const handleDevolverReserva = async (reserva: EstoqueReserva) => {
+    if (!user) return;
+
+    try {
+      // Atualizar status da reserva para 'devolvido'
+      const { error: reservaError } = await supabase
+        .from('estoque_reservas')
+        .update({ 
+          status: 'devolvido',
+          data_liberacao: new Date().toISOString().split('T')[0]
+        })
+        .eq('id', reserva.id);
+
+      if (reservaError) throw reservaError;
+
+      // Retornar quantidade ao estoque
+      const { data: itemData, error: itemError } = await supabase
+        .from('estoque_itens')
+        .select('saldo')
+        .eq('id', reserva.item_id)
+        .single();
+
+      if (itemError) throw itemError;
+
+      const { error: updateError } = await supabase
+        .from('estoque_itens')
+        .update({ saldo: itemData.saldo + reserva.quantidade })
+        .eq('id', reserva.item_id);
+
+      if (updateError) throw updateError;
+
+      // Registrar no histórico
+      const { error: historicoError } = await supabase
+        .from('estoque_historico')
+        .insert({
+          empresa_id: user.empresa_id,
+          item_id: reserva.item_id,
+          usuario_id: user.id,
+          tipo_movimentacao: 'devolucao_reserva',
+          quantidade: reserva.quantidade,
+          reserva_id: reserva.id,
+          detalhes: {
+            motivo: 'Devolução de item reservado'
+          }
+        });
+
+      if (historicoError) throw historicoError;
+
+      toast.success('Item devolvido ao estoque com sucesso!');
+      loadEstoqueData();
+    } catch (error: any) {
+      console.error('Erro ao devolver reserva:', error);
+      toast.error('Erro ao devolver: ' + error.message);
+    }
+  };
+
   const downloadLowStockList = () => {
     const items = getLowStockItems();
     const doc = new jsPDF();
@@ -772,13 +828,22 @@ export default function Estoque() {
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <Button 
-                    size="sm" 
-                    variant="ghost"
-                    onClick={() => setLiberarReservaDialog({open: true, reserva})}
-                  >
-                    Liberar
-                  </Button>
+                  <div className="flex space-x-2">
+                    <Button 
+                      size="sm" 
+                      variant="ghost"
+                      onClick={() => setLiberarReservaDialog({open: true, reserva})}
+                    >
+                      Liberar
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="ghost"
+                      onClick={() => handleDevolverReserva(reserva)}
+                    >
+                      Devolver
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
