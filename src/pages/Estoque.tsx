@@ -532,6 +532,46 @@ export default function Estoque() {
 
       if (error) throw error;
 
+      // Verificar se o item ficou com estoque baixo
+      if (editItem.saldo <= editItem.saldo_minimo) {
+        await supabase.from('notificacoes').insert({
+          empresa_id: user.empresa_id,
+          usuario_id: user.id,
+          tipo: 'alerta_estoque_baixo',
+          titulo: 'Item com estoque baixo',
+          mensagem: `${editItem.nome} está com estoque baixo (${editItem.saldo} ${editItem.unidade})`,
+          link: '/estoque'
+        });
+      }
+
+      // Verificar se o item está próximo do vencimento
+      if (editItem.validade) {
+        const today = new Date();
+        const validadeDate = new Date(editItem.validade);
+        const diasRestantes = Math.ceil((validadeDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        const diasAviso = editItem.dias_aviso_vencimento || 7;
+
+        if (diasRestantes <= diasAviso && diasRestantes > 0) {
+          await supabase.from('notificacoes').insert({
+            empresa_id: user.empresa_id,
+            usuario_id: user.id,
+            tipo: 'alerta_vencimento_proximo',
+            titulo: 'Item próximo do vencimento',
+            mensagem: `${editItem.nome} vence em ${diasRestantes} dias`,
+            link: '/estoque'
+          });
+        } else if (diasRestantes <= 0) {
+          await supabase.from('notificacoes').insert({
+            empresa_id: user.empresa_id,
+            usuario_id: user.id,
+            tipo: 'alerta_estoque_vencido',
+            titulo: 'Item vencido',
+            mensagem: `${editItem.nome} está vencido!`,
+            link: '/estoque'
+          });
+        }
+      }
+
       toast.success('Item atualizado!');
       setEditItem(null);
       loadEstoqueData();
