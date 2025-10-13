@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DollarSign, TrendingUp, TrendingDown, Calendar, Plus, Upload, FileText, Settings as SettingsIcon } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, Calendar, Plus, Upload, FileText, Settings as SettingsIcon, Eye } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -46,6 +46,8 @@ export default function Financeiro() {
   const [selectedTipo, setSelectedTipo] = useState<string>('all');
   const [showNewMovement, setShowNewMovement] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [selectedMovimento, setSelectedMovimento] = useState<FinanceiroMovimentacao | null>(null);
 
   // Form states
   const [formTipo, setFormTipo] = useState('receber');
@@ -161,6 +163,33 @@ export default function Financeiro() {
     setFormParcelas(1);
     setFormDiaFixo('');
     setFormIntervalo(30);
+  };
+
+  const handleBaixarMovimentacao = async (movId: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('financeiro_movimentacoes')
+        .update({
+          status: 'pago',
+          data_pagamento: format(new Date(), 'yyyy-MM-dd')
+        })
+        .eq('id', movId);
+
+      if (error) throw error;
+
+      toast.success('Movimentação baixada com sucesso!');
+      loadData();
+    } catch (error) {
+      console.error('Error updating movimento:', error);
+      toast.error('Erro ao baixar movimentação');
+    }
+  };
+
+  const handleViewDetails = (mov: FinanceiroMovimentacao) => {
+    setSelectedMovimento(mov);
+    setShowDetailsDialog(true);
   };
 
   const filteredMovimentacoes = movimentacoes.filter(mov => {
@@ -385,16 +414,19 @@ export default function Financeiro() {
                 <TableCell>{mov.categoria || '-'}</TableCell>
                 <TableCell>
                   <div className="flex space-x-1">
-                    <Button size="sm" variant="ghost">
-                      <FileText className="h-4 w-4" />
+                    <Button 
+                      size="sm" 
+                      variant="ghost"
+                      onClick={() => handleViewDetails(mov)}
+                      title="Ver detalhes"
+                    >
+                      <Eye className="h-4 w-4" />
                     </Button>
                     {mov.status === 'pendente' && (
                       <Button 
                         size="sm" 
                         variant="default"
-                        onClick={() => {
-                          toast.success('Movimentação baixada com sucesso!');
-                        }}
+                        onClick={() => handleBaixarMovimentacao(mov.id)}
                       >
                         Baixar
                       </Button>
@@ -644,6 +676,95 @@ export default function Financeiro() {
           <NFSe />
         </TabsContent>
       </Tabs>
+
+      {/* Dialog de Detalhes da Movimentação */}
+      <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Detalhes da Movimentação</DialogTitle>
+            <DialogDescription>
+              Informações completas da movimentação financeira
+            </DialogDescription>
+          </DialogHeader>
+          {selectedMovimento && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Descrição</label>
+                  <p className="text-base font-semibold">{selectedMovimento.descricao}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Tipo</label>
+                  <div className="mt-1">
+                    <Badge variant="outline" className={selectedMovimento.tipo === 'receber' ? 'border-green-500 text-green-600' : 'border-red-500 text-red-600'}>
+                      {selectedMovimento.tipo === 'receber' ? 'Receber' : 'Pagar'}
+                    </Badge>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Valor</label>
+                  <p className={`text-base font-bold ${getTipoColor(selectedMovimento.tipo)}`}>
+                    {selectedMovimento.tipo === 'receber' ? '+' : '-'}{formatCurrency(selectedMovimento.valor)}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Status</label>
+                  <div className="mt-1">
+                    <Badge variant="secondary" className={`${getStatusColor(selectedMovimento.status)} text-white`}>
+                      {getStatusLabel(selectedMovimento.status)}
+                    </Badge>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Data Vencimento</label>
+                  <p className="text-base">{format(new Date(selectedMovimento.data_vencimento), 'dd/MM/yyyy', { locale: ptBR })}</p>
+                </div>
+                {selectedMovimento.data_pagamento && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Data Pagamento</label>
+                    <p className="text-base">{format(new Date(selectedMovimento.data_pagamento), 'dd/MM/yyyy', { locale: ptBR })}</p>
+                  </div>
+                )}
+                {selectedMovimento.categoria && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Categoria</label>
+                    <p className="text-base">{selectedMovimento.categoria}</p>
+                  </div>
+                )}
+                {selectedMovimento.centro_custo && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Centro de Custo</label>
+                    <p className="text-base">{selectedMovimento.centro_custo}</p>
+                  </div>
+                )}
+                {selectedMovimento.forma_pagamento && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Forma de Pagamento</label>
+                    <p className="text-base capitalize">{selectedMovimento.forma_pagamento}</p>
+                  </div>
+                )}
+                {selectedMovimento.banco_id && bancos.find(b => b.id === selectedMovimento.banco_id) && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Banco</label>
+                    <p className="text-base">{bancos.find(b => b.id === selectedMovimento.banco_id)?.nome}</p>
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button variant="outline" onClick={() => setShowDetailsDialog(false)}>Fechar</Button>
+                {selectedMovimento.status === 'pendente' && (
+                  <Button onClick={() => {
+                    handleBaixarMovimentacao(selectedMovimento.id);
+                    setShowDetailsDialog(false);
+                  }}>
+                    Baixar Movimentação
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
