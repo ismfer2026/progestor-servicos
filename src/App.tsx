@@ -20,6 +20,7 @@ import Estoque from "@/pages/Estoque";
 import Financeiro from "@/pages/Financeiro";
 import Conciliacao from "@/pages/Conciliacao";
 import NFSe from "@/pages/NFSe";
+import ConfiguracoesFinanceiro from "@/pages/ConfiguracoesFinanceiro";
 import Relatorios from "@/pages/Relatorios";
 import Configuracoes from "@/pages/Configuracoes";
 import Contratos from "@/pages/Contratos";
@@ -192,8 +193,16 @@ const App = () => (
                   </ProtectedRoute>
                 } 
               />
+              <Route 
+                path="/financeiro/configuracoes" 
+                element={
+                  <ProtectedRoute>
+                    <ConfiguracoesFinanceiro />
+                  </ProtectedRoute>
+                } 
+              />
               <Route
-                path="/relatorios" 
+                path="/relatorios"
                 element={
                   <ProtectedRoute>
                     <Relatorios />
