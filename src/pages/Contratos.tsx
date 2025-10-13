@@ -13,6 +13,8 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { ContratosPDFViewer } from '@/components/contratos/ContratosPDFViewer';
+import { NovoContratoDialog } from '@/components/contratos/NovoContratoDialog';
 
 interface Contrato {
   id: string;
@@ -50,10 +52,60 @@ export default function Contratos() {
   const [showNewContract, setShowNewContract] = useState(false);
   const [showNewModel, setShowNewModel] = useState(false);
   const [selectedContract, setSelectedContract] = useState<Contrato | null>(null);
+  const [showPDFViewer, setShowPDFViewer] = useState(false);
+  const [nomeModelo, setNomeModelo] = useState('');
+  const [tipoModelo, setTipoModelo] = useState('contrato');
+  const [conteudoModelo, setConteudoModelo] = useState('');
+  const [assinaturaEmpresa, setAssinaturaEmpresa] = useState('');
 
   useEffect(() => {
     loadContratosData();
+    loadAssinaturaEmpresa();
   }, [user]);
+
+  const loadAssinaturaEmpresa = async () => {
+    if (!user) return;
+    
+    try {
+      const { data } = await supabase
+        .from('configuracoes')
+        .select('valor')
+        .eq('empresa_id', user.empresa_id)
+        .eq('chave', 'assinatura_empresa')
+        .single();
+      
+      if (data?.valor) {
+        setAssinaturaEmpresa(data.valor as string);
+      }
+    } catch (error) {
+      console.error('Error loading signature:', error);
+    }
+  };
+
+  const saveAssinaturaEmpresa = async (assinatura: string) => {
+    if (!user) return;
+    
+    try {
+      const { error } = await supabase
+        .from('configuracoes')
+        .upsert({
+          empresa_id: user.empresa_id,
+          chave: 'assinatura_empresa',
+          valor: assinatura,
+          tipo: 'texto',
+          descricao: 'Assinatura da empresa para contratos'
+        }, {
+          onConflict: 'empresa_id,chave'
+        });
+      
+      if (error) throw error;
+      setAssinaturaEmpresa(assinatura);
+      toast.success('Assinatura salva com sucesso!');
+    } catch (error) {
+      console.error('Error saving signature:', error);
+      toast.error('Erro ao salvar assinatura');
+    }
+  };
 
   const loadContratosData = async () => {
     if (!user) return;
@@ -136,6 +188,37 @@ export default function Contratos() {
     const month = String(new Date().getMonth() + 1).padStart(2, '0');
     const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
     return `CT${year}${month}${random}`;
+  };
+
+  const handleSalvarModelo = async () => {
+    if (!nomeModelo || !conteudoModelo) {
+      toast.error('Preencha o nome e o conteúdo do modelo');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('modelos')
+        .insert({
+          empresa_id: user?.empresa_id,
+          nome: nomeModelo,
+          tipo: tipoModelo,
+          conteudo_template: conteudoModelo,
+          ativo: true
+        });
+
+      if (error) throw error;
+
+      toast.success('Modelo salvo com sucesso!');
+      setShowNewModel(false);
+      setNomeModelo('');
+      setTipoModelo('contrato');
+      setConteudoModelo('');
+      loadContratosData();
+    } catch (error) {
+      console.error('Error saving model:', error);
+      toast.error('Erro ao salvar modelo');
+    }
   };
 
   const renderContratosTab = () => (
@@ -230,17 +313,41 @@ export default function Contratos() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => setSelectedContract(contrato)}
+                        onClick={() => {
+                          setSelectedContract(contrato);
+                          setShowPDFViewer(true);
+                        }}
+                        title="Visualizar PDF"
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button size="sm" variant="ghost">
+                      <Button 
+                        size="sm" 
+                        variant="ghost"
+                        onClick={() => {
+                          setSelectedContract(contrato);
+                        }}
+                        title="Editar"
+                      >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button size="sm" variant="ghost">
+                      <Button 
+                        size="sm" 
+                        variant="ghost"
+                        onClick={() => toast.info('Funcionalidade em desenvolvimento')}
+                        title="Enviar"
+                      >
                         <Send className="h-4 w-4" />
                       </Button>
-                      <Button size="sm" variant="ghost">
+                      <Button 
+                        size="sm" 
+                        variant="ghost"
+                        onClick={() => {
+                          setSelectedContract(contrato);
+                          setShowPDFViewer(true);
+                        }}
+                        title="Baixar PDF"
+                      >
                         <Download className="h-4 w-4" />
                       </Button>
                     </div>
@@ -275,11 +382,16 @@ export default function Contratos() {
                   <div className="space-y-4">
                     <div>
                       <Label htmlFor="nomeModelo">Nome do Modelo</Label>
-                      <Input id="nomeModelo" placeholder="Ex: Contrato de Prestação de Serviços" />
+                      <Input 
+                        id="nomeModelo" 
+                        value={nomeModelo}
+                        onChange={(e) => setNomeModelo(e.target.value)}
+                        placeholder="Ex: Contrato de Prestação de Serviços" 
+                      />
                     </div>
                     <div>
                       <Label htmlFor="tipoModelo">Tipo</Label>
-                      <Select defaultValue="contrato">
+                      <Select value={tipoModelo} onValueChange={setTipoModelo}>
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
@@ -295,49 +407,57 @@ export default function Contratos() {
                       <div className="text-sm text-muted-foreground space-y-1">
                         <p>{'{{cliente_nome}}'} - Nome do cliente</p>
                         <p>{'{{cliente_documento}}'} - CPF/CNPJ</p>
-                        <p>{'{{cliente_endereco}}'} - Endereço</p>
+                        <p>{'{{cliente_endereco}}'} - Endereço do cliente</p>
                         <p>{'{{empresa_nome}}'} - Nome da empresa</p>
                         <p>{'{{contrato_numero}}'} - Número do contrato</p>
                         <p>{'{{contrato_valor}}'} - Valor total</p>
                         <p>{'{{data_inicio}}'} - Data de início</p>
-                        <p>{'{{data_fim}}'} - Data de fim</p>
+                        <p>{'{{data_fim}}'} - Data de término</p>
+                        <p>{'{{horario_inicio}}'} - Horário de início</p>
+                        <p>{'{{horario_fim}}'} - Horário de término</p>
+                        <p>{'{{endereco_servico}}'} - Endereço do serviço</p>
+                        <p>{'{{colaborador}}'} - Colaborador responsável</p>
+                        <p>{'{{servicos}}'} - Lista de serviços</p>
+                        <p>{'{{observacoes}}'} - Observações</p>
+                        <p>{'{{assinatura_empresa}}'} - Assinatura da empresa</p>
                       </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="assinaturaEmpresa">Assinatura da Empresa</Label>
+                      <Textarea
+                        id="assinaturaEmpresa"
+                        value={assinaturaEmpresa}
+                        onChange={(e) => setAssinaturaEmpresa(e.target.value)}
+                        onBlur={(e) => saveAssinaturaEmpresa(e.target.value)}
+                        placeholder="Ex: Nome da Empresa&#10;CNPJ: 00.000.000/0001-00&#10;Endereço completo"
+                        className="min-h-[100px]"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Esta assinatura será salva e utilizada em todos os contratos
+                      </p>
                     </div>
                   </div>
                   <div>
                     <Label htmlFor="conteudoModelo">Conteúdo do Modelo</Label>
                     <Textarea
                       id="conteudoModelo"
+                      value={conteudoModelo}
+                      onChange={(e) => setConteudoModelo(e.target.value)}
                       className="min-h-[400px]"
                       placeholder="Digite o conteúdo do modelo aqui. Use as variáveis {{variavel}} para campos dinâmicos."
-                      defaultValue={`CONTRATO DE PRESTAÇÃO DE SERVIÇOS
-
-CONTRATANTE: {{empresa_nome}}
-CONTRATADO: {{cliente_nome}}, {{cliente_documento}}
-Endereço: {{cliente_endereco}}
-
-OBJETO: O presente contrato tem por objeto a prestação de serviços conforme especificações do orçamento {{orcamento_numero}}.
-
-VALOR: O valor total dos serviços é de {{contrato_valor}}.
-
-PRAZO: O prazo para execução é de {{data_inicio}} até {{data_fim}}.
-
-CLÁUSULAS:
-1. O pagamento será realizado conforme cronograma acordado.
-2. Todas as especificações técnicas constam no orçamento anexo.
-3. O presente contrato entra em vigor na data de sua assinatura.
-
-________________________        ________________________
-{{empresa_nome}}                {{cliente_nome}}
-CONTRATANTE                     CONTRATADO`}
                     />
                   </div>
                 </div>
                 <div className="flex justify-end space-x-2 mt-4">
-                  <Button variant="outline" onClick={() => setShowNewModel(false)}>
+                  <Button variant="outline" onClick={() => {
+                    setShowNewModel(false);
+                    setNomeModelo('');
+                    setTipoModelo('contrato');
+                    setConteudoModelo('');
+                  }}>
                     Cancelar
                   </Button>
-                  <Button>Salvar Modelo</Button>
+                  <Button onClick={handleSalvarModelo}>Salvar Modelo</Button>
                 </div>
               </DialogContent>
             </Dialog>
@@ -394,81 +514,12 @@ CONTRATANTE                     CONTRATADO`}
           <h1 className="text-3xl font-bold">Contratos</h1>
           <p className="text-muted-foreground">Gerencie seus contratos e modelos</p>
         </div>
-        <Dialog open={showNewContract} onOpenChange={setShowNewContract}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Contrato
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Novo Contrato</DialogTitle>
-            </DialogHeader>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="tituloContrato">Título</Label>
-                  <Input id="tituloContrato" placeholder="Título do contrato" />
-                </div>
-                <div>
-                  <Label htmlFor="numeroContrato">Número</Label>
-                  <Input id="numeroContrato" defaultValue={generateContractNumber()} />
-                </div>
-                <div>
-                  <Label htmlFor="clienteContrato">Cliente</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o cliente" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="cliente1">Cliente Exemplo</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="modeloContrato">Modelo</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um modelo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {modelos.map(modelo => (
-                        <SelectItem key={modelo.id} value={modelo.id}>
-                          {modelo.nome}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="valorContrato">Valor Total</Label>
-                  <Input id="valorContrato" type="number" placeholder="R$ 0,00" />
-                </div>
-                <div>
-                  <Label htmlFor="dataInicioContrato">Data de Início</Label>
-                  <Input id="dataInicioContrato" type="date" />
-                </div>
-                <div>
-                  <Label htmlFor="dataFimContrato">Data de Fim</Label>
-                  <Input id="dataFimContrato" type="date" />
-                </div>
-                <div>
-                  <Label htmlFor="observacoesContrato">Observações</Label>
-                  <Textarea id="observacoesContrato" placeholder="Observações" />
-                </div>
-              </div>
-            </div>
-            <div className="flex justify-end space-x-2 mt-4">
-              <Button variant="outline" onClick={() => setShowNewContract(false)}>
-                Cancelar
-              </Button>
-              <Button>Criar Contrato</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <NovoContratoDialog
+          open={showNewContract}
+          onOpenChange={setShowNewContract}
+          modelos={modelos}
+          onSuccess={loadContratosData}
+        />
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4">
@@ -510,42 +561,16 @@ CONTRATANTE                     CONTRATADO`}
         </TabsContent>
       </Tabs>
 
-      {/* Contract Detail Dialog */}
-      <Dialog open={!!selectedContract} onOpenChange={() => setSelectedContract(null)}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>Detalhes do Contrato</DialogTitle>
-          </DialogHeader>
-          {selectedContract && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h4 className="font-semibold">Informações Gerais</h4>
-                  <p><strong>Título:</strong> {selectedContract.titulo}</p>
-                  <p><strong>Número:</strong> {selectedContract.numero_contrato || 'N/A'}</p>
-                  <p><strong>Cliente:</strong> {selectedContract.cliente_id ? `Cliente #${selectedContract.cliente_id.slice(-8)}` : 'N/A'}</p>
-                  <p><strong>Status:</strong> {getStatusLabel(selectedContract.status_assinatura || selectedContract.status || 'rascunho')}</p>
-                </div>
-                <div>
-                  <h4 className="font-semibold">Valores e Datas</h4>
-                  <p><strong>Valor:</strong> {formatCurrency(selectedContract.valor_total)}</p>
-                  <p><strong>Data Início:</strong> {formatDate(selectedContract.data_inicio)}</p>
-                  <p><strong>Data Fim:</strong> {formatDate(selectedContract.data_fim)}</p>
-                  {selectedContract.data_assinatura && (
-                    <p><strong>Data Assinatura:</strong> {formatDate(selectedContract.data_assinatura)}</p>
-                  )}
-                </div>
-              </div>
-              {selectedContract.observacoes && (
-                <div>
-                  <h4 className="font-semibold">Observações</h4>
-                  <p className="text-sm">{selectedContract.observacoes}</p>
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* PDF Viewer */}
+      {showPDFViewer && selectedContract && (
+        <ContratosPDFViewer
+          contrato={selectedContract}
+          onClose={() => {
+            setShowPDFViewer(false);
+            setSelectedContract(null);
+          }}
+        />
+      )}
     </div>
   );
 }
