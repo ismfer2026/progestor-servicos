@@ -70,17 +70,30 @@ export default function ImportarArquivoDialog({
     return new Promise((resolve, reject) => {
       Papa.parse(content, {
         header: true,
+        skipEmptyLines: true,
         complete: (results) => {
           const movimentacoes: MovimentacaoImportada[] = [];
           
           results.data.forEach((row: any) => {
             // Tentar diferentes formatos de CSV comuns
-            const data = row.data || row.Data || row.DATE || row.date;
-            const descricao = row.descricao || row.Descricao || row.DESCRIPTION || row.description || row.historico || row.Historico;
+            const data = row.data || row.Data || row.DATE || row.date || 
+                        row['Data Lançamento'] || row['Data Lancamento'] || 
+                        row['Data Contábil'] || row['Data Contabil'];
+            
+            const descricao = row.descricao || row.Descricao || row.DESCRIPTION || row.description || 
+                             row.historico || row.Historico || row.Título || row.Titulo || 
+                             row['Descrição'] || row['Descricao'];
+            
+            // Suporte para formato C6 Bank e outros bancos brasileiros com colunas separadas de entrada/saída
+            const entrada = row['Entrada(R$)'] || row.Entrada || row.entrada || row.credito || row.Credito;
+            const saida = row['Saída(R$)'] || row.Saida || row.saida || row.debito || row.Debito;
+            
+            // Formato tradicional com coluna única de valor
             const valorStr = row.valor || row.Valor || row.AMOUNT || row.amount;
             const tipoStr = row.tipo || row.Tipo || row.TYPE || row.type;
 
-            if (data && descricao && valorStr) {
+            // Processar apenas se tiver data e descrição
+            if (data && descricao) {
               // Converter data para formato YYYY-MM-DD
               let dataFormatada = data;
               if (data.includes('/')) {
@@ -91,27 +104,57 @@ export default function ImportarArquivoDialog({
                 }
               }
 
-              // Converter valor
-              const valorLimpo = valorStr.toString().replace(/[^\d.,-]/g, '').replace(',', '.');
-              const valor = Math.abs(parseFloat(valorLimpo));
-
-              // Determinar tipo
+              let valor = 0;
               let tipo: 'receber' | 'pagar' = 'receber';
-              if (tipoStr) {
-                tipo = tipoStr.toLowerCase().includes('pagar') || tipoStr.toLowerCase().includes('debito') || tipoStr.toLowerCase().includes('saida') 
-                  ? 'pagar' 
-                  : 'receber';
+
+              // Se tiver colunas separadas de entrada/saída (formato C6 Bank)
+              if (entrada !== undefined || saida !== undefined) {
+                const entradaLimpo = entrada ? entrada.toString().replace(/[^\d.,-]/g, '').replace(',', '.') : '0';
+                const saidaLimpo = saida ? saida.toString().replace(/[^\d.,-]/g, '').replace(',', '.') : '0';
+                
+                const valorEntrada = parseFloat(entradaLimpo) || 0;
+                const valorSaida = parseFloat(saidaLimpo) || 0;
+
+                if (valorEntrada > 0) {
+                  valor = valorEntrada;
+                  tipo = 'receber';
+                } else if (valorSaida > 0) {
+                  valor = valorSaida;
+                  tipo = 'pagar';
+                } else {
+                  // Pular se não tiver valor
+                  return;
+                }
+              } 
+              // Formato tradicional com coluna única de valor
+              else if (valorStr) {
+                const valorLimpo = valorStr.toString().replace(/[^\d.,-]/g, '').replace(',', '.');
+                valor = Math.abs(parseFloat(valorLimpo));
+
+                // Determinar tipo
+                if (tipoStr) {
+                  tipo = tipoStr.toLowerCase().includes('pagar') || 
+                         tipoStr.toLowerCase().includes('debito') || 
+                         tipoStr.toLowerCase().includes('saida') 
+                    ? 'pagar' 
+                    : 'receber';
+                } else {
+                  // Se não tiver tipo, assumir pelo sinal do valor
+                  tipo = parseFloat(valorLimpo) < 0 ? 'pagar' : 'receber';
+                }
               } else {
-                // Se não tiver tipo, assumir pelo sinal do valor
-                tipo = parseFloat(valorStr) < 0 ? 'pagar' : 'receber';
+                // Pular se não tiver valor
+                return;
               }
 
-              movimentacoes.push({
-                data: dataFormatada,
-                descricao: descricao.toString().trim(),
-                valor,
-                tipo
-              });
+              if (valor > 0) {
+                movimentacoes.push({
+                  data: dataFormatada,
+                  descricao: descricao.toString().trim(),
+                  valor,
+                  tipo
+                });
+              }
             }
           });
 
