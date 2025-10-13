@@ -68,7 +68,19 @@ export default function ImportarArquivoDialog({
 
   const parseCSV = (content: string): Promise<MovimentacaoImportada[]> => {
     return new Promise((resolve, reject) => {
-      Papa.parse(content, {
+      // Detectar a linha do cabeçalho correto
+      const lines = content.split('\n');
+      let headerIndex = lines.findIndex(line => 
+        line.includes('Data Lançamento') || 
+        line.includes('Data Lancamento') ||
+        (line.includes('Data') && line.includes('Descrição')) ||
+        (line.includes('Data') && line.includes('Descricao'))
+      );
+
+      // Se não encontrar o header específico, tentar com o conteúdo original
+      const csvContent = headerIndex >= 0 ? lines.slice(headerIndex).join('\n') : content;
+
+      Papa.parse(csvContent, {
         header: true,
         skipEmptyLines: true,
         complete: (results) => {
