@@ -12,10 +12,14 @@ import {
   TrendingUp,
   ChevronLeft,
   ChevronRight,
-  Wrench
+  Wrench,
+  ChevronDown,
+  RefreshCw,
+  FileCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
@@ -25,7 +29,16 @@ const navigation = [
   { name: 'Agenda', href: '/agenda', icon: Calendar },
   { name: 'Clientes', href: '/clientes', icon: Users },
   { name: 'Estoque', href: '/estoque', icon: Package },
-  { name: 'Financeiro', href: '/financeiro', icon: DollarSign },
+  { 
+    name: 'Financeiro', 
+    href: '/financeiro', 
+    icon: DollarSign,
+    submenu: [
+      { name: 'Movimentações', href: '/financeiro', icon: DollarSign },
+      { name: 'Conciliação', href: '/financeiro/conciliacao', icon: RefreshCw },
+      { name: 'NFS-e', href: '/financeiro/nfse', icon: FileCheck }
+    ]
+  },
   { name: 'Contratos', href: '/contratos', icon: FileText },
   { name: 'Relatórios', href: '/relatorios', icon: BarChart3 },
   { name: 'Configurações', href: '/configuracoes', icon: Settings },
@@ -33,6 +46,7 @@ const navigation = [
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
+  const [financeiroOpen, setFinanceiroOpen] = useState(false);
   const location = useLocation();
 
   const isActive = (path: string) => {
@@ -63,11 +77,59 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-2">
+      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
         {navigation.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.href);
           
+          // Item com submenu
+          if (item.submenu && !collapsed) {
+            return (
+              <Collapsible key={item.name} open={financeiroOpen} onOpenChange={setFinanceiroOpen}>
+                <CollapsibleTrigger
+                  className={cn(
+                    "flex w-full items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+                    active 
+                      ? "bg-sidebar-accent text-sidebar-primary" 
+                      : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-primary"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon className="w-5 h-5" />
+                    <span>{item.name}</span>
+                  </div>
+                  <ChevronDown className={cn(
+                    "w-4 h-4 transition-transform duration-200",
+                    financeiroOpen && "rotate-180"
+                  )} />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pl-6 mt-1 space-y-1">
+                  {item.submenu.map((subItem) => {
+                    const SubIcon = subItem.icon;
+                    const subActive = location.pathname === subItem.href;
+                    
+                    return (
+                      <NavLink
+                        key={subItem.name}
+                        to={subItem.href}
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200",
+                          subActive 
+                            ? "bg-sidebar-accent text-sidebar-primary" 
+                            : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-primary"
+                        )}
+                      >
+                        <SubIcon className="w-4 h-4" />
+                        <span>{subItem.name}</span>
+                      </NavLink>
+                    );
+                  })}
+                </CollapsibleContent>
+              </Collapsible>
+            );
+          }
+          
+          // Item normal
           return (
             <NavLink
               key={item.name}
@@ -86,7 +148,7 @@ export function Sidebar() {
               {!collapsed && (
                 <span className="animate-fade-in">{item.name}</span>
               )}
-              {!collapsed && active && (
+              {!collapsed && active && !item.submenu && (
                 <div className="ml-auto w-2 h-2 rounded-full bg-primary animate-scale-in" />
               )}
             </NavLink>

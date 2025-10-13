@@ -18,6 +18,8 @@ import Agenda from "@/pages/Agenda";
 import Clientes from "@/pages/Clientes";
 import Estoque from "@/pages/Estoque";
 import Financeiro from "@/pages/Financeiro";
+import Conciliacao from "@/pages/Conciliacao";
+import NFSe from "@/pages/NFSe";
 import Relatorios from "@/pages/Relatorios";
 import Configuracoes from "@/pages/Configuracoes";
 import Contratos from "@/pages/Contratos";
@@ -175,6 +177,22 @@ const App = () => (
                 } 
               />
               <Route 
+                path="/financeiro/conciliacao" 
+                element={
+                  <ProtectedRoute>
+                    <Conciliacao />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/financeiro/nfse" 
+                element={
+                  <ProtectedRoute>
+                    <NFSe />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route
                 path="/relatorios" 
                 element={
                   <ProtectedRoute>

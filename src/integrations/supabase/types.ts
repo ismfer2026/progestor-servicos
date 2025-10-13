@@ -520,6 +520,111 @@ export type Database = {
           },
         ]
       }
+      financeiro_conciliacoes: {
+        Row: {
+          arquivo_ofx: string | null
+          banco: string
+          created_at: string | null
+          data_fim: string
+          data_inicio: string
+          empresa_id: string
+          id: string
+          observacoes: string | null
+          saldo_final: number
+          saldo_inicial: number
+          status: string
+          total_entradas: number
+          total_saidas: number
+          updated_at: string | null
+        }
+        Insert: {
+          arquivo_ofx?: string | null
+          banco: string
+          created_at?: string | null
+          data_fim: string
+          data_inicio: string
+          empresa_id: string
+          id?: string
+          observacoes?: string | null
+          saldo_final?: number
+          saldo_inicial?: number
+          status?: string
+          total_entradas?: number
+          total_saidas?: number
+          updated_at?: string | null
+        }
+        Update: {
+          arquivo_ofx?: string | null
+          banco?: string
+          created_at?: string | null
+          data_fim?: string
+          data_inicio?: string
+          empresa_id?: string
+          id?: string
+          observacoes?: string | null
+          saldo_final?: number
+          saldo_inicial?: number
+          status?: string
+          total_entradas?: number
+          total_saidas?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      financeiro_conciliacoes_itens: {
+        Row: {
+          conciliacao_id: string
+          conciliado: boolean | null
+          created_at: string | null
+          data_transacao: string
+          descricao: string
+          id: string
+          movimentacao_id: string | null
+          observacoes: string | null
+          tipo: string
+          valor: number
+        }
+        Insert: {
+          conciliacao_id: string
+          conciliado?: boolean | null
+          created_at?: string | null
+          data_transacao: string
+          descricao: string
+          id?: string
+          movimentacao_id?: string | null
+          observacoes?: string | null
+          tipo: string
+          valor: number
+        }
+        Update: {
+          conciliacao_id?: string
+          conciliado?: boolean | null
+          created_at?: string | null
+          data_transacao?: string
+          descricao?: string
+          id?: string
+          movimentacao_id?: string | null
+          observacoes?: string | null
+          tipo?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financeiro_conciliacoes_itens_conciliacao_id_fkey"
+            columns: ["conciliacao_id"]
+            isOneToOne: false
+            referencedRelation: "financeiro_conciliacoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financeiro_conciliacoes_itens_movimentacao_id_fkey"
+            columns: ["movimentacao_id"]
+            isOneToOne: false
+            referencedRelation: "financeiro_movimentacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       financeiro_movimentacoes: {
         Row: {
           categoria: string | null
@@ -576,6 +681,95 @@ export type Database = {
           valor?: number
         }
         Relationships: []
+      }
+      financeiro_nfse: {
+        Row: {
+          aliquota_iss: number | null
+          cliente_id: string | null
+          codigo_servico: string | null
+          created_at: string | null
+          data_competencia: string | null
+          data_emissao: string
+          descricao_servico: string
+          empresa_id: string
+          id: string
+          link_pdf: string | null
+          link_xml: string | null
+          numero_nota: string | null
+          serie: string | null
+          status: string
+          updated_at: string | null
+          valor_cofins: number | null
+          valor_csll: number | null
+          valor_deducoes: number | null
+          valor_inss: number | null
+          valor_ir: number | null
+          valor_iss: number | null
+          valor_liquido: number
+          valor_pis: number | null
+          valor_servico: number
+        }
+        Insert: {
+          aliquota_iss?: number | null
+          cliente_id?: string | null
+          codigo_servico?: string | null
+          created_at?: string | null
+          data_competencia?: string | null
+          data_emissao: string
+          descricao_servico: string
+          empresa_id: string
+          id?: string
+          link_pdf?: string | null
+          link_xml?: string | null
+          numero_nota?: string | null
+          serie?: string | null
+          status?: string
+          updated_at?: string | null
+          valor_cofins?: number | null
+          valor_csll?: number | null
+          valor_deducoes?: number | null
+          valor_inss?: number | null
+          valor_ir?: number | null
+          valor_iss?: number | null
+          valor_liquido: number
+          valor_pis?: number | null
+          valor_servico: number
+        }
+        Update: {
+          aliquota_iss?: number | null
+          cliente_id?: string | null
+          codigo_servico?: string | null
+          created_at?: string | null
+          data_competencia?: string | null
+          data_emissao?: string
+          descricao_servico?: string
+          empresa_id?: string
+          id?: string
+          link_pdf?: string | null
+          link_xml?: string | null
+          numero_nota?: string | null
+          serie?: string | null
+          status?: string
+          updated_at?: string | null
+          valor_cofins?: number | null
+          valor_csll?: number | null
+          valor_deducoes?: number | null
+          valor_inss?: number | null
+          valor_ir?: number | null
+          valor_iss?: number | null
+          valor_liquido?: number
+          valor_pis?: number | null
+          valor_servico?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financeiro_nfse_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       funil_anotacoes: {
         Row: {
