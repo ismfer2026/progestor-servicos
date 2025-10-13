@@ -17,6 +17,7 @@ import { ptBR } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import Conciliacao from './Conciliacao';
 import NFSe from './NFSe';
+import ImportarArquivoDialog from '@/components/financeiro/ImportarArquivoDialog';
 
 interface FinanceiroMovimentacao {
   id: string;
@@ -475,13 +476,18 @@ export default function Financeiro() {
                   Faça upload do arquivo OFX ou CSV do seu banco
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4">
-                <Input type="file" accept=".ofx,.csv" />
-                <div className="flex justify-end space-x-2">
-                  <Button variant="outline" onClick={() => setShowImportDialog(false)}>Cancelar</Button>
-                  <Button onClick={() => { toast.info('Funcionalidade em desenvolvimento'); setShowImportDialog(false); }}>Importar</Button>
-                </div>
-              </div>
+              {user && (
+                <ImportarArquivoDialog
+                  empresaId={user.empresa_id}
+                  bancos={bancos}
+                  categorias={categorias}
+                  onImportSuccess={() => {
+                    setShowImportDialog(false);
+                    loadData();
+                  }}
+                  onCancel={() => setShowImportDialog(false)}
+                />
+              )}
             </DialogContent>
           </Dialog>
           <Dialog open={showNewMovement} onOpenChange={setShowNewMovement}>
