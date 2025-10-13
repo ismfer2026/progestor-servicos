@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Package, Search, Plus, AlertTriangle, Wrench, Calendar, Eye, Edit2, Lock, Download, MoreVertical } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -58,6 +59,8 @@ interface EstoqueManutencao {
 
 export default function Estoque() {
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [itens, setItens] = useState<EstoqueItem[]>([]);
   const [reservas, setReservas] = useState<EstoqueReserva[]>([]);
   const [manutencoes, setManutencoes] = useState<EstoqueManutencao[]>([]);
@@ -100,18 +103,22 @@ export default function Estoque() {
 
   useEffect(() => {
     loadEstoqueData();
+  }, [user]);
 
-    // Verificar se há parâmetro de item na URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const itemId = urlParams.get('item');
+  // Detectar parâmetro item na URL e abrir dialog
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const itemId = searchParams.get('item');
     
     if (itemId && itens.length > 0) {
       const item = itens.find(i => i.id === itemId);
       if (item) {
         setViewItem(item);
+        // Limpar o parâmetro da URL
+        navigate('/estoque', { replace: true });
       }
     }
-  }, [user, itens]);
+  }, [location.search, itens, navigate]);
 
   // Criar notificações para alertas de estoque
   useEffect(() => {

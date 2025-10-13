@@ -77,17 +77,22 @@ export function Header() {
 
   const handleNotificationClick = async (notificacao: Notificacao) => {
     // Marcar como lida
-    await supabase
+    const { error } = await supabase
       .from('notificacoes')
       .update({ lida: true, data_leitura: new Date().toISOString() })
       .eq('id', notificacao.id);
+
+    if (error) {
+      console.error('Erro ao marcar notificação como lida:', error);
+    }
+
+    // Atualizar a lista de notificações
+    await fetchNotificacoes();
 
     // Navegar para o link se existir
     if (notificacao.link) {
       navigate(notificacao.link);
     }
-
-    fetchNotificacoes();
   };
 
   const formatRelativeTime = (date: string) => {
