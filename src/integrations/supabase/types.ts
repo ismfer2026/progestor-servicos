@@ -520,6 +520,111 @@ export type Database = {
           },
         ]
       }
+      financeiro_bancos: {
+        Row: {
+          agencia: string | null
+          ativo: boolean | null
+          codigo: string | null
+          conta: string | null
+          created_at: string | null
+          empresa_id: string
+          id: string
+          nome: string
+          saldo_inicial: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          agencia?: string | null
+          ativo?: boolean | null
+          codigo?: string | null
+          conta?: string | null
+          created_at?: string | null
+          empresa_id: string
+          id?: string
+          nome: string
+          saldo_inicial?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          agencia?: string | null
+          ativo?: boolean | null
+          codigo?: string | null
+          conta?: string | null
+          created_at?: string | null
+          empresa_id?: string
+          id?: string
+          nome?: string
+          saldo_inicial?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      financeiro_categorias: {
+        Row: {
+          ativo: boolean | null
+          cor: string | null
+          created_at: string | null
+          empresa_id: string
+          id: string
+          nome: string
+          tipo: string
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          cor?: string | null
+          created_at?: string | null
+          empresa_id: string
+          id?: string
+          nome: string
+          tipo: string
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          cor?: string | null
+          created_at?: string | null
+          empresa_id?: string
+          id?: string
+          nome?: string
+          tipo?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      financeiro_centros_custo: {
+        Row: {
+          ativo: boolean | null
+          codigo: string | null
+          created_at: string | null
+          descricao: string | null
+          empresa_id: string
+          id: string
+          nome: string
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          codigo?: string | null
+          created_at?: string | null
+          descricao?: string | null
+          empresa_id: string
+          id?: string
+          nome: string
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          codigo?: string | null
+          created_at?: string | null
+          descricao?: string | null
+          empresa_id?: string
+          id?: string
+          nome?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       financeiro_conciliacoes: {
         Row: {
           arquivo_ofx: string | null
@@ -627,6 +732,7 @@ export type Database = {
       }
       financeiro_movimentacoes: {
         Row: {
+          banco_id: string | null
           categoria: string | null
           centro_custo: string | null
           cliente_id: string | null
@@ -645,6 +751,7 @@ export type Database = {
           valor: number
         }
         Insert: {
+          banco_id?: string | null
           categoria?: string | null
           centro_custo?: string | null
           cliente_id?: string | null
@@ -663,6 +770,7 @@ export type Database = {
           valor: number
         }
         Update: {
+          banco_id?: string | null
           categoria?: string | null
           centro_custo?: string | null
           cliente_id?: string | null
@@ -680,7 +788,15 @@ export type Database = {
           updated_at?: string | null
           valor?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "financeiro_movimentacoes_banco_id_fkey"
+            columns: ["banco_id"]
+            isOneToOne: false
+            referencedRelation: "financeiro_bancos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       financeiro_nfse: {
         Row: {
