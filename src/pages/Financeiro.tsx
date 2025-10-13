@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DollarSign, TrendingUp, TrendingDown, Calendar, Plus, Upload, FileText, Settings as SettingsIcon, Eye } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, Calendar, Plus, Upload, FileText, Settings as SettingsIcon, Eye, Pencil } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,7 +48,9 @@ export default function Financeiro() {
   const [showNewMovement, setShowNewMovement] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const [selectedMovimento, setSelectedMovimento] = useState<FinanceiroMovimentacao | null>(null);
+  const [editingMovimento, setEditingMovimento] = useState<FinanceiroMovimentacao | null>(null);
 
   // Form states
   const [formTipo, setFormTipo] = useState('receber');
@@ -191,6 +193,54 @@ export default function Financeiro() {
   const handleViewDetails = (mov: FinanceiroMovimentacao) => {
     setSelectedMovimento(mov);
     setShowDetailsDialog(true);
+  };
+
+  const handleEditMovimento = (mov: FinanceiroMovimentacao) => {
+    setEditingMovimento(mov);
+    setFormTipo(mov.tipo);
+    setFormDescricao(mov.descricao);
+    setFormValor(mov.valor.toString());
+    setFormDataVencimento(mov.data_vencimento);
+    setFormCategoria(mov.categoria || '');
+    setFormCentroCusto(mov.centro_custo || '');
+    setFormFormaPagamento(mov.forma_pagamento || '');
+    setFormBanco(mov.banco_id || '');
+    setFormObservacoes('');
+    setShowEditDialog(true);
+  };
+
+  const handleUpdateMovimento = async () => {
+    if (!user || !editingMovimento || !formDescricao || !formValor || !formDataVencimento) {
+      toast.error('Preencha todos os campos obrigatórios');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('financeiro_movimentacoes')
+        .update({
+          tipo: formTipo,
+          descricao: formDescricao,
+          valor: parseFloat(formValor),
+          data_vencimento: formDataVencimento,
+          categoria: formCategoria || null,
+          centro_custo: formCentroCusto || null,
+          forma_pagamento: formFormaPagamento || null,
+          banco_id: formBanco || null,
+        })
+        .eq('id', editingMovimento.id);
+
+      if (error) throw error;
+
+      toast.success('Movimentação atualizada com sucesso!');
+      resetForm();
+      setShowEditDialog(false);
+      setEditingMovimento(null);
+      loadData();
+    } catch (error) {
+      console.error('Error updating movimento:', error);
+      toast.error('Erro ao atualizar movimentação');
+    }
   };
 
   const filteredMovimentacoes = movimentacoes.filter(mov => {
@@ -422,6 +472,14 @@ export default function Financeiro() {
                       title="Ver detalhes"
                     >
                       <Eye className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="ghost"
+                      onClick={() => handleEditMovimento(mov)}
+                      title="Editar"
+                    >
+                      <Pencil className="h-4 w-4" />
                     </Button>
                     {mov.status === 'pendente' && (
                       <Button 
@@ -769,6 +827,153 @@ export default function Financeiro() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Edição de Movimentação */}
+      <Dialog open={showEditDialog} onOpenChange={(open) => {
+        setShowEditDialog(open);
+        if (!open) {
+          setEditingMovimento(null);
+          resetForm();
+        }
+      }}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Movimentação</DialogTitle>
+            <DialogDescription>
+              Atualize as informações da movimentação financeira
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Tipo *</label>
+                <Select value={formTipo} onValueChange={setFormTipo}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="receber">Receber</SelectItem>
+                    <SelectItem value="pagar">Pagar</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Valor *</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={formValor}
+                  onChange={(e) => setFormValor(e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Descrição *</label>
+              <Input
+                value={formDescricao}
+                onChange={(e) => setFormDescricao(e.target.value)}
+                placeholder="Ex: Pagamento de fornecedor"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Data de Vencimento *</label>
+                <Input
+                  type="date"
+                  value={formDataVencimento}
+                  onChange={(e) => setFormDataVencimento(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Categoria</label>
+                <Select value={formCategoria} onValueChange={setFormCategoria}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione uma categoria" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categorias.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.nome}>
+                        {cat.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Centro de Custo</label>
+                <Select value={formCentroCusto} onValueChange={setFormCentroCusto}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um centro de custo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {centrosCusto.map((cc) => (
+                      <SelectItem key={cc.id} value={cc.nome}>
+                        {cc.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Forma de Pagamento</label>
+                <Select value={formFormaPagamento} onValueChange={setFormFormaPagamento}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a forma" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                    <SelectItem value="pix">PIX</SelectItem>
+                    <SelectItem value="cartao">Cartão</SelectItem>
+                    <SelectItem value="boleto">Boleto</SelectItem>
+                    <SelectItem value="transferencia">Transferência</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Banco</label>
+              <Select value={formBanco} onValueChange={setFormBanco}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o banco" />
+                </SelectTrigger>
+                <SelectContent>
+                  {bancos.map((banco) => (
+                    <SelectItem key={banco.id} value={banco.id}>
+                      {banco.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setShowEditDialog(false);
+                  setEditingMovimento(null);
+                  resetForm();
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button onClick={handleUpdateMovimento}>
+                Salvar Alterações
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
