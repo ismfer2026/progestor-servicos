@@ -74,7 +74,10 @@ export default function ImportarArquivoDialog({
         complete: (results) => {
           const movimentacoes: MovimentacaoImportada[] = [];
           
-          results.data.forEach((row: any) => {
+          console.log('Total de linhas parseadas:', results.data.length);
+          console.log('Primeira linha de dados:', results.data[0]);
+          
+          results.data.forEach((row: any, index: number) => {
             // Tentar diferentes formatos de CSV comuns
             const data = row.data || row.Data || row.DATE || row.date || 
                         row['Data Lançamento'] || row['Data Lancamento'] || 
@@ -91,6 +94,8 @@ export default function ImportarArquivoDialog({
             // Formato tradicional com coluna única de valor
             const valorStr = row.valor || row.Valor || row.AMOUNT || row.amount;
             const tipoStr = row.tipo || row.Tipo || row.TYPE || row.type;
+
+            console.log(`Linha ${index}:`, { data, descricao, entrada, saida });
 
             // Processar apenas se tiver data e descrição
             if (data && descricao) {
@@ -115,6 +120,8 @@ export default function ImportarArquivoDialog({
                 const valorEntrada = parseFloat(entradaLimpo) || 0;
                 const valorSaida = parseFloat(saidaLimpo) || 0;
 
+                console.log(`Processando linha ${index}: entrada=${valorEntrada}, saida=${valorSaida}`);
+
                 if (valorEntrada > 0) {
                   valor = valorEntrada;
                   tipo = 'receber';
@@ -123,6 +130,7 @@ export default function ImportarArquivoDialog({
                   tipo = 'pagar';
                 } else {
                   // Pular se não tiver valor
+                  console.log(`Pulando linha ${index} - sem valor`);
                   return;
                 }
               } 
@@ -144,10 +152,12 @@ export default function ImportarArquivoDialog({
                 }
               } else {
                 // Pular se não tiver valor
+                console.log(`Pulando linha ${index} - sem coluna de valor`);
                 return;
               }
 
               if (valor > 0) {
+                console.log(`Adicionando movimentação: ${descricao} - R$ ${valor}`);
                 movimentacoes.push({
                   data: dataFormatada,
                   descricao: descricao.toString().trim(),
@@ -155,9 +165,12 @@ export default function ImportarArquivoDialog({
                   tipo
                 });
               }
+            } else {
+              console.log(`Pulando linha ${index} - falta data ou descrição`);
             }
           });
 
+          console.log('Total de movimentações encontradas:', movimentacoes.length);
           resolve(movimentacoes);
         },
         error: (error) => {
