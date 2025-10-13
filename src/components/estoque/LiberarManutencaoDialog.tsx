@@ -70,7 +70,7 @@ export default function LiberarManutencaoDialog({
           .from('financeiro_movimentacoes')
           .insert({
             empresa_id: user.empresa_id,
-            tipo: 'despesa',
+            tipo: 'pagar',
             valor: parseFloat(valorCusto),
             descricao: descricao || `Manutenção - ${manutencao.defeito}`,
             categoria: categoria,
