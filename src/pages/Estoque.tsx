@@ -100,7 +100,18 @@ export default function Estoque() {
 
   useEffect(() => {
     loadEstoqueData();
-  }, [user]);
+
+    // Verificar se há parâmetro de item na URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const itemId = urlParams.get('item');
+    
+    if (itemId && itens.length > 0) {
+      const item = itens.find(i => i.id === itemId);
+      if (item) {
+        setViewItem(item);
+      }
+    }
+  }, [user, itens]);
 
   // Criar notificações para alertas de estoque
   useEffect(() => {
@@ -540,7 +551,7 @@ export default function Estoque() {
           tipo: 'alerta_estoque_baixo',
           titulo: 'Item com estoque baixo',
           mensagem: `${editItem.nome} está com estoque baixo (${editItem.saldo} ${editItem.unidade})`,
-          link: '/estoque'
+          link: `/estoque?item=${editItem.id}`
         });
       }
 
@@ -558,7 +569,7 @@ export default function Estoque() {
             tipo: 'alerta_vencimento_proximo',
             titulo: 'Item próximo do vencimento',
             mensagem: `${editItem.nome} vence em ${diasRestantes} dias`,
-            link: '/estoque'
+            link: `/estoque?item=${editItem.id}`
           });
         } else if (diasRestantes <= 0) {
           await supabase.from('notificacoes').insert({
@@ -567,7 +578,7 @@ export default function Estoque() {
             tipo: 'alerta_estoque_vencido',
             titulo: 'Item vencido',
             mensagem: `${editItem.nome} está vencido!`,
-            link: '/estoque'
+            link: `/estoque?item=${editItem.id}`
           });
         }
       }
@@ -1210,6 +1221,51 @@ export default function Estoque() {
                     {getStatusLabel(viewItem.status)}
                   </Badge>
                 </div>
+              </div>
+
+              <div className="flex justify-end space-x-2 mt-6 pt-4 border-t">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    const doc = new jsPDF();
+                    doc.setFontSize(16);
+                    doc.text('Ficha do Item', 14, 15);
+                    doc.setFontSize(10);
+                    doc.text(`Nome: ${viewItem.nome}`, 14, 30);
+                    doc.text(`SKU: ${viewItem.sku || '-'}`, 14, 37);
+                    doc.text(`Categoria: ${viewItem.categoria || '-'}`, 14, 44);
+                    doc.text(`Saldo: ${viewItem.saldo} ${viewItem.unidade}`, 14, 51);
+                    doc.text(`Custo: ${formatCurrency(viewItem.custo)}`, 14, 58);
+                    doc.text(`Venda: ${formatCurrency(viewItem.venda)}`, 14, 65);
+                    if (viewItem.validade) {
+                      doc.text(`Validade: ${new Date(viewItem.validade).toLocaleDateString('pt-BR')}`, 14, 72);
+                    }
+                    doc.save(`item_${viewItem.nome.replace(/\s+/g, '_')}.pdf`);
+                    toast.success('PDF baixado com sucesso!');
+                  }}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Baixar PDF
+                </Button>
+                <Button 
+                  variant="outline"
+                  onClick={() => {
+                    const mensagem = `*Item: ${viewItem.nome}*\nSKU: ${viewItem.sku || '-'}\nSaldo: ${viewItem.saldo} ${viewItem.unidade}\nCusto: ${formatCurrency(viewItem.custo)}\nVenda: ${formatCurrency(viewItem.venda)}`;
+                    const url = `https://wa.me/?text=${encodeURIComponent(mensagem)}`;
+                    window.open(url, '_blank');
+                  }}
+                >
+                  WhatsApp
+                </Button>
+                <Button 
+                  onClick={() => {
+                    setEditItem(viewItem);
+                    setViewItem(null);
+                  }}
+                >
+                  <Edit2 className="mr-2 h-4 w-4" />
+                  Editar
+                </Button>
               </div>
             </div>
           )}
