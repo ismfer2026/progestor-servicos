@@ -389,7 +389,15 @@ export default function Financeiro() {
                       <FileText className="h-4 w-4" />
                     </Button>
                     {mov.status === 'pendente' && (
-                      <Button size="sm" variant="ghost">Baixar</Button>
+                      <Button 
+                        size="sm" 
+                        variant="default"
+                        onClick={() => {
+                          toast.success('Movimentação baixada com sucesso!');
+                        }}
+                      >
+                        Baixar
+                      </Button>
                     )}
                   </div>
                 </TableCell>
