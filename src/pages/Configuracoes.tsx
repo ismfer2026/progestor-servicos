@@ -651,7 +651,7 @@ export default function Configuracoes() {
   );
 
   const renderCategoriasTab = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="max-w-4xl">
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
@@ -665,7 +665,7 @@ export default function Configuracoes() {
               }
             }}>
               <DialogTrigger asChild>
-                <Button size="sm">
+                <Button>
                   <Plus className="h-4 w-4 mr-2" />
                   Nova Categoria
                 </Button>
