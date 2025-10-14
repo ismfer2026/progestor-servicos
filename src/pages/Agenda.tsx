@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -222,14 +223,42 @@ export default function Agenda() {
                 {format(day, 'd')}
               </div>
               <div className="space-y-1">
-                {dayTasks.slice(0, 3).map(tarefa => (
-                  <div
-                    key={tarefa.id}
-                    className="text-xs p-1 rounded bg-primary/10 text-primary truncate"
-                  >
-                    {format(new Date(tarefa.data_hora), 'HH:mm')} - {tarefa.titulo}
-                  </div>
-                ))}
+                <TooltipProvider>
+                  {dayTasks.slice(0, 3).map(tarefa => (
+                    <Tooltip key={tarefa.id}>
+                      <TooltipTrigger asChild>
+                        <div
+                          className="text-xs p-1 rounded bg-primary/10 text-primary truncate cursor-pointer hover:bg-primary/20"
+                          onClick={() => handleCardClick(tarefa)}
+                        >
+                          {format(new Date(tarefa.data_hora), 'HH:mm')} - {tarefa.titulo}
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-xs">
+                        <div className="space-y-1">
+                          <p className="font-semibold">{tarefa.titulo}</p>
+                          {tarefa.descricao && (
+                            <p className="text-xs text-muted-foreground">{tarefa.descricao}</p>
+                          )}
+                          <p className="text-xs">
+                            <span className="font-medium">Horário:</span> {format(new Date(tarefa.data_hora), 'HH:mm')} - {tarefa.data_fim ? format(new Date(tarefa.data_fim), 'HH:mm') : '--'}
+                          </p>
+                          <p className="text-xs">
+                            <span className="font-medium">Status:</span> {getStatusLabel(tarefa.status)}
+                          </p>
+                          <p className="text-xs">
+                            <span className="font-medium">Prioridade:</span> {getPrioridadeLabel(tarefa.prioridade)}
+                          </p>
+                          {tarefa.cliente_id && (
+                            <p className="text-xs">
+                              <span className="font-medium">Cliente:</span> {getClienteById(tarefa.cliente_id)?.nome || 'Não especificado'}
+                            </p>
+                          )}
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  ))}
+                </TooltipProvider>
                 {dayTasks.length > 3 && (
                   <div className="text-xs text-muted-foreground">
                     +{dayTasks.length - 3} mais
