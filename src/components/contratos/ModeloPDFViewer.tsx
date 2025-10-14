@@ -70,16 +70,11 @@ export function ModeloPDFViewer({ modelo, onClose }: ModeloPDFViewerProps) {
 
   // Function to process content and replace image placeholders
   const processContent = (content: string) => {
-    // Se for HTML (do DOCX), renderizar diretamente
+    // Se for HTML (do DOCX), renderizar diretamente sem adicionar estilos extras
     if (isHtmlContent(content)) {
       return (
         <div 
           dangerouslySetInnerHTML={{ __html: content }}
-          style={{
-            fontFamily: 'Arial, sans-serif',
-            lineHeight: '1.6',
-            color: '#000'
-          }}
         />
       );
     }
@@ -148,11 +143,7 @@ export function ModeloPDFViewer({ modelo, onClose }: ModeloPDFViewerProps) {
             </div>
             <div className="prose prose-sm max-w-none text-gray-900">
               <div 
-                className={isHtmlContent(modelo.conteudo_template) ? '' : 'whitespace-pre-wrap'} 
-                style={{ 
-                  fontFamily: 'Arial, sans-serif',
-                  lineHeight: '1.6'
-                }}
+                className={isHtmlContent(modelo.conteudo_template) ? '' : 'whitespace-pre-wrap'}
               >
                 {processContent(modelo.conteudo_template)}
               </div>

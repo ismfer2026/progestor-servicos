@@ -652,17 +652,38 @@ export default function Contratos() {
                             try {
                               const arrayBuffer = await file.arrayBuffer();
                               
-                              // Converter DOCX para HTML preservando formatação e imagens
+                              // Converter DOCX para HTML preservando TODA a formatação possível
                               const result = await mammoth.convertToHtml({ 
                                 arrayBuffer,
                               }, {
+                                // Preservar imagens em base64
                                 convertImage: mammoth.images.imgElement(function(image) {
                                   return image.read("base64").then(function(imageBuffer) {
                                     return {
                                       src: "data:" + image.contentType + ";base64," + imageBuffer
                                     };
                                   });
-                                })
+                                }),
+                                // Mapeamento de estilos para preservar formatação
+                                styleMap: [
+                                  "p[style-name='Heading 1'] => h1:fresh",
+                                  "p[style-name='Heading 2'] => h2:fresh",
+                                  "p[style-name='Heading 3'] => h3:fresh",
+                                  "r[style-name='Strong'] => strong",
+                                  "p[style-name='Normal'] => p:fresh",
+                                  "p[style-name='Title'] => h1.title:fresh",
+                                  "p[style-name='Subtitle'] => p.subtitle:fresh",
+                                  "p[style-name='Quote'] => blockquote:fresh",
+                                  "r[style-name='Emphasis'] => em",
+                                  "p[style-name='List Paragraph'] => p.list-paragraph:fresh",
+                                  "table => table.docx-table",
+                                  "tr => tr",
+                                  "td => td"
+                                ],
+                                // Incluir estilos inline
+                                includeDefaultStyleMap: true,
+                                // Incluir estilos embutidos
+                                includeEmbeddedStyleMap: true
                               });
                               
                               let htmlContent = result.value;
@@ -672,16 +693,59 @@ export default function Contratos() {
                                 return;
                               }
                               
-                              // Adicionar estilos para preservar formatação
+                              // Adicionar estilos CSS avançados para preservar formatação complexa
                               const styledContent = `
-                                <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #000;">
+                                <style>
+                                  .docx-content {
+                                    font-family: inherit;
+                                    line-height: inherit;
+                                    color: inherit;
+                                  }
+                                  .docx-content p {
+                                    margin: 0;
+                                    padding: 0;
+                                    white-space: pre-wrap;
+                                  }
+                                  .docx-content img {
+                                    max-width: 100%;
+                                    height: auto;
+                                    display: block;
+                                  }
+                                  .docx-content table {
+                                    border-collapse: collapse;
+                                    width: 100%;
+                                  }
+                                  .docx-content td, .docx-content th {
+                                    border: 1px solid #ddd;
+                                    padding: 8px;
+                                  }
+                                  .docx-content h1, .docx-content h2, .docx-content h3 {
+                                    margin: 0.5em 0;
+                                  }
+                                  .docx-content strong {
+                                    font-weight: bold;
+                                  }
+                                  .docx-content em {
+                                    font-style: italic;
+                                  }
+                                  .docx-content blockquote {
+                                    border-left: 4px solid #ccc;
+                                    padding-left: 1em;
+                                    margin: 1em 0;
+                                  }
+                                  .docx-content ul, .docx-content ol {
+                                    margin: 0.5em 0;
+                                    padding-left: 2em;
+                                  }
+                                </style>
+                                <div class="docx-content">
                                   ${htmlContent}
                                 </div>
                               `;
                               
                               setArquivoModelo(styledContent);
                               setConteudoModelo(styledContent);
-                              toast.success('Arquivo DOCX carregado com sucesso! Formatação e imagens preservadas.');
+                              toast.success('Arquivo DOCX carregado com sucesso! Formatação completa preservada.');
                             } catch (error) {
                               console.error('Error reading DOCX:', error);
                               toast.error('Erro ao ler arquivo DOCX. Verifique se o arquivo não está corrompido.');
