@@ -374,7 +374,7 @@ export default function Contratos() {
                   Novo Modelo
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-4xl">
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Novo Modelo de Contrato</DialogTitle>
                 </DialogHeader>
@@ -404,13 +404,19 @@ export default function Contratos() {
                     </div>
                     <div>
                       <Label>Variáveis Disponíveis</Label>
-                      <div className="text-sm text-muted-foreground space-y-1">
+                      <div className="text-sm text-muted-foreground space-y-1 max-h-[200px] overflow-y-auto pr-2">
                         <p>{'{{cliente_nome}}'} - Nome do cliente</p>
                         <p>{'{{cliente_documento}}'} - CPF/CNPJ</p>
                         <p>{'{{cliente_endereco}}'} - Endereço do cliente</p>
                         <p>{'{{empresa_nome}}'} - Nome da empresa</p>
                         <p>{'{{contrato_numero}}'} - Número do contrato</p>
                         <p>{'{{contrato_valor}}'} - Valor total</p>
+                        <p>{'{{valor_sinal}}'} - Valor do sinal</p>
+                        <p>{'{{data_sinal}}'} - Data do sinal</p>
+                        <p>{'{{valor_restante}}'} - Valor restante</p>
+                        <p>{'{{data_vencimento_parcelas}}'} - Datas das parcelas</p>
+                        <p>{'{{forma_pagamento_sinal}}'} - Forma de pagamento do sinal</p>
+                        <p>{'{{forma_pagamento_restante}}'} - Forma de pagamento restante</p>
                         <p>{'{{data_inicio}}'} - Data de início</p>
                         <p>{'{{data_fim}}'} - Data de término</p>
                         <p>{'{{horario_inicio}}'} - Horário de início</p>
@@ -424,16 +430,38 @@ export default function Contratos() {
                     </div>
                     <div>
                       <Label htmlFor="assinaturaEmpresa">Assinatura da Empresa</Label>
-                      <Textarea
-                        id="assinaturaEmpresa"
-                        value={assinaturaEmpresa}
-                        onChange={(e) => setAssinaturaEmpresa(e.target.value)}
-                        onBlur={(e) => saveAssinaturaEmpresa(e.target.value)}
-                        placeholder="Ex: Nome da Empresa&#10;CNPJ: 00.000.000/0001-00&#10;Endereço completo"
-                        className="min-h-[100px]"
-                      />
+                      <div className="space-y-2">
+                        <Input
+                          id="uploadAssinatura"
+                          type="file"
+                          accept="image/*"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                const base64 = reader.result as string;
+                                saveAssinaturaEmpresa(base64);
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                        {assinaturaEmpresa && assinaturaEmpresa.startsWith('data:image') && (
+                          <div className="border rounded p-2">
+                            <img src={assinaturaEmpresa} alt="Assinatura" className="max-h-20 object-contain" />
+                          </div>
+                        )}
+                        <Textarea
+                          value={assinaturaEmpresa && !assinaturaEmpresa.startsWith('data:image') ? assinaturaEmpresa : ''}
+                          onChange={(e) => setAssinaturaEmpresa(e.target.value)}
+                          onBlur={(e) => saveAssinaturaEmpresa(e.target.value)}
+                          placeholder="Ou digite o texto da assinatura&#10;Ex: Nome da Empresa&#10;CNPJ: 00.000.000/0001-00"
+                          className="min-h-[80px]"
+                        />
+                      </div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Esta assinatura será salva e utilizada em todos os contratos
+                        Escolha uma imagem da assinatura ou digite o texto
                       </p>
                     </div>
                   </div>
