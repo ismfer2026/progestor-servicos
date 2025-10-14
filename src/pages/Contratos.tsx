@@ -648,23 +648,40 @@ export default function Contratos() {
                           }
 
                           if (fileName.endsWith('.docx')) {
-                            // Processar arquivo DOCX
+                            // Processar arquivo DOCX mantendo formatação
                             try {
                               const arrayBuffer = await file.arrayBuffer();
-                              const result = await mammoth.extractRawText({ arrayBuffer });
                               
-                              let conteudo = result.value;
-                              // Remover caracteres nulos e outros caracteres especiais
-                              conteudo = conteudo.replace(/\u0000/g, '').replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F]/g, '');
+                              // Converter DOCX para HTML preservando formatação e imagens
+                              const result = await mammoth.convertToHtml({ 
+                                arrayBuffer,
+                              }, {
+                                convertImage: mammoth.images.imgElement(function(image) {
+                                  return image.read("base64").then(function(imageBuffer) {
+                                    return {
+                                      src: "data:" + image.contentType + ";base64," + imageBuffer
+                                    };
+                                  });
+                                })
+                              });
                               
-                              if (!conteudo.trim()) {
+                              let htmlContent = result.value;
+                              
+                              if (!htmlContent.trim()) {
                                 toast.error('Arquivo vazio ou com formato inválido');
                                 return;
                               }
                               
-                              setArquivoModelo(conteudo);
-                              setConteudoModelo(conteudo);
-                              toast.success('Arquivo DOCX carregado com sucesso!');
+                              // Adicionar estilos para preservar formatação
+                              const styledContent = `
+                                <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #000;">
+                                  ${htmlContent}
+                                </div>
+                              `;
+                              
+                              setArquivoModelo(styledContent);
+                              setConteudoModelo(styledContent);
+                              toast.success('Arquivo DOCX carregado com sucesso! Formatação e imagens preservadas.');
                             } catch (error) {
                               console.error('Error reading DOCX:', error);
                               toast.error('Erro ao ler arquivo DOCX. Verifique se o arquivo não está corrompido.');
@@ -700,7 +717,7 @@ export default function Contratos() {
                       }}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Arquivos .txt e .docx são suportados. O conteúdo será extraído automaticamente.
+                      Arquivos .txt e .docx são suportados. Para DOCX, a formatação, imagens e layout serão preservados.
                     </p>
                     <Label htmlFor="conteudoModelo">Conteúdo do Modelo</Label>
                     <Textarea
@@ -710,7 +727,7 @@ export default function Contratos() {
                         setConteudoModelo(e.target.value);
                         setArquivoModelo('');
                       }}
-                      className="min-h-[400px]"
+                      className="min-h-[400px] font-mono text-sm"
                       placeholder="Digite o conteúdo do modelo aqui. Use as variáveis {{variavel}} para campos dinâmicos."
                     />
                   </div>

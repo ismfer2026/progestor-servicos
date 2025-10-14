@@ -63,8 +63,28 @@ export function ModeloPDFViewer({ modelo, onClose }: ModeloPDFViewerProps) {
     }
   };
 
+  // Function to check if content is HTML
+  const isHtmlContent = (content: string) => {
+    return /<[a-z][\s\S]*>/i.test(content);
+  };
+
   // Function to process content and replace image placeholders
   const processContent = (content: string) => {
+    // Se for HTML (do DOCX), renderizar diretamente
+    if (isHtmlContent(content)) {
+      return (
+        <div 
+          dangerouslySetInnerHTML={{ __html: content }}
+          style={{
+            fontFamily: 'Arial, sans-serif',
+            lineHeight: '1.6',
+            color: '#000'
+          }}
+        />
+      );
+    }
+
+    // Se for texto simples, processar variáveis
     const parts = content.split(/(\{\{.*?\}\})/g);
     
     return parts.map((part, index) => {
@@ -127,7 +147,13 @@ export function ModeloPDFViewer({ modelo, onClose }: ModeloPDFViewerProps) {
               </p>
             </div>
             <div className="prose prose-sm max-w-none text-gray-900">
-              <div className="whitespace-pre-wrap leading-relaxed" style={{ fontFamily: 'Arial, sans-serif' }}>
+              <div 
+                className={isHtmlContent(modelo.conteudo_template) ? '' : 'whitespace-pre-wrap'} 
+                style={{ 
+                  fontFamily: 'Arial, sans-serif',
+                  lineHeight: '1.6'
+                }}
+              >
                 {processContent(modelo.conteudo_template)}
               </div>
             </div>
