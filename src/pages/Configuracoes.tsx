@@ -38,6 +38,11 @@ interface Colaborador {
   ativo: boolean;
 }
 
+interface CategoriaServico {
+  nome: string;
+  cor: string;
+}
+
 export default function Configuracoes() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('empresa');
@@ -52,6 +57,11 @@ export default function Configuracoes() {
   const [funcaoColaborador, setFuncaoColaborador] = useState('');
   const [editingColaborador, setEditingColaborador] = useState<Colaborador | null>(null);
 
+  const [categorias, setCategorias] = useState<CategoriaServico[]>([]);
+  const [nomeCategoria, setNomeCategoria] = useState('');
+  const [corCategoria, setCorCategoria] = useState('#3B82F6');
+  const [editingCategoriaIndex, setEditingCategoriaIndex] = useState<number | null>(null);
+
   useEffect(() => {
     if (defaultPhone) {
       setWhatsappPhone(defaultPhone);
@@ -61,6 +71,8 @@ export default function Configuracoes() {
   useEffect(() => {
     if (activeTab === 'colaboradores') {
       loadColaboradores();
+    } else if (activeTab === 'categorias') {
+      loadCategorias();
     }
   }, [activeTab]);
 
@@ -174,6 +186,110 @@ export default function Configuracoes() {
       toast.success('Configuração do WhatsApp salva com sucesso!');
     } else {
       toast.error('Erro ao salvar configuração do WhatsApp');
+    }
+  };
+
+  const loadCategorias = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('configuracoes')
+        .select('valor')
+        .eq('empresa_id', user.empresa_id)
+        .eq('chave', 'categorias_servicos')
+        .maybeSingle();
+
+      if (error) throw error;
+      
+      if (data && data.valor && Array.isArray(data.valor)) {
+        const categoriasArray = data.valor
+          .filter((item): item is { nome: string; cor: string } => 
+            typeof item === 'object' && item !== null && 'nome' in item && 'cor' in item
+          );
+        setCategorias(categoriasArray);
+      }
+    } catch (error) {
+      console.error('Error loading categorias:', error);
+      toast.error('Erro ao carregar categorias');
+    }
+  };
+
+  const handleSaveCategoria = async () => {
+    if (!nomeCategoria.trim()) {
+      toast.error('Preencha o nome da categoria');
+      return;
+    }
+
+    if (!user) return;
+
+    try {
+      let novasCategorias = [...categorias];
+      
+      if (editingCategoriaIndex !== null) {
+        novasCategorias[editingCategoriaIndex] = { nome: nomeCategoria, cor: corCategoria };
+      } else {
+        novasCategorias.push({ nome: nomeCategoria, cor: corCategoria });
+      }
+
+      const { error } = await supabase
+        .from('configuracoes')
+        .upsert([{
+          empresa_id: user.empresa_id,
+          chave: 'categorias_servicos',
+          valor: novasCategorias as any,
+          tipo: 'json'
+        }], {
+          onConflict: 'empresa_id,chave'
+        });
+
+      if (error) throw error;
+      
+      toast.success(editingCategoriaIndex !== null ? 'Categoria atualizada!' : 'Categoria cadastrada!');
+      setShowNewCategory(false);
+      setNomeCategoria('');
+      setCorCategoria('#3B82F6');
+      setEditingCategoriaIndex(null);
+      loadCategorias();
+    } catch (error) {
+      console.error('Error saving categoria:', error);
+      toast.error('Erro ao salvar categoria');
+    }
+  };
+
+  const handleEditCategoria = (index: number) => {
+    const categoria = categorias[index];
+    setNomeCategoria(categoria.nome);
+    setCorCategoria(categoria.cor);
+    setEditingCategoriaIndex(index);
+    setShowNewCategory(true);
+  };
+
+  const handleDeleteCategoria = async (index: number) => {
+    if (!confirm('Deseja realmente excluir esta categoria?')) return;
+    if (!user) return;
+
+    try {
+      const novasCategorias = categorias.filter((_, i) => i !== index);
+      
+      const { error } = await supabase
+        .from('configuracoes')
+        .upsert([{
+          empresa_id: user.empresa_id,
+          chave: 'categorias_servicos',
+          valor: novasCategorias as any,
+          tipo: 'json'
+        }], {
+          onConflict: 'empresa_id,chave'
+        });
+
+      if (error) throw error;
+      
+      toast.success('Categoria excluída!');
+      loadCategorias();
+    } catch (error) {
+      console.error('Error deleting categoria:', error);
+      toast.error('Erro ao excluir categoria');
     }
   };
 
@@ -539,29 +655,55 @@ export default function Configuracoes() {
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
-            <CardTitle>Categorias de Serviços</CardTitle>
-            <Dialog open={showNewCategory} onOpenChange={setShowNewCategory}>
+            <CardTitle>Categorias de Serviços/Produtos</CardTitle>
+            <Dialog open={showNewCategory} onOpenChange={(open) => {
+              setShowNewCategory(open);
+              if (!open) {
+                setNomeCategoria('');
+                setCorCategoria('#3B82F6');
+                setEditingCategoriaIndex(null);
+              }
+            }}>
               <DialogTrigger asChild>
-                <Button size="sm">Nova Categoria</Button>
+                <Button size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Nova Categoria
+                </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Nova Categoria</DialogTitle>
+                  <DialogTitle>
+                    {editingCategoriaIndex !== null ? 'Editar Categoria' : 'Nova Categoria'}
+                  </DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="nomeCategoria">Nome</Label>
-                    <Input id="nomeCategoria" placeholder="Nome da categoria" />
+                    <Label htmlFor="nomeCategoria">Nome *</Label>
+                    <Input 
+                      id="nomeCategoria" 
+                      placeholder="Nome da categoria"
+                      value={nomeCategoria}
+                      onChange={(e) => setNomeCategoria(e.target.value)}
+                    />
                   </div>
                   <div>
                     <Label htmlFor="corCategoria">Cor</Label>
-                    <Input id="corCategoria" type="color" defaultValue="#3B82F6" />
+                    <div className="flex gap-2 items-center">
+                      <Input 
+                        id="corCategoria" 
+                        type="color" 
+                        value={corCategoria}
+                        onChange={(e) => setCorCategoria(e.target.value)}
+                        className="w-20 h-10"
+                      />
+                      <span className="text-sm text-muted-foreground">{corCategoria}</span>
+                    </div>
                   </div>
                   <div className="flex justify-end space-x-2">
                     <Button variant="outline" onClick={() => setShowNewCategory(false)}>
                       Cancelar
                     </Button>
-                    <Button>Salvar</Button>
+                    <Button onClick={handleSaveCategoria}>Salvar</Button>
                   </div>
                 </div>
               </DialogContent>
@@ -569,23 +711,42 @@ export default function Configuracoes() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2">
-            {categoriasServicos.map(categoria => (
-              <div key={categoria.id} className="flex items-center justify-between p-2 border rounded">
-                <div className="flex items-center space-x-2">
-                  <div
-                    className="w-4 h-4 rounded"
-                    style={{ backgroundColor: categoria.cor }}
-                  ></div>
-                  <span>{categoria.nome}</span>
+          {categorias.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <p className="mb-2">Nenhuma categoria cadastrada</p>
+              <p className="text-sm">Clique em "Nova Categoria" para começar</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {categorias.map((categoria, index) => (
+                <div key={index} className="flex items-center justify-between p-2 border rounded">
+                  <div className="flex items-center space-x-2">
+                    <div
+                      className="w-4 h-4 rounded"
+                      style={{ backgroundColor: categoria.cor }}
+                    ></div>
+                    <span>{categoria.nome}</span>
+                  </div>
+                  <div className="flex space-x-1">
+                    <Button 
+                      size="sm" 
+                      variant="ghost"
+                      onClick={() => handleEditCategoria(index)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="ghost"
+                      onClick={() => handleDeleteCategoria(index)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex space-x-1">
-                  <Button size="sm" variant="ghost">Editar</Button>
-                  <Button size="sm" variant="ghost">Excluir</Button>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 

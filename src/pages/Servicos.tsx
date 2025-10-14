@@ -102,9 +102,12 @@ export function Servicos() {
 
       if (error) throw error;
       
-      if (data && data.valor) {
-        // Assuming valor is a JSONB array of category names
-        const categoriasArray = Array.isArray(data.valor) ? data.valor.filter((item): item is string => typeof item === 'string') : [];
+      if (data && data.valor && Array.isArray(data.valor)) {
+        const categoriasArray = data.valor
+          .filter((item): item is { nome: string; cor: string } => 
+            typeof item === 'object' && item !== null && 'nome' in item
+          )
+          .map(item => item.nome);
         setCategorias(categoriasArray);
       }
     } catch (error) {
