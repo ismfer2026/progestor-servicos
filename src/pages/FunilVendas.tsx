@@ -226,32 +226,34 @@ export default function FunilVendas() {
               <p className="text-muted-foreground">Gerencie seu pipeline de vendas</p>
             </div>
           </div>
-          
-          {/* Botões fixos no canto direito */}
-          <div className="flex gap-2">
-            <Button
-              variant={viewMode === 'table' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('table')}
-            >
-              Tabela
-            </Button>
-            <Button
-              variant={viewMode === 'kanban' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('kanban')}
-            >
-              Cards
-            </Button>
-            <Button variant="outline" onClick={() => setShowConfigurarEtapas(true)}>
-              <Settings className="mr-2 h-4 w-4" />
-              Configurar Etapas
-            </Button>
-            <Button onClick={() => setShowNovoLead(true)}>
-              <UserPlus className="mr-2 h-4 w-4" />
-              Adicionar Novo Lead
-            </Button>
-          </div>
+        </div>
+      </div>
+
+      {/* Botões de controle */}
+      <div className="px-6 pt-6 pb-4">
+        <div className="flex gap-2 justify-end">
+          <Button
+            variant={viewMode === 'table' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setViewMode('table')}
+          >
+            Tabela
+          </Button>
+          <Button
+            variant={viewMode === 'kanban' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setViewMode('kanban')}
+          >
+            Cards
+          </Button>
+          <Button variant="outline" onClick={() => setShowConfigurarEtapas(true)}>
+            <Settings className="mr-2 h-4 w-4" />
+            Configurar Etapas
+          </Button>
+          <Button onClick={() => setShowNovoLead(true)}>
+            <UserPlus className="mr-2 h-4 w-4" />
+            Adicionar Novo Lead
+          </Button>
         </div>
       </div>
 
