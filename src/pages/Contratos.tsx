@@ -514,13 +514,18 @@ export default function Contratos() {
           <h1 className="text-3xl font-bold">Contratos</h1>
           <p className="text-muted-foreground">Gerencie seus contratos e modelos</p>
         </div>
-        <NovoContratoDialog
-          open={showNewContract}
-          onOpenChange={setShowNewContract}
-          modelos={modelos}
-          onSuccess={loadContratosData}
-        />
+        <Button onClick={() => setShowNewContract(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Novo Contrato
+        </Button>
       </div>
+
+      <NovoContratoDialog
+        open={showNewContract}
+        onOpenChange={setShowNewContract}
+        modelos={modelos}
+        onSuccess={loadContratosData}
+      />
 
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex-1">
