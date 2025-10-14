@@ -31,15 +31,20 @@ export function NovoContrato() {
   const [loading, setLoading] = useState(false);
   const [orcamento, setOrcamento] = useState<any>(null);
   const [cliente, setCliente] = useState<any>(null);
+  const [modelosContrato, setModelosContrato] = useState<any[]>([]);
   
   // Contract fields
-  const [modeloSelecionado, setModeloSelecionado] = useState<string>("padrao");
+  const [modeloSelecionado, setModeloSelecionado] = useState<string>("");
   const [valorSinal, setValorSinal] = useState<number>(0);
   const [dataSinal, setDataSinal] = useState<Date>();
   const [valorRestante, setValorRestante] = useState<number>(0);
   const [numeroParcelas, setNumeroParcelas] = useState<number>(1);
   const [parcelas, setParcelas] = useState<Parcela[]>([]);
   const [observacoes, setObservacoes] = useState<string>("");
+
+  useEffect(() => {
+    loadModelosContrato();
+  }, []);
 
   useEffect(() => {
     if (orcamentoId) {
@@ -67,6 +72,27 @@ export function NovoContrato() {
       setParcelas(novasParcelas);
     }
   }, [valorSinal, numeroParcelas, orcamento]);
+
+  const loadModelosContrato = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('modelos')
+        .select('*')
+        .eq('tipo', 'contrato')
+        .eq('ativo', true)
+        .or(`empresa_id.eq.${user?.empresa_id},publico.eq.true`);
+
+      if (error) throw error;
+      setModelosContrato(data || []);
+      
+      // Set first model as default if available
+      if (data && data.length > 0) {
+        setModeloSelecionado(data[0].id);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar modelos de contrato:', error);
+    }
+  };
 
   const loadOrcamento = async () => {
     try {
@@ -353,12 +379,27 @@ CONTRATANTE                     CONTRATADO
             <CardContent>
               <Select value={modeloSelecionado} onValueChange={setModeloSelecionado}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Selecione um modelo" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="padrao">Modelo Padrão do Sistema</SelectItem>
+                  {modelosContrato.length > 0 ? (
+                    modelosContrato.map((modelo) => (
+                      <SelectItem key={modelo.id} value={modelo.id}>
+                        {modelo.nome}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="sem-modelos" disabled>
+                      Nenhum modelo disponível
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
+              {modelosContrato.length === 0 && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  Adicione modelos de contrato em Contratos → Modelos
+                </p>
+              )}
             </CardContent>
           </Card>
 

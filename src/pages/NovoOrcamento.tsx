@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { PDFViewer } from "@/components/orcamento/PDFViewer";
 
 interface Cliente {
   id: string;
@@ -66,6 +67,9 @@ export function NovoOrcamento() {
   const [dataValidade, setDataValidade] = useState<Date>();
   const [observacoes, setObservacoes] = useState("");
   const [itensOrcamento, setItensOrcamento] = useState<ItemOrcamento[]>([]);
+  
+  // PDF Viewer
+  const [mostrarPDF, setMostrarPDF] = useState(false);
 
   // Estados para busca de cliente
   const [buscaCliente, setBuscaCliente] = useState("");
@@ -352,7 +356,7 @@ export function NovoOrcamento() {
       toast.error("Adicione um cliente e serviços para visualizar o PDF");
       return;
     }
-    toast.info("Funcionalidade de visualização em PDF em desenvolvimento");
+    setMostrarPDF(true);
   };
 
   return (
@@ -770,6 +774,26 @@ export function NovoOrcamento() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* PDF Viewer */}
+      {mostrarPDF && (
+        <PDFViewer
+          orcamento={{
+            id: 'preview',
+            servicos: itensOrcamento,
+            valor_total: calcularTotal(),
+            criado_em: new Date().toISOString(),
+            data_validade: dataValidade?.toISOString(),
+            data_servico: dataEvento?.toISOString(),
+            horario_inicio: horarioInicio,
+            horario_fim: horarioTermino,
+            local_servico: localEvento,
+            observacoes: observacoes,
+            clientes: clientes.find(c => c.id === clienteSelecionado)
+          }}
+          onClose={() => setMostrarPDF(false)}
+        />
+      )}
     </div>
   );
 }

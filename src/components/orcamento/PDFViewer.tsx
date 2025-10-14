@@ -61,9 +61,9 @@ export function PDFViewer({ orcamento, onClose }: PDFViewerProps) {
   const subtotal = calcularSubtotal();
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-auto">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full my-4">
-        <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center rounded-t-lg z-10">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+        <div className="bg-white border-b px-6 py-4 flex justify-between items-center rounded-t-lg flex-shrink-0">
           <h2 className="text-xl font-bold text-gray-900">Pré-visualização do Orçamento</h2>
           <div className="flex gap-2">
             <button
@@ -81,7 +81,8 @@ export function PDFViewer({ orcamento, onClose }: PDFViewerProps) {
           </div>
         </div>
 
-        <div ref={contentRef} className="p-12 bg-white">
+        <div className="overflow-y-auto flex-1">
+          <div ref={contentRef} className="p-12 bg-white">
           {/* Header */}
           <div className="flex justify-between items-start mb-8 pb-6">
             {/* Company Info */}
@@ -211,6 +212,7 @@ export function PDFViewer({ orcamento, onClose }: PDFViewerProps) {
           {/* Footer */}
           <div className="mt-12 text-center text-sm text-gray-400">
             <p>Obrigado pela sua preferência!</p>
+          </div>
           </div>
         </div>
       </div>
