@@ -57,6 +57,9 @@ export default function Contratos() {
   const [tipoModelo, setTipoModelo] = useState('contrato');
   const [conteudoModelo, setConteudoModelo] = useState('');
   const [assinaturaEmpresa, setAssinaturaEmpresa] = useState('');
+  const [arquivoModelo, setArquivoModelo] = useState('');
+  const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
+  const [modeloSelecionadoEdit, setModeloSelecionadoEdit] = useState<Modelo | null>(null);
 
   useEffect(() => {
     loadContratosData();
@@ -191,19 +194,34 @@ export default function Contratos() {
   };
 
   const handleSalvarModelo = async () => {
-    if (!nomeModelo || !conteudoModelo) {
+    if (!nomeModelo || (!conteudoModelo && !arquivoModelo)) {
       toast.error('Preencha o nome e o conteúdo do modelo');
       return;
     }
 
     try {
+      // Buscar assinatura empresa para incluir no modelo
+      const { data: configData } = await supabase
+        .from('configuracoes')
+        .select('valor')
+        .eq('empresa_id', user?.empresa_id)
+        .eq('chave', 'assinatura_empresa')
+        .single();
+
+      let conteudoFinal = conteudoModelo || arquivoModelo;
+      
+      // Adicionar assinatura empresa ao modelo se existir
+      if (configData?.valor && !conteudoFinal.includes('{{assinatura_empresa}}')) {
+        conteudoFinal += '\n\n{{assinatura_empresa}}';
+      }
+
       const { error } = await supabase
         .from('modelos')
         .insert({
           empresa_id: user?.empresa_id,
           nome: nomeModelo,
           tipo: tipoModelo,
-          conteudo_template: conteudoModelo,
+          conteudo_template: conteudoFinal,
           ativo: true
         });
 
@@ -214,11 +232,90 @@ export default function Contratos() {
       setNomeModelo('');
       setTipoModelo('contrato');
       setConteudoModelo('');
+      setArquivoModelo('');
       loadContratosData();
     } catch (error) {
       console.error('Error saving model:', error);
       toast.error('Erro ao salvar modelo');
     }
+  };
+
+  const handleEditModelo = async () => {
+    if (!modeloSelecionadoEdit || !nomeModelo || (!conteudoModelo && !arquivoModelo)) {
+      toast.error('Preencha o nome e o conteúdo do modelo');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('modelos')
+        .update({
+          nome: nomeModelo,
+          tipo: tipoModelo,
+          conteudo_template: conteudoModelo || arquivoModelo
+        })
+        .eq('id', modeloSelecionadoEdit.id);
+
+      if (error) throw error;
+
+      toast.success('Modelo atualizado com sucesso!');
+      setModeloSelecionadoEdit(null);
+      setNomeModelo('');
+      setTipoModelo('contrato');
+      setConteudoModelo('');
+      setArquivoModelo('');
+      loadContratosData();
+    } catch (error) {
+      console.error('Error updating model:', error);
+      toast.error('Erro ao atualizar modelo');
+    }
+  };
+
+  const numeroParaExtenso = (numero: number): string => {
+    const unidades = ['', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove'];
+    const dezenas = ['', '', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
+    const especiais = ['dez', 'onze', 'doze', 'treze', 'quatorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove'];
+    
+    const inteiro = Math.floor(numero);
+    const centavos = Math.round((numero - inteiro) * 100);
+    
+    const converterCentenas = (n: number): string => {
+      if (n === 0) return '';
+      if (n < 10) return unidades[n];
+      if (n < 20) return especiais[n - 10];
+      if (n < 100) {
+        const dez = Math.floor(n / 10);
+        const un = n % 10;
+        return dezenas[dez] + (un > 0 ? ' e ' + unidades[un] : '');
+      }
+      return '';
+    };
+    
+    const converterMilhares = (n: number): string => {
+      if (n === 0) return 'zero';
+      if (n < 1000) return converterCentenas(n);
+      
+      const mil = Math.floor(n / 1000);
+      const resto = n % 1000;
+      
+      let resultado = '';
+      if (mil === 1) resultado = 'mil';
+      else if (mil > 1) resultado = converterCentenas(mil) + ' mil';
+      
+      if (resto > 0) {
+        resultado += (resultado ? ' e ' : '') + converterCentenas(resto);
+      }
+      
+      return resultado;
+    };
+    
+    let resultado = converterMilhares(inteiro) + ' ' + (inteiro === 1 ? 'real' : 'reais');
+    
+    if (centavos > 0) {
+      resultado += ' e ' + converterCentenas(centavos) + ' ' + (centavos === 1 ? 'centavo' : 'centavos');
+    }
+    
+    return resultado;
   };
 
   const renderContratosTab = () => (
@@ -367,16 +464,34 @@ export default function Contratos() {
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle>Modelos de Contrato</CardTitle>
-            <Dialog open={showNewModel} onOpenChange={setShowNewModel}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Novo Modelo
-                </Button>
-              </DialogTrigger>
+            <div className="flex gap-2">
+              <Button
+                variant={viewMode === 'card' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('card')}
+              >
+                Card
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+              >
+                Lista
+              </Button>
+              <Dialog open={showNewModel || !!modeloSelecionadoEdit} onOpenChange={(open) => {
+                setShowNewModel(open);
+                if (!open) setModeloSelecionadoEdit(null);
+              }}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Novo Modelo
+                  </Button>
+                </DialogTrigger>
               <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>Novo Modelo de Contrato</DialogTitle>
+                  <DialogTitle>{modeloSelecionadoEdit ? 'Editar Modelo' : 'Novo Modelo de Contrato'}</DialogTitle>
                 </DialogHeader>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-4">
@@ -408,15 +523,19 @@ export default function Contratos() {
                         <p>{'{{cliente_nome}}'} - Nome do cliente</p>
                         <p>{'{{cliente_documento}}'} - CPF/CNPJ</p>
                         <p>{'{{cliente_endereco}}'} - Endereço do cliente</p>
+                        <p>{'{{cliente_whatsapp}}'} - WhatsApp do cliente</p>
                         <p>{'{{empresa_nome}}'} - Nome da empresa</p>
                         <p>{'{{contrato_numero}}'} - Número do contrato</p>
                         <p>{'{{contrato_valor}}'} - Valor total</p>
+                        <p>{'{{valor_extenso}}'} - Valor total por extenso</p>
                         <p>{'{{valor_sinal}}'} - Valor do sinal</p>
                         <p>{'{{data_sinal}}'} - Data do sinal</p>
                         <p>{'{{valor_restante}}'} - Valor restante</p>
                         <p>{'{{data_vencimento_parcelas}}'} - Datas das parcelas</p>
                         <p>{'{{forma_pagamento_sinal}}'} - Forma de pagamento do sinal</p>
                         <p>{'{{forma_pagamento_restante}}'} - Forma de pagamento restante</p>
+                        <p>{'{{servico_nome}}'} - Nome do serviço</p>
+                        <p>{'{{servico_descricao}}'} - Descrição do serviço</p>
                         <p>{'{{data_inicio}}'} - Data de início</p>
                         <p>{'{{data_fim}}'} - Data de término</p>
                         <p>{'{{horario_inicio}}'} - Horário de início</p>
