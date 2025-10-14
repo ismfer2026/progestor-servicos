@@ -186,6 +186,19 @@ export default function Contratos() {
     return new Date(date).toLocaleDateString('pt-BR');
   };
 
+  const dateToExtenso = (date: Date): string => {
+    const meses = [
+      'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+      'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'
+    ];
+    
+    const dia = date.getDate();
+    const mes = meses[date.getMonth()];
+    const ano = date.getFullYear();
+    
+    return `${dia} de ${mes} de ${ano}`;
+  };
+
   const generateContractNumber = () => {
     const year = new Date().getFullYear();
     const month = String(new Date().getMonth() + 1).padStart(2, '0');
@@ -526,6 +539,7 @@ export default function Contratos() {
                         <p>{'{{cliente_whatsapp}}'} - WhatsApp do cliente</p>
                         <p>{'{{empresa_nome}}'} - Nome da empresa</p>
                         <p>{'{{contrato_numero}}'} - Número do contrato</p>
+                        <p>{'{{contrato_data_extenso}}'} - Data do contrato por extenso (ex: 12 de agosto de 2025)</p>
                         <p>{'{{contrato_valor}}'} - Valor total</p>
                         <p>{'{{valor_extenso}}'} - Valor total por extenso</p>
                         <p>{'{{valor_sinal}}'} - Valor do sinal</p>
@@ -594,10 +608,19 @@ export default function Contratos() {
                         const file = e.target.files?.[0];
                         if (file) {
                           const reader = new FileReader();
-                          reader.onloadend = () => {
-                            setArquivoModelo(reader.result as string);
+                          reader.onload = () => {
+                            try {
+                              setArquivoModelo(reader.result as string);
+                              toast.success('Arquivo carregado com sucesso!');
+                            } catch (error) {
+                              console.error('Error reading file:', error);
+                              toast.error('Erro ao ler arquivo. Tente um arquivo .txt');
+                            }
                           };
-                          reader.readAsText(file);
+                          reader.onerror = () => {
+                            toast.error('Erro ao ler arquivo. Tente novamente.');
+                          };
+                          reader.readAsText(file, 'UTF-8');
                         }
                       }}
                     />
