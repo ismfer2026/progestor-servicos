@@ -18,9 +18,17 @@ interface Cliente {
   endereco?: any;
 }
 
-interface Usuario {
+interface ServicoDb {
   id: string;
   nome: string;
+  preco_venda?: number;
+  valor_total?: number;
+}
+
+interface Colaborador {
+  id: string;
+  nome: string;
+  funcao?: string;
 }
 
 interface Modelo {
@@ -30,8 +38,15 @@ interface Modelo {
 }
 
 interface Servico {
+  id?: string;
   nome: string;
   valor: number;
+}
+
+interface Parcela {
+  numero: number;
+  valor: number;
+  data_vencimento: Date;
 }
 
 interface NovoContratoDialogProps {
@@ -44,7 +59,8 @@ interface NovoContratoDialogProps {
 export function NovoContratoDialog({ open, onOpenChange, modelos, onSuccess }: NovoContratoDialogProps) {
   const { user } = useAuth();
   const [clientes, setClientes] = useState<Cliente[]>([]);
-  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
+  const [servicosDb, setServicosDb] = useState<ServicoDb[]>([]);
   
   const [titulo, setTitulo] = useState('');
   const [numeroContrato, setNumeroContrato] = useState('');
@@ -60,8 +76,13 @@ export function NovoContratoDialog({ open, onOpenChange, modelos, onSuccess }: N
   const [enderecoCidade, setEnderecoCidade] = useState('');
   const [colaboradorId, setColaboradorId] = useState('');
   const [servicos, setServicos] = useState<Servico[]>([]);
-  const [novoServicoNome, setNovoServicoNome] = useState('');
-  const [novoServicoValor, setNovoServicoValor] = useState('');
+  const [servicoSelecionado, setServicoSelecionado] = useState('');
+  const [valorSinal, setValorSinal] = useState(0);
+  const [dataSinal, setDataSinal] = useState('');
+  const [formaPagamentoSinal, setFormaPagamentoSinal] = useState('');
+  const [formaPagamentoRestante, setFormaPagamentoRestante] = useState('');
+  const [numeroParcelas, setNumeroParcelas] = useState(1);
+  const [parcelas, setParcelas] = useState<Parcela[]>([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -75,22 +96,28 @@ export function NovoContratoDialog({ open, onOpenChange, modelos, onSuccess }: N
     if (!user) return;
 
     try {
-      const [clientesData, usuariosData] = await Promise.all([
+      const [clientesData, colaboradoresData, servicosData] = await Promise.all([
         supabase
           .from('clientes')
           .select('id, nome, documento, endereco')
           .eq('empresa_id', user.empresa_id)
           .order('nome'),
         supabase
-          .from('usuarios')
-          .select('id, nome')
+          .from('colaboradores')
+          .select('id, nome, funcao')
           .eq('empresa_id', user.empresa_id)
           .eq('ativo', true)
+          .order('nome'),
+        supabase
+          .from('servicos')
+          .select('id, nome, preco_venda, valor_total')
+          .eq('empresa_id', user.empresa_id)
           .order('nome')
       ]);
 
       if (clientesData.data) setClientes(clientesData.data);
-      if (usuariosData.data) setUsuarios(usuariosData.data);
+      if (colaboradoresData.data) setColaboradores(colaboradoresData.data);
+      if (servicosData.data) setServicosDb(servicosData.data);
     } catch (error) {
       console.error('Error loading data:', error);
     }
@@ -103,19 +130,47 @@ export function NovoContratoDialog({ open, onOpenChange, modelos, onSuccess }: N
     return `CT${year}${month}${random}`;
   };
 
-  const addServico = () => {
-    if (!novoServicoNome || !novoServicoValor) {
-      toast.error('Preencha o nome e valor do serviço');
+  const addServicoFromList = () => {
+    if (!servicoSelecionado) {
+      toast.error('Selecione um serviço');
       return;
     }
 
+    const servico = servicosDb.find(s => s.id === servicoSelecionado);
+    if (!servico) return;
+
+    const valor = servico.preco_venda || servico.valor_total || 0;
     setServicos([...servicos, {
-      nome: novoServicoNome,
-      valor: parseFloat(novoServicoValor)
+      id: servico.id,
+      nome: servico.nome,
+      valor: valor
     }]);
-    setNovoServicoNome('');
-    setNovoServicoValor('');
+    setServicoSelecionado('');
   };
+
+  useEffect(() => {
+    if (servicos.length === 0) {
+      setValorSinal(0);
+      setParcelas([]);
+      return;
+    }
+
+    const valorTotal = calcularValorTotal();
+    const restante = valorTotal - valorSinal;
+    
+    const novasParcelas: Parcela[] = [];
+    const valorParcela = restante / numeroParcelas;
+    
+    for (let i = 0; i < numeroParcelas; i++) {
+      novasParcelas.push({
+        numero: i + 1,
+        valor: valorParcela,
+        data_vencimento: new Date(new Date().setMonth(new Date().getMonth() + i + 1))
+      });
+    }
+    
+    setParcelas(novasParcelas);
+  }, [valorSinal, numeroParcelas, servicos]);
 
   const removeServico = (index: number) => {
     setServicos(servicos.filter((_, i) => i !== index));
@@ -131,15 +186,19 @@ export function NovoContratoDialog({ open, onOpenChange, modelos, onSuccess }: N
       return;
     }
 
+    if (valorSinal > 0 && !dataSinal) {
+      toast.error('Informe a data do sinal');
+      return;
+    }
+
     setSaving(true);
 
     try {
       const modelo = modelos.find(m => m.id === modeloId);
       let conteudoContrato = modelo?.conteudo_template || '';
 
-      // Substituir variáveis no template
       const cliente = clientes.find(c => c.id === clienteId);
-      const colaborador = usuarios.find(u => u.id === colaboradorId);
+      const colaborador = colaboradores.find(c => c.id === colaboradorId);
 
       const endereco = `${enderecoRua}, ${enderecoNumero} - ${enderecoCidade}`;
       const servicosTexto = servicos.map((s, i) => `${i + 1}. ${s.nome} - R$ ${s.valor.toFixed(2)}`).join('\n');
@@ -158,7 +217,7 @@ export function NovoContratoDialog({ open, onOpenChange, modelos, onSuccess }: N
         .replace(/\{\{servicos\}\}/g, servicosTexto)
         .replace(/\{\{observacoes\}\}/g, observacoes || '');
 
-      const { error } = await supabase
+      const { data: contrato, error } = await supabase
         .from('contratos')
         .insert({
           empresa_id: user.empresa_id,
@@ -171,9 +230,41 @@ export function NovoContratoDialog({ open, onOpenChange, modelos, onSuccess }: N
           observacoes: `${observacoes}\n\nServiços:\n${servicosTexto}\n\nEndereço: ${endereco}\nColaborador: ${colaborador?.nome || 'N/A'}\nHorário: ${horarioInicio} - ${horarioFim}`,
           pdf_contrato: conteudoContrato,
           status_assinatura: 'rascunho'
-        });
+        })
+        .select()
+        .single();
 
       if (error) throw error;
+
+      // Save payment info
+      if (valorSinal > 0) {
+        await supabase.from('financeiro_movimentacoes').insert({
+          empresa_id: user.empresa_id,
+          cliente_id: clienteId,
+          tipo: 'receita',
+          descricao: `Sinal - ${numeroContrato}`,
+          valor: valorSinal,
+          data_vencimento: dataSinal,
+          categoria: 'Contrato',
+          forma_pagamento: formaPagamentoSinal,
+          status: 'pendente',
+        });
+      }
+
+      // Save parcelas
+      for (const parcela of parcelas) {
+        await supabase.from('financeiro_movimentacoes').insert({
+          empresa_id: user.empresa_id,
+          cliente_id: clienteId,
+          tipo: 'receita',
+          descricao: `Parcela ${parcela.numero}/${numeroParcelas} - ${numeroContrato}`,
+          valor: parcela.valor,
+          data_vencimento: parcela.data_vencimento.toISOString().split('T')[0],
+          categoria: 'Contrato',
+          forma_pagamento: formaPagamentoRestante,
+          status: 'pendente',
+        });
+      }
 
       toast.success('Contrato criado com sucesso!');
       onSuccess();
@@ -255,9 +346,9 @@ export function NovoContratoDialog({ open, onOpenChange, modelos, onSuccess }: N
                   <SelectValue placeholder="Selecione o colaborador" />
                 </SelectTrigger>
                 <SelectContent>
-                  {usuarios.map(usuario => (
-                    <SelectItem key={usuario.id} value={usuario.id}>
-                      {usuario.nome}
+                  {colaboradores.map(colaborador => (
+                    <SelectItem key={colaborador.id} value={colaborador.id}>
+                      {colaborador.nome} {colaborador.funcao ? `- ${colaborador.funcao}` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -268,19 +359,20 @@ export function NovoContratoDialog({ open, onOpenChange, modelos, onSuccess }: N
           <div>
             <Label>Serviços *</Label>
             <div className="border rounded-lg p-4 space-y-3">
-              <div className="grid grid-cols-3 gap-2">
-                <Input
-                  placeholder="Nome do serviço"
-                  value={novoServicoNome}
-                  onChange={(e) => setNovoServicoNome(e.target.value)}
-                />
-                <Input
-                  type="number"
-                  placeholder="Valor"
-                  value={novoServicoValor}
-                  onChange={(e) => setNovoServicoValor(e.target.value)}
-                />
-                <Button onClick={addServico} type="button">
+              <div className="flex gap-2">
+                <Select value={servicoSelecionado} onValueChange={setServicoSelecionado}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Selecione um serviço" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {servicosDb.map(servico => (
+                      <SelectItem key={servico.id} value={servico.id}>
+                        {servico.nome} - R$ {(servico.preco_venda || servico.valor_total || 0).toFixed(2)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button onClick={addServicoFromList} type="button">
                   <Plus className="h-4 w-4 mr-2" />
                   Adicionar
                 </Button>
@@ -312,8 +404,8 @@ export function NovoContratoDialog({ open, onOpenChange, modelos, onSuccess }: N
                       </TableRow>
                     ))}
                     <TableRow>
-                      <TableCell className="font-bold">Total</TableCell>
-                      <TableCell className="font-bold">
+                      <TableCell className="font-bold">Valor Total do Contrato</TableCell>
+                      <TableCell className="font-bold text-primary">
                         R$ {calcularValorTotal().toFixed(2)}
                       </TableCell>
                       <TableCell></TableCell>
@@ -401,6 +493,96 @@ export function NovoContratoDialog({ open, onOpenChange, modelos, onSuccess }: N
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div>
+            <Label>Forma de Pagamento</Label>
+            <div className="border rounded-lg p-4 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="valorSinal">Valor do Sinal</Label>
+                  <Input
+                    id="valorSinal"
+                    type="number"
+                    step="0.01"
+                    value={valorSinal}
+                    onChange={(e) => setValorSinal(Number(e.target.value))}
+                    placeholder="R$ 0,00"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="dataSinal">Data do Sinal</Label>
+                  <Input
+                    id="dataSinal"
+                    type="date"
+                    value={dataSinal}
+                    onChange={(e) => setDataSinal(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {valorSinal > 0 && (
+                <div>
+                  <Label htmlFor="formaPagamentoSinal">Forma de Pagamento do Sinal</Label>
+                  <Select value={formaPagamentoSinal} onValueChange={setFormaPagamentoSinal}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Dinheiro">Dinheiro</SelectItem>
+                      <SelectItem value="PIX">PIX</SelectItem>
+                      <SelectItem value="Cartão de Crédito">Cartão de Crédito</SelectItem>
+                      <SelectItem value="Cartão de Débito">Cartão de Débito</SelectItem>
+                      <SelectItem value="Transferência">Transferência</SelectItem>
+                      <SelectItem value="Boleto">Boleto</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <div className="p-3 bg-muted rounded-lg">
+                <Label className="text-sm text-muted-foreground">Valor Restante</Label>
+                <p className="text-xl font-bold">
+                  R$ {(calcularValorTotal() - valorSinal).toFixed(2)}
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="numeroParcelas">Número de Parcelas</Label>
+                <Select
+                  value={numeroParcelas.toString()}
+                  onValueChange={(value) => setNumeroParcelas(Number(value))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((num) => (
+                      <SelectItem key={num} value={num.toString()}>
+                        {num}x de R$ {((calcularValorTotal() - valorSinal) / num).toFixed(2)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="formaPagamentoRestante">Forma de Pagamento do Restante</Label>
+                <Select value={formaPagamentoRestante} onValueChange={setFormaPagamentoRestante}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Dinheiro">Dinheiro</SelectItem>
+                    <SelectItem value="PIX">PIX</SelectItem>
+                    <SelectItem value="Cartão de Crédito">Cartão de Crédito</SelectItem>
+                    <SelectItem value="Cartão de Débito">Cartão de Débito</SelectItem>
+                    <SelectItem value="Transferência">Transferência</SelectItem>
+                    <SelectItem value="Boleto">Boleto</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </div>
 
           <div>

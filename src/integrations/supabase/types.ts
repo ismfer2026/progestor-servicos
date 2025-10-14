@@ -131,6 +131,36 @@ export type Database = {
           },
         ]
       }
+      colaboradores: {
+        Row: {
+          ativo: boolean | null
+          created_at: string | null
+          empresa_id: string
+          funcao: string | null
+          id: string
+          nome: string
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string | null
+          empresa_id: string
+          funcao?: string | null
+          id?: string
+          nome: string
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string | null
+          empresa_id?: string
+          funcao?: string | null
+          id?: string
+          nome?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       configuracoes: {
         Row: {
           chave: string

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Users, Building, Mail, MessageCircle, Palette, Bell, CreditCard } from 'lucide-react';
+import { Settings, Users, Building, Mail, MessageCircle, Palette, Bell, CreditCard, Plus, Pencil, Trash2 } from 'lucide-react';
 import { useWhatsAppConfig } from '@/hooks/useWhatsAppConfig';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,18 +31,142 @@ const categoriasServicos = [
   { id: '4', nome: 'Suporte', cor: '#F59E0B' }
 ];
 
+interface Colaborador {
+  id: string;
+  nome: string;
+  funcao: string | null;
+  ativo: boolean;
+}
+
 export default function Configuracoes() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('empresa');
   const [showInviteUser, setShowInviteUser] = useState(false);
   const [showNewCategory, setShowNewCategory] = useState(false);
+  const [showColaboradorDialog, setShowColaboradorDialog] = useState(false);
   const { defaultPhone, saveWhatsAppConfig } = useWhatsAppConfig();
   const [whatsappPhone, setWhatsappPhone] = useState('');
+  
+  const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
+  const [nomeColaborador, setNomeColaborador] = useState('');
+  const [funcaoColaborador, setFuncaoColaborador] = useState('');
+  const [editingColaborador, setEditingColaborador] = useState<Colaborador | null>(null);
 
   useEffect(() => {
     if (defaultPhone) {
       setWhatsappPhone(defaultPhone);
     }
   }, [defaultPhone]);
+
+  useEffect(() => {
+    if (activeTab === 'colaboradores') {
+      loadColaboradores();
+    }
+  }, [activeTab]);
+
+  const loadColaboradores = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('colaboradores')
+        .select('*')
+        .eq('empresa_id', user.empresa_id)
+        .order('nome');
+
+      if (error) throw error;
+      if (data) setColaboradores(data);
+    } catch (error) {
+      console.error('Error loading colaboradores:', error);
+      toast.error('Erro ao carregar colaboradores');
+    }
+  };
+
+  const handleSaveColaborador = async () => {
+    if (!nomeColaborador.trim()) {
+      toast.error('Preencha o nome do colaborador');
+      return;
+    }
+
+    if (!user) return;
+
+    try {
+      if (editingColaborador) {
+        const { error } = await supabase
+          .from('colaboradores')
+          .update({
+            nome: nomeColaborador,
+            funcao: funcaoColaborador || null,
+          })
+          .eq('id', editingColaborador.id);
+
+        if (error) throw error;
+        toast.success('Colaborador atualizado com sucesso!');
+      } else {
+        const { error } = await supabase
+          .from('colaboradores')
+          .insert({
+            empresa_id: user.empresa_id,
+            nome: nomeColaborador,
+            funcao: funcaoColaborador || null,
+            ativo: true,
+          });
+
+        if (error) throw error;
+        toast.success('Colaborador cadastrado com sucesso!');
+      }
+
+      setShowColaboradorDialog(false);
+      setNomeColaborador('');
+      setFuncaoColaborador('');
+      setEditingColaborador(null);
+      loadColaboradores();
+    } catch (error) {
+      console.error('Error saving colaborador:', error);
+      toast.error('Erro ao salvar colaborador');
+    }
+  };
+
+  const handleEditColaborador = (colaborador: Colaborador) => {
+    setEditingColaborador(colaborador);
+    setNomeColaborador(colaborador.nome);
+    setFuncaoColaborador(colaborador.funcao || '');
+    setShowColaboradorDialog(true);
+  };
+
+  const handleDeleteColaborador = async (id: string) => {
+    if (!confirm('Deseja realmente excluir este colaborador?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('colaboradores')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      toast.success('Colaborador excluído com sucesso!');
+      loadColaboradores();
+    } catch (error) {
+      console.error('Error deleting colaborador:', error);
+      toast.error('Erro ao excluir colaborador');
+    }
+  };
+
+  const handleToggleColaboradorStatus = async (colaborador: Colaborador) => {
+    try {
+      const { error } = await supabase
+        .from('colaboradores')
+        .update({ ativo: !colaborador.ativo })
+        .eq('id', colaborador.id);
+
+      if (error) throw error;
+      toast.success(`Colaborador ${colaborador.ativo ? 'desativado' : 'ativado'} com sucesso!`);
+      loadColaboradores();
+    } catch (error) {
+      console.error('Error toggling colaborador status:', error);
+      toast.error('Erro ao alterar status do colaborador');
+    }
+  };
 
   const handleSaveWhatsApp = async () => {
     const success = await saveWhatsAppConfig(whatsappPhone);
@@ -292,6 +418,122 @@ export default function Configuracoes() {
     </div>
   );
 
+  const renderColaboradoresTab = () => (
+    <div className="max-w-4xl">
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle>Colaboradores</CardTitle>
+            <Dialog open={showColaboradorDialog} onOpenChange={(open) => {
+              setShowColaboradorDialog(open);
+              if (!open) {
+                setNomeColaborador('');
+                setFuncaoColaborador('');
+                setEditingColaborador(null);
+              }
+            }}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Novo Colaborador
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>
+                    {editingColaborador ? 'Editar Colaborador' : 'Novo Colaborador'}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="nomeColaborador">Nome *</Label>
+                    <Input
+                      id="nomeColaborador"
+                      value={nomeColaborador}
+                      onChange={(e) => setNomeColaborador(e.target.value)}
+                      placeholder="Nome completo"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="funcaoColaborador">Função</Label>
+                    <Input
+                      id="funcaoColaborador"
+                      value={funcaoColaborador}
+                      onChange={(e) => setFuncaoColaborador(e.target.value)}
+                      placeholder="Ex: Técnico, Instalador, etc."
+                    />
+                  </div>
+                  <div className="flex justify-end space-x-2">
+                    <Button variant="outline" onClick={() => setShowColaboradorDialog(false)}>
+                      Cancelar
+                    </Button>
+                    <Button onClick={handleSaveColaborador}>Salvar</Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {colaboradores.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              Nenhum colaborador cadastrado
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Função</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {colaboradores.map(colaborador => (
+                  <TableRow key={colaborador.id}>
+                    <TableCell className="font-medium">{colaborador.nome}</TableCell>
+                    <TableCell>{colaborador.funcao || '-'}</TableCell>
+                    <TableCell>
+                      <Badge variant={colaborador.ativo ? 'default' : 'secondary'}>
+                        {colaborador.ativo ? 'Ativo' : 'Inativo'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleEditColaborador(colaborador)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleToggleColaboradorStatus(colaborador)}
+                        >
+                          {colaborador.ativo ? 'Desativar' : 'Ativar'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDeleteColaborador(colaborador.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+
   const renderCategoriasTab = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       <Card>
@@ -507,9 +749,10 @@ export default function Configuracoes() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-6">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-7">
           <TabsTrigger value="empresa">Empresa</TabsTrigger>
           <TabsTrigger value="usuarios">Usuários</TabsTrigger>
+          <TabsTrigger value="colaboradores">Colaboradores</TabsTrigger>
           <TabsTrigger value="categorias">Categorias</TabsTrigger>
           <TabsTrigger value="integracoes">Integrações</TabsTrigger>
           <TabsTrigger value="notificacoes">Notificações</TabsTrigger>
@@ -522,6 +765,10 @@ export default function Configuracoes() {
 
         <TabsContent value="usuarios" className="mt-6">
           {renderUsuariosTab()}
+        </TabsContent>
+
+        <TabsContent value="colaboradores" className="mt-6">
+          {renderColaboradoresTab()}
         </TabsContent>
 
         <TabsContent value="categorias" className="mt-6">
