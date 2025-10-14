@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Plus, Eye, Edit, Send, Download, Upload } from 'lucide-react';
+import { FileText, Plus, Eye, Edit, Send, Download, Upload, Trash2 } from 'lucide-react';
 import mammoth from 'mammoth';
 import jsPDF from 'jspdf';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -286,6 +286,27 @@ export default function Contratos() {
     } catch (error) {
       console.error('Error updating model:', error);
       toast.error('Erro ao atualizar modelo');
+    }
+  };
+
+  const handleDeleteModelo = async (modeloId: string) => {
+    if (!confirm('Tem certeza que deseja excluir este modelo?')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('modelos')
+        .update({ ativo: false })
+        .eq('id', modeloId);
+
+      if (error) throw error;
+
+      toast.success('Modelo excluído com sucesso!');
+      loadContratosData();
+    } catch (error) {
+      console.error('Error deleting model:', error);
+      toast.error('Erro ao excluir modelo');
     }
   };
 
@@ -756,6 +777,14 @@ export default function Contratos() {
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
+                        <Button 
+                          size="sm" 
+                          variant="ghost"
+                          onClick={() => handleDeleteModelo(modelo.id)}
+                          title="Excluir"
+                        >
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
                       </div>
                     </div>
                   </CardContent>
@@ -809,6 +838,14 @@ export default function Contratos() {
                           title="Editar"
                         >
                           <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="ghost"
+                          onClick={() => handleDeleteModelo(modelo.id)}
+                          title="Excluir"
+                        >
+                          <Trash2 className="h-4 w-4 text-red-500" />
                         </Button>
                       </div>
                     </TableCell>
