@@ -84,6 +84,14 @@ export function ContratosPDFViewer({ contrato, onClose }: ContratosPDFViewerProp
 
             <div className="space-y-4 text-sm leading-relaxed">
               <div>
+                <h3 className="font-bold mb-2">CONTRATANTE</h3>
+                <p><strong>Nome:</strong> {contrato.clientes?.nome || 'N/A'}</p>
+                <p><strong>Documento:</strong> {contrato.clientes?.documento || 'N/A'}</p>
+                <p><strong>Email:</strong> {contrato.clientes?.email || 'N/A'}</p>
+                <p><strong>Telefone:</strong> {contrato.clientes?.telefone || 'N/A'}</p>
+              </div>
+
+              <div>
                 <h3 className="font-bold mb-2">DADOS DO CONTRATO</h3>
                 <p><strong>Título:</strong> {contrato.titulo || 'Sem título'}</p>
                 <p><strong>Número:</strong> {contrato.numero_contrato || 'N/A'}</p>

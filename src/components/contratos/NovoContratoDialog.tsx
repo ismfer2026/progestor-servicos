@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus, X } from 'lucide-react';
+import { ContratosPDFViewer } from './ContratosPDFViewer';
 
 interface Cliente {
   id: string;
@@ -84,6 +85,8 @@ export function NovoContratoDialog({ open, onOpenChange, modelos, onSuccess }: N
   const [numeroParcelas, setNumeroParcelas] = useState(1);
   const [parcelas, setParcelas] = useState<Parcela[]>([]);
   const [saving, setSaving] = useState(false);
+  const [contratoGerado, setContratoGerado] = useState<any>(null);
+  const [showPDFViewer, setShowPDFViewer] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -231,7 +234,7 @@ export function NovoContratoDialog({ open, onOpenChange, modelos, onSuccess }: N
           pdf_contrato: conteudoContrato,
           status_assinatura: 'rascunho'
         })
-        .select()
+        .select('*, clientes(*)')
         .single();
 
       if (error) throw error;
@@ -267,6 +270,8 @@ export function NovoContratoDialog({ open, onOpenChange, modelos, onSuccess }: N
       }
 
       toast.success('Contrato criado com sucesso!');
+      setContratoGerado(contrato);
+      setShowPDFViewer(true);
       onSuccess();
       onOpenChange(false);
       resetForm();
@@ -292,11 +297,27 @@ export function NovoContratoDialog({ open, onOpenChange, modelos, onSuccess }: N
     setEnderecoCidade('');
     setColaboradorId('');
     setServicos([]);
+    setValorSinal(0);
+    setDataSinal('');
+    setFormaPagamentoSinal('');
+    setFormaPagamentoRestante('');
+    setNumeroParcelas(1);
+    setParcelas([]);
+  };
+
+  const updateParcela = (index: number, field: 'valor' | 'data_vencimento', value: number | Date) => {
+    const novasParcelas = [...parcelas];
+    novasParcelas[index] = {
+      ...novasParcelas[index],
+      [field]: value
+    };
+    setParcelas(novasParcelas);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Novo Contrato</DialogTitle>
         </DialogHeader>
@@ -582,6 +603,45 @@ export function NovoContratoDialog({ open, onOpenChange, modelos, onSuccess }: N
                   </SelectContent>
                 </Select>
               </div>
+
+              {parcelas.length > 0 && (
+                <div>
+                  <Label>Detalhes das Parcelas</Label>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Parcela</TableHead>
+                        <TableHead>Valor</TableHead>
+                        <TableHead>Vencimento</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {parcelas.map((parcela, index) => (
+                        <TableRow key={index}>
+                          <TableCell>Parcela {parcela.numero}/{numeroParcelas}</TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={parcela.valor}
+                              onChange={(e) => updateParcela(index, 'valor', Number(e.target.value))}
+                              className="w-32"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="date"
+                              value={parcela.data_vencimento.toISOString().split('T')[0]}
+                              onChange={(e) => updateParcela(index, 'data_vencimento', new Date(e.target.value))}
+                              className="w-40"
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </div>
           </div>
 
@@ -607,5 +667,16 @@ export function NovoContratoDialog({ open, onOpenChange, modelos, onSuccess }: N
         </div>
       </DialogContent>
     </Dialog>
+
+    {showPDFViewer && contratoGerado && (
+      <ContratosPDFViewer
+        contrato={contratoGerado}
+        onClose={() => {
+          setShowPDFViewer(false);
+          setContratoGerado(null);
+        }}
+      />
+    )}
+    </>
   );
 }
