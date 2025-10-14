@@ -49,8 +49,11 @@ export default function Financeiro() {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showBaixarDialog, setShowBaixarDialog] = useState(false);
   const [selectedMovimento, setSelectedMovimento] = useState<FinanceiroMovimentacao | null>(null);
   const [editingMovimento, setEditingMovimento] = useState<FinanceiroMovimentacao | null>(null);
+  const [movimentoParaBaixar, setMovimentoParaBaixar] = useState<string | null>(null);
+  const [dataPagamento, setDataPagamento] = useState('');
 
   // Form states
   const [formTipo, setFormTipo] = useState('receber');
@@ -168,21 +171,30 @@ export default function Financeiro() {
     setFormIntervalo(30);
   };
 
-  const handleBaixarMovimentacao = async (movId: string) => {
-    if (!user) return;
+  const handleOpenBaixarDialog = (movId: string) => {
+    setMovimentoParaBaixar(movId);
+    setDataPagamento(format(new Date(), 'yyyy-MM-dd'));
+    setShowBaixarDialog(true);
+  };
+
+  const handleBaixarMovimentacao = async () => {
+    if (!user || !movimentoParaBaixar || !dataPagamento) return;
 
     try {
       const { error } = await supabase
         .from('financeiro_movimentacoes')
         .update({
           status: 'pago',
-          data_pagamento: format(new Date(), 'yyyy-MM-dd')
+          data_pagamento: dataPagamento
         })
-        .eq('id', movId);
+        .eq('id', movimentoParaBaixar);
 
       if (error) throw error;
 
       toast.success('Movimentação baixada com sucesso!');
+      setShowBaixarDialog(false);
+      setMovimentoParaBaixar(null);
+      setDataPagamento('');
       loadData();
     } catch (error) {
       console.error('Error updating movimento:', error);
@@ -485,7 +497,7 @@ export default function Financeiro() {
                       <Button 
                         size="sm" 
                         variant="default"
-                        onClick={() => handleBaixarMovimentacao(mov.id)}
+                        onClick={() => handleOpenBaixarDialog(mov.id)}
                       >
                         Baixar
                       </Button>
@@ -818,8 +830,8 @@ export default function Financeiro() {
                 <Button variant="outline" onClick={() => setShowDetailsDialog(false)}>Fechar</Button>
                 {selectedMovimento.status === 'pendente' && (
                   <Button onClick={() => {
-                    handleBaixarMovimentacao(selectedMovimento.id);
                     setShowDetailsDialog(false);
+                    handleOpenBaixarDialog(selectedMovimento.id);
                   }}>
                     Baixar Movimentação
                   </Button>
@@ -971,6 +983,43 @@ export default function Financeiro() {
               </Button>
               <Button onClick={handleUpdateMovimento}>
                 Salvar Alterações
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Baixar Movimentação */}
+      <Dialog open={showBaixarDialog} onOpenChange={setShowBaixarDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Dar Baixa na Movimentação</DialogTitle>
+            <DialogDescription>
+              Selecione a data de pagamento para registrar a baixa
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Data de Pagamento</label>
+              <Input
+                type="date"
+                value={dataPagamento}
+                onChange={(e) => setDataPagamento(e.target.value)}
+              />
+            </div>
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setShowBaixarDialog(false);
+                  setMovimentoParaBaixar(null);
+                  setDataPagamento('');
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button onClick={handleBaixarMovimentacao}>
+                Confirmar Baixa
               </Button>
             </div>
           </div>
