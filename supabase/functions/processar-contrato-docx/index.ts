@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import PizZip from "https://esm.sh/pizzip@3.1.7";
+import Docxtemplater from "https://esm.sh/docxtemplater@3.50.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -25,6 +27,7 @@ serve(async (req) => {
     const { modeloId, contratoData } = await req.json();
 
     console.log('Processing contract with modelo:', modeloId);
+    console.log('Contract data:', contratoData);
 
     // Buscar o modelo
     const { data: modelo, error: modeloError } = await supabaseClient
@@ -50,22 +53,81 @@ serve(async (req) => {
       .download(filePath);
 
     if (downloadError || !fileData) {
-      throw new Error('Erro ao baixar arquivo do modelo');
+      throw new Error('Erro ao baixar arquivo do modelo: ' + downloadError?.message);
     }
 
     // Converter o Blob para ArrayBuffer
     const arrayBuffer = await fileData.arrayBuffer();
     
-    // Aqui seria feita a substituição das variáveis usando docxtemplater
-    // Por enquanto, vamos retornar o arquivo original e fazer a substituição no frontend
+    // Processar DOCX com docxtemplater
+    const zip = new PizZip(arrayBuffer);
+    const doc = new Docxtemplater(zip, {
+      paragraphLoop: true,
+      linebreaks: true,
+    });
+
+    // Preparar dados para substituição
+    const templateData = {
+      cliente_nome: contratoData.cliente_nome || '',
+      cliente_documento: contratoData.cliente_documento || '',
+      cliente_email: contratoData.cliente_email || '',
+      cliente_telefone: contratoData.cliente_telefone || '',
+      cliente_endereco: contratoData.cliente_endereco || '',
+      data_evento: contratoData.data_evento || '',
+      horario_inicio: contratoData.horario_inicio || '',
+      horario_fim: contratoData.horario_fim || '',
+      local_servico: contratoData.local_servico || '',
+      servicos: contratoData.servicos || '',
+      valor_total: contratoData.valor_total || '',
+      valor_extenso: contratoData.valor_extenso || '',
+      numero_contrato: contratoData.numero_contrato || '',
+      data_contrato: contratoData.data_contrato || '',
+      observacoes: contratoData.observacoes || '',
+      assinatura_empresa: contratoData.assinatura_empresa || '',
+      forma_pagamento: contratoData.forma_pagamento || '',
+    };
+
+    // Substituir variáveis
+    doc.render(templateData);
+
+    // Gerar novo arquivo DOCX
+    const processedBuffer = doc.getZip().generate({
+      type: "arraybuffer",
+      compression: "DEFLATE",
+    });
+
+    // Nome do arquivo gerado
+    const fileName = `CONTRATO_${contratoData.numero_contrato}_${contratoData.cliente_nome.replace(/\s+/g, '_')}_${contratoData.data_evento?.replace(/\//g, '-') || 'sem-data'}.docx`;
     
-    console.log('Contract processed successfully');
+    // Fazer upload do arquivo processado
+    const uploadPath = `contratos-gerados/${fileName}`;
+    const { error: uploadError } = await supabaseClient
+      .storage
+      .from('modelos-contratos')
+      .upload(uploadPath, processedBuffer, {
+        contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        upsert: true,
+      });
+
+    if (uploadError) {
+      throw new Error('Erro ao fazer upload do contrato: ' + uploadError.message);
+    }
+
+    // Obter URL pública do arquivo
+    const { data: { publicUrl } } = supabaseClient
+      .storage
+      .from('modelos-contratos')
+      .getPublicUrl(uploadPath);
+
+    console.log('Contract processed successfully:', fileName);
 
     return new Response(
       JSON.stringify({ 
         success: true,
         message: 'Contrato processado com sucesso',
-        arquivoUrl: modelo.arquivo_docx_url
+        arquivoUrl: uploadPath,
+        publicUrl: publicUrl,
+        fileName: fileName,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

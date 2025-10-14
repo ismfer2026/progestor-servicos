@@ -1,8 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { X, Download } from 'lucide-react';
+import { X, Download, Share2 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { WhatsAppMessageDialog } from '@/components/shared/WhatsAppMessageDialog';
 
 interface ContratosPDFViewerProps {
   contrato: any;
@@ -11,6 +14,37 @@ interface ContratosPDFViewerProps {
 
 export function ContratosPDFViewer({ contrato, onClose }: ContratosPDFViewerProps) {
   const contentRef = React.useRef<HTMLDivElement>(null);
+  const [showWhatsApp, setShowWhatsApp] = useState(false);
+
+  const handleDownloadDocx = async () => {
+    if (!contrato.pdf_contrato) {
+      toast.error('Arquivo DOCX não disponível');
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .storage
+        .from('modelos-contratos')
+        .download(contrato.pdf_contrato);
+
+      if (error) throw error;
+
+      const url = window.URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `contrato-${contrato.numero_contrato}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast.success('Contrato baixado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao baixar contrato:', error);
+      toast.error('Erro ao baixar contrato');
+    }
+  };
 
   const generatePDF = async () => {
     if (!contentRef.current) return;
@@ -67,9 +101,17 @@ export function ContratosPDFViewer({ contrato, onClose }: ContratosPDFViewerProp
         <div className="flex justify-between items-center p-4 border-b">
           <h2 className="text-xl font-semibold">Contrato - {contrato.numero_contrato}</h2>
           <div className="flex gap-2">
+            <Button onClick={handleDownloadDocx} variant="outline">
+              <Download className="h-4 w-4 mr-2" />
+              Baixar DOCX
+            </Button>
             <Button onClick={generatePDF} variant="outline">
               <Download className="h-4 w-4 mr-2" />
               Baixar PDF
+            </Button>
+            <Button onClick={() => setShowWhatsApp(true)} variant="outline">
+              <Share2 className="h-4 w-4 mr-2" />
+              Enviar WhatsApp
             </Button>
             <Button onClick={onClose} variant="ghost" size="icon">
               <X className="h-4 w-4" />
@@ -138,6 +180,20 @@ export function ContratosPDFViewer({ contrato, onClose }: ContratosPDFViewerProp
           </div>
         </div>
       </div>
+
+      {/* WhatsApp Dialog */}
+      {showWhatsApp && contrato.clientes?.telefone && (
+        <WhatsAppMessageDialog
+          open={showWhatsApp}
+          onOpenChange={setShowWhatsApp}
+          recipientPhone={contrato.clientes.telefone}
+          defaultMessage={`Olá ${contrato.clientes?.nome}! Segue o contrato ${contrato.numero_contrato}.`}
+          onSent={() => {
+            toast.success('Contrato enviado via WhatsApp!');
+            setShowWhatsApp(false);
+          }}
+        />
+      )}
     </div>
   );
 }

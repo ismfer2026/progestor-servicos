@@ -122,6 +122,11 @@ export function NovoContrato() {
       return;
     }
 
+    if (!modeloSelecionado) {
+      toast.error("Selecione um modelo de contrato");
+      return;
+    }
+
     if (valorSinal > 0 && !dataSinal) {
       toast.error("Informe a data do sinal");
       return;
@@ -130,11 +135,81 @@ export function NovoContrato() {
     setLoading(true);
 
     try {
+      // Verificar se o modelo existe e tem arquivo DOCX
+      const modeloEncontrado = modelosContrato.find(m => m.id === modeloSelecionado);
+      
+      if (!modeloEncontrado) {
+        toast.error("Modelo de contrato não localizado. Selecione um modelo válido na aba Contratos → Modelos.");
+        setLoading(false);
+        return;
+      }
+
+      if (!modeloEncontrado.arquivo_docx_url) {
+        toast.error("O modelo selecionado não possui arquivo DOCX. Por favor, faça upload de um arquivo DOCX no modelo.");
+        setLoading(false);
+        return;
+      }
+
       // Generate contract number
       const numeroContrato = `CT${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
 
-      // Generate contract content
-      const conteudoContrato = gerarConteudoContrato();
+      // Preparar dados do contrato para substituição de variáveis
+      const servicosTexto = Array.isArray(orcamento?.servicos) 
+        ? orcamento.servicos.map((s: any) => 
+            `${s.nome}: ${s.descricao || ''} | Qtd: ${s.quantidade || 1} | Valor: R$ ${(s.preco_total || 0).toFixed(2)}`
+          ).join('\n')
+        : '';
+
+      const enderecoCompleto = cliente?.endereco 
+        ? `${cliente.endereco.rua || ''}, ${cliente.endereco.numero || ''} - ${cliente.endereco.bairro || ''}, ${cliente.endereco.cidade || ''}/${cliente.endereco.estado || ''} - CEP: ${cliente.endereco.cep || ''}`
+        : '';
+
+      const formaPagamentoTexto = `
+${valorSinal > 0 ? `Sinal: R$ ${valorSinal.toFixed(2)} - Data: ${dataSinal ? format(dataSinal, 'dd/MM/yyyy', { locale: ptBR }) : 'N/A'}` : ''}
+Valor Restante: R$ ${valorRestante.toFixed(2)}
+Parcelamento: ${numeroParcelas}x de R$ ${(valorRestante / numeroParcelas).toFixed(2)}
+
+DATAS DE VENCIMENTO DAS PARCELAS:
+${parcelas.map(p => `Parcela ${p.numero}: R$ ${p.valor.toFixed(2)} - Vencimento: ${format(p.data_vencimento, 'dd/MM/yyyy', { locale: ptBR })}`).join('\n')}
+      `.trim();
+
+      const contratoData = {
+        cliente_nome: cliente?.nome || '',
+        cliente_documento: cliente?.documento || cliente?.cpf_cnpj || '',
+        cliente_email: cliente?.email || '',
+        cliente_telefone: cliente?.telefone || '',
+        cliente_endereco: enderecoCompleto,
+        data_evento: orcamento?.data_servico ? new Date(orcamento.data_servico).toLocaleDateString('pt-BR') : '',
+        horario_inicio: orcamento?.horario_inicio?.substring(0, 5) || '',
+        horario_fim: orcamento?.horario_fim?.substring(0, 5) || '',
+        local_servico: orcamento?.local_servico || '',
+        servicos: servicosTexto,
+        valor_total: `R$ ${(orcamento?.valor_total || 0).toFixed(2)}`,
+        valor_extenso: numeroExtenso(orcamento?.valor_total || 0),
+        numero_contrato: numeroContrato,
+        data_contrato: new Date().toLocaleDateString('pt-BR'),
+        observacoes: observacoes,
+        assinatura_empresa: 'Empresa', // Nome da empresa será obtido do contexto
+        forma_pagamento: formaPagamentoTexto,
+      };
+
+      // Processar contrato via edge function
+      toast.info('Processando contrato...');
+      
+      const { data: processData, error: processError } = await supabase.functions.invoke('processar-contrato-docx', {
+        body: {
+          modeloId: modeloSelecionado,
+          contratoData: contratoData,
+        }
+      });
+
+      if (processError) {
+        throw new Error(processError.message || 'Erro ao processar contrato');
+      }
+
+      if (!processData.success) {
+        throw new Error(processData.error || 'Erro ao processar contrato');
+      }
 
       // Save contract
       const { data: contrato, error: contratoError } = await supabase
@@ -147,7 +222,7 @@ export function NovoContrato() {
           valor_total: orcamento.valor_total,
           data_inicio: new Date().toISOString(),
           status_assinatura: 'Pendente',
-          pdf_contrato: conteudoContrato,
+          pdf_contrato: processData.arquivoUrl, // Store the path to the generated DOCX
           observacoes: observacoes,
           cliente_id: orcamento.cliente_id,
         })
@@ -191,13 +266,28 @@ export function NovoContrato() {
         .eq('id', orcamento.id);
 
       toast.success("Contrato gerado com sucesso!");
+      
+      // Abrir o contrato gerado em nova aba ou baixar
+      if (processData.publicUrl) {
+        window.open(processData.publicUrl, '_blank');
+      }
+      
       navigate('/contratos');
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao salvar contrato:", error);
-      toast.error("Erro ao gerar contrato");
+      toast.error(error.message || "Erro ao gerar contrato");
     } finally {
       setLoading(false);
     }
+  };
+
+  const numeroExtenso = (valor: number): string => {
+    // Função simplificada para converter número em extenso
+    // Em produção, usar uma biblioteca como "extenso" ou "numero-por-extenso"
+    const valorArredondado = Math.floor(valor);
+    const centavos = Math.round((valor - valorArredondado) * 100);
+    
+    return `${valorArredondado} reais${centavos > 0 ? ` e ${centavos} centavos` : ''}`;
   };
 
   const gerarConteudoContrato = () => {
