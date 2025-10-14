@@ -198,6 +198,7 @@ export type Database = {
         Row: {
           cliente_id: string | null
           data_assinatura: string | null
+          data_fim: string | null
           data_inicio: string | null
           empresa_id: string | null
           id: string
@@ -212,6 +213,7 @@ export type Database = {
         Insert: {
           cliente_id?: string | null
           data_assinatura?: string | null
+          data_fim?: string | null
           data_inicio?: string | null
           empresa_id?: string | null
           id?: string
@@ -226,6 +228,7 @@ export type Database = {
         Update: {
           cliente_id?: string | null
           data_assinatura?: string | null
+          data_fim?: string | null
           data_inicio?: string | null
           empresa_id?: string | null
           id?: string
