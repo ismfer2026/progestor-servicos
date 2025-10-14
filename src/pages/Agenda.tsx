@@ -167,10 +167,10 @@ export default function Agenda() {
 
   const getPrioridadeColor = (prioridade?: string) => {
     switch (prioridade) {
-      case 'urgente': return 'bg-red-500';
-      case 'alta': return 'bg-orange-500';
+      case 'urgente': return 'bg-purple-500';
+      case 'alta': return 'bg-red-500';
       case 'media': return 'bg-yellow-500';
-      case 'baixa': return 'bg-green-500';
+      case 'baixa': return 'bg-blue-500';
       default: return 'bg-gray-500';
     }
   };

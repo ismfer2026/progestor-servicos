@@ -215,7 +215,7 @@ export function AddTaskDialog({ open, onOpenChange, cardId, clienteId, onTaskCre
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-full p-0">
+              <PopoverContent className="w-full p-0 pointer-events-auto">
                 <Command>
                   <CommandInput placeholder="Buscar cliente..." />
                   <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
@@ -258,12 +258,13 @@ export function AddTaskDialog({ open, onOpenChange, cardId, clienteId, onTaskCre
                   {dataHora ? format(dataHora, "PPP", { locale: ptBR }) : "Selecionar data"}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
+              <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
                 <Calendar
                   mode="single"
                   selected={dataHora}
                   onSelect={setDataHora}
                   locale={ptBR}
+                  className="pointer-events-auto"
                 />
               </PopoverContent>
             </Popover>
