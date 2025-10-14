@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, Plus, Bell, Users, MapPin } from 'lucide-react';
+import { Calendar, Clock, Plus, Bell, Users, MapPin, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -185,6 +185,27 @@ export default function Agenda() {
     }
   };
 
+  const handleCancelarTarefa = async (tarefaId: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+
+    try {
+      const { error } = await supabase
+        .from('tarefas')
+        .update({ status: 'cancelado' })
+        .eq('id', tarefaId);
+
+      if (error) throw error;
+
+      toast.success('Tarefa cancelada com sucesso!');
+      loadTarefas();
+    } catch (error) {
+      console.error('Error canceling task:', error);
+      toast.error('Erro ao cancelar tarefa');
+    }
+  };
+
   const generateCalendarDays = () => {
     const start = startOfWeek(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1));
     const end = endOfWeek(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0));
@@ -227,11 +248,23 @@ export default function Agenda() {
                   {dayTasks.slice(0, 3).map(tarefa => (
                     <Tooltip key={tarefa.id}>
                       <TooltipTrigger asChild>
-                        <div
-                          className="text-xs p-1 rounded bg-primary/10 text-primary truncate cursor-pointer hover:bg-primary/20"
-                          onClick={() => handleCardClick(tarefa)}
-                        >
-                          {format(new Date(tarefa.data_hora), 'HH:mm')} - {tarefa.titulo}
+                        <div className="relative group">
+                          <div
+                            className="text-xs p-1 rounded bg-primary/10 text-primary truncate cursor-pointer hover:bg-primary/20 pr-6"
+                            onClick={() => handleCardClick(tarefa)}
+                          >
+                            {format(new Date(tarefa.data_hora), 'HH:mm')} - {tarefa.titulo}
+                          </div>
+                          {tarefa.status !== 'cancelado' && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="absolute right-0 top-0 h-full w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={(e) => handleCancelarTarefa(tarefa.id, e)}
+                            >
+                              <X className="h-3 w-3 text-destructive" />
+                            </Button>
+                          )}
                         </div>
                       </TooltipTrigger>
                       <TooltipContent side="right" className="max-w-xs">
@@ -326,15 +359,27 @@ export default function Agenda() {
                     return (
                       <Card 
                         key={tarefa.id} 
-                        className="p-2 cursor-pointer hover:shadow-md transition-shadow"
+                        className="p-2 cursor-pointer hover:shadow-md transition-shadow group relative"
                         onClick={() => handleCardClick(tarefa)}
                       >
                         <div className="space-y-1">
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-medium">{format(new Date(tarefa.data_hora), 'HH:mm')}</span>
-                            <Badge className={`${getPrioridadeColor(tarefa.prioridade)} text-white text-[10px] px-1`}>
-                              {getPrioridadeLabel(tarefa.prioridade)}
-                            </Badge>
+                            <div className="flex items-center gap-1">
+                              <Badge className={`${getPrioridadeColor(tarefa.prioridade)} text-white text-[10px] px-1`}>
+                                {getPrioridadeLabel(tarefa.prioridade)}
+                              </Badge>
+                              {tarefa.status !== 'cancelado' && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onClick={(e) => handleCancelarTarefa(tarefa.id, e)}
+                                >
+                                  <X className="h-3 w-3 text-destructive" />
+                                </Button>
+                              )}
+                            </div>
                           </div>
                           <p className="text-xs font-semibold truncate">{tarefa.titulo}</p>
                           {cliente && (
@@ -396,13 +441,13 @@ export default function Agenda() {
               return (
                 <Card 
                   key={tarefa.id}
-                  className="cursor-pointer hover:shadow-md transition-shadow"
+                  className="cursor-pointer hover:shadow-md transition-shadow group"
                   onClick={() => handleCardClick(tarefa)}
                 >
                   <CardHeader className="pb-2">
                     <div className="flex justify-between items-start">
                       <CardTitle className="text-base">{tarefa.titulo}</CardTitle>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 items-center">
                         <Badge className={`${getPrioridadeColor(tarefa.prioridade)} text-white`}>
                           {getPrioridadeLabel(tarefa.prioridade)}
                         </Badge>
@@ -412,6 +457,16 @@ export default function Agenda() {
                         >
                           {getStatusLabel(tarefa.status)}
                         </Badge>
+                        {tarefa.status !== 'cancelado' && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => handleCancelarTarefa(tarefa.id, e)}
+                          >
+                            <X className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </CardHeader>
@@ -502,7 +557,7 @@ export default function Agenda() {
                     return (
                       <Card 
                         key={tarefa.id} 
-                        className="mb-2 p-3 cursor-pointer hover:shadow-md transition-shadow"
+                        className="mb-2 p-3 cursor-pointer hover:shadow-md transition-shadow group"
                         onClick={() => handleCardClick(tarefa)}
                       >
                         <div className="flex items-start justify-between gap-2">
@@ -528,6 +583,16 @@ export default function Agenda() {
                               <p className="text-xs text-muted-foreground line-clamp-2">{tarefa.descricao}</p>
                             )}
                           </div>
+                          {tarefa.status !== 'cancelado' && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={(e) => handleCancelarTarefa(tarefa.id, e)}
+                            >
+                              <X className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
                         </div>
                       </Card>
                     );
