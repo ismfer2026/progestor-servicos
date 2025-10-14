@@ -749,31 +749,6 @@ export default function Configuracoes() {
           )}
         </CardContent>
       </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Etapas do Funil CRM</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {['Prospecção', 'Qualificação', 'Proposta', 'Negociação', 'Fechamento'].map((etapa, index) => (
-              <div key={etapa} className="flex items-center justify-between p-2 border rounded">
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm font-medium">{index + 1}.</span>
-                  <span>{etapa}</span>
-                </div>
-                <div className="flex space-x-1">
-                  <Button size="sm" variant="ghost">Editar</Button>
-                  <Button size="sm" variant="ghost">Remover</Button>
-                </div>
-              </div>
-            ))}
-            <Button variant="outline" className="w-full">
-              Adicionar Etapa
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 
