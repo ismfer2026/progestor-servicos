@@ -216,44 +216,42 @@ export default function FunilVendas() {
 
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-muted/20">
-      {/* Header fixo com título */}
+      {/* Header fixo com título e botões */}
       <div className="sticky top-0 z-30 bg-background border-b shadow-sm">
-        <div className="flex justify-between items-center px-6 py-4">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center px-6 py-4 gap-4">
+          <div className="flex items-center gap-3 flex-shrink-0" style={{ width: '640px' }}>
             <TrendingUp className="h-8 w-8 text-primary" />
             <div>
               <h1 className="text-3xl font-bold">Funil de Vendas</h1>
               <p className="text-muted-foreground">Gerencie seu pipeline de vendas</p>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Botões de controle */}
-      <div className="px-6 pt-6 pb-4">
-        <div className="flex gap-2 justify-end">
-          <Button
-            variant={viewMode === 'table' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setViewMode('table')}
-          >
-            Tabela
-          </Button>
-          <Button
-            variant={viewMode === 'kanban' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setViewMode('kanban')}
-          >
-            Cards
-          </Button>
-          <Button variant="outline" onClick={() => setShowConfigurarEtapas(true)}>
-            <Settings className="mr-2 h-4 w-4" />
-            Configurar Etapas
-          </Button>
-          <Button onClick={() => setShowNovoLead(true)}>
-            <UserPlus className="mr-2 h-4 w-4" />
-            Adicionar Novo Lead
-          </Button>
+          
+          {/* Botões posicionados a partir do 3º card */}
+          <div className="flex gap-2 flex-1">
+            <Button
+              variant={viewMode === 'table' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('table')}
+            >
+              Tabela
+            </Button>
+            <Button
+              variant={viewMode === 'kanban' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('kanban')}
+            >
+              Cards
+            </Button>
+            <Button variant="outline" onClick={() => setShowConfigurarEtapas(true)}>
+              <Settings className="mr-2 h-4 w-4" />
+              Configurar Etapas
+            </Button>
+            <Button onClick={() => setShowNovoLead(true)}>
+              <UserPlus className="mr-2 h-4 w-4" />
+              Adicionar Novo Lead
+            </Button>
+          </div>
         </div>
       </div>
 
