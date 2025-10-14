@@ -17,20 +17,6 @@ const actions = [
     icon: Users,
     variant: 'default' as const,
     href: '/clientes/novo'
-  },
-  {
-    title: 'WhatsApp em Massa',
-    description: 'Enviar mensagens',
-    icon: MessageSquare,
-    variant: 'success' as const,
-    href: '/disparos'
-  },
-  {
-    title: 'Tarefa por Voz',
-    description: 'Gravar lembrete',
-    icon: Mic,
-    variant: 'warning' as const,
-    href: '/tarefas/voz'
   }
 ];
 

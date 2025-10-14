@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   FileText, 
   Send, 
@@ -6,6 +6,7 @@ import {
   Calendar,
   DollarSign,
   TrendingUp,
+  TrendingDown,
   Clock,
   Users
 } from 'lucide-react';
@@ -14,50 +15,10 @@ import { QuickActions } from '@/components/dashboard/QuickActions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
-const kpis = [
-  {
-    title: 'Orçamentos em Aberto',
-    value: '24',
-    icon: FileText,
-    trend: { value: 12, isPositive: true },
-    variant: 'primary' as const
-  },
-  {
-    title: 'Propostas Enviadas',
-    value: '8',
-    subtitle: 'Esta semana',
-    icon: Send,
-    trend: { value: 25, isPositive: true },
-    variant: 'success' as const
-  },
-  {
-    title: 'Contratos Ativos',
-    value: '16',
-    icon: CheckCircle,
-    trend: { value: 8, isPositive: true }
-  },
-  {
-    title: 'Tarefas do Dia',
-    value: '5',
-    icon: Calendar,
-    variant: 'warning' as const
-  },
-  {
-    title: 'Recebimentos (30d)',
-    value: 'R$ 45.650',
-    icon: DollarSign,
-    trend: { value: 15, isPositive: true },
-    variant: 'success' as const
-  },
-  {
-    title: 'Valor Total Serviços',
-    value: 'R$ 0',
-    subtitle: 'Catálogo de serviços',
-    icon: TrendingUp,
-    trend: { value: 0, isPositive: true }
-  }
-];
 
 const recentActivities = [
   {
@@ -108,11 +69,160 @@ const upcomingTasks = [
 ];
 
 export default function Dashboard() {
+  const { user } = useAuth();
+  const [kpis, setKpis] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (user?.empresa_id) {
+      loadDashboardData();
+    }
+  }, [user?.empresa_id]);
+
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+      const empresaId = user?.empresa_id;
+
+      // Buscar orçamentos em aberto
+      const { data: orcamentosAbertos, error: orcamentosError } = await supabase
+        .from('orcamentos')
+        .select('*', { count: 'exact' })
+        .eq('empresa_id', empresaId)
+        .eq('status', 'Aguardando');
+
+      // Buscar propostas enviadas (status = Aprovado ou Enviado)
+      const { data: propostasEnviadas, error: propostasError } = await supabase
+        .from('orcamentos')
+        .select('*', { count: 'exact' })
+        .eq('empresa_id', empresaId)
+        .not('data_envio', 'is', null);
+
+      // Buscar contratos fechados
+      const { data: contratosFechados, error: contratosError } = await supabase
+        .from('contratos')
+        .select('*', { count: 'exact' })
+        .eq('empresa_id', empresaId)
+        .eq('status_assinatura', 'Assinado');
+
+      // Buscar faturamento anual (receitas)
+      const anoAtual = new Date().getFullYear();
+      const { data: faturamentoAnual, error: fatAnualError } = await supabase
+        .from('financeiro_movimentacoes')
+        .select('valor')
+        .eq('empresa_id', empresaId)
+        .eq('tipo', 'receita')
+        .gte('data_vencimento', `${anoAtual}-01-01`)
+        .lte('data_vencimento', `${anoAtual}-12-31`);
+
+      // Buscar despesas anuais
+      const { data: despesasAnual, error: despAnualError } = await supabase
+        .from('financeiro_movimentacoes')
+        .select('valor')
+        .eq('empresa_id', empresaId)
+        .eq('tipo', 'despesa')
+        .gte('data_vencimento', `${anoAtual}-01-01`)
+        .lte('data_vencimento', `${anoAtual}-12-31`);
+
+      // Buscar faturamento do mês
+      const mesAtual = new Date().getMonth() + 1;
+      const { data: faturamentoMes, error: fatMesError } = await supabase
+        .from('financeiro_movimentacoes')
+        .select('valor')
+        .eq('empresa_id', empresaId)
+        .eq('tipo', 'receita')
+        .gte('data_vencimento', `${anoAtual}-${mesAtual.toString().padStart(2, '0')}-01`)
+        .lte('data_vencimento', `${anoAtual}-${mesAtual.toString().padStart(2, '0')}-31`);
+
+      // Buscar despesas do mês
+      const { data: despesasMes, error: despMesError } = await supabase
+        .from('financeiro_movimentacoes')
+        .select('valor')
+        .eq('empresa_id', empresaId)
+        .eq('tipo', 'despesa')
+        .gte('data_vencimento', `${anoAtual}-${mesAtual.toString().padStart(2, '0')}-01`)
+        .lte('data_vencimento', `${anoAtual}-${mesAtual.toString().padStart(2, '0')}-31`);
+
+      // Buscar contratos a executar este mês
+      const { data: contratosExecucao, error: execucaoError } = await supabase
+        .from('servicos')
+        .select('*', { count: 'exact' })
+        .eq('empresa_id', empresaId)
+        .gte('data', `${anoAtual}-${mesAtual.toString().padStart(2, '0')}-01`)
+        .lte('data', `${anoAtual}-${mesAtual.toString().padStart(2, '0')}-31`)
+        .neq('status', 'Concluído');
+
+      // Calcular totais
+      const totalFaturamentoAnual = faturamentoAnual?.reduce((sum, item) => sum + Number(item.valor || 0), 0) || 0;
+      const totalDespesasAnual = despesasAnual?.reduce((sum, item) => sum + Number(item.valor || 0), 0) || 0;
+      const totalFaturamentoMes = faturamentoMes?.reduce((sum, item) => sum + Number(item.valor || 0), 0) || 0;
+      const totalDespesasMes = despesasMes?.reduce((sum, item) => sum + Number(item.valor || 0), 0) || 0;
+
+      const kpisData = [
+        {
+          title: 'Orçamentos em Aberto',
+          value: orcamentosAbertos?.length || 0,
+          icon: FileText,
+          variant: 'primary' as const
+        },
+        {
+          title: 'Propostas Enviadas',
+          value: propostasEnviadas?.length || 0,
+          icon: Send,
+          variant: 'success' as const
+        },
+        {
+          title: 'Contratos Fechados',
+          value: contratosFechados?.length || 0,
+          icon: CheckCircle,
+          variant: 'success' as const
+        },
+        {
+          title: 'Faturamento Anual',
+          value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalFaturamentoAnual),
+          icon: TrendingUp,
+          variant: 'primary' as const
+        },
+        {
+          title: 'Despesa Anual',
+          value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalDespesasAnual),
+          icon: TrendingDown,
+          variant: 'warning' as const
+        },
+        {
+          title: 'Faturamento do Mês',
+          value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalFaturamentoMes),
+          icon: DollarSign,
+          variant: 'success' as const
+        },
+        {
+          title: 'Despesa do Mês',
+          value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalDespesasMes),
+          icon: TrendingDown,
+          variant: 'warning' as const
+        },
+        {
+          title: 'Contratos a Executar (Mês)',
+          value: contratosExecucao?.length || 0,
+          icon: Calendar,
+          variant: 'primary' as const
+        }
+      ];
+
+      setKpis(kpisData);
+    } catch (error) {
+      console.error('Erro ao carregar dados do dashboard:', error);
+      toast.error('Erro ao carregar dados do dashboard');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <h1 className="text-3xl font-bold">Tela Principal</h1>
         <p className="text-muted-foreground">
           Visão geral do seu negócio e atividades recentes
         </p>
