@@ -49,7 +49,17 @@ export function WhatsAppDialog({ open, onOpenChange, telefone, cardId }: WhatsAp
       if (telefone) {
         const cleanPhone = telefone.replace(/\D/g, '');
         const encodedMessage = encodeURIComponent(mensagem);
-        window.open(`https://wa.me/55${cleanPhone}?text=${encodedMessage}`, '_blank');
+        const whatsappUrl = `https://wa.me/55${cleanPhone}?text=${encodedMessage}`;
+        const whatsappWindow = window.open(whatsappUrl, '_blank');
+        
+        // Verificar se a janela foi bloqueada
+        if (!whatsappWindow || whatsappWindow.closed || typeof whatsappWindow.closed === 'undefined') {
+          toast.error('Pop-up bloqueado! Permita pop-ups para este site e tente novamente.', {
+            duration: 5000,
+          });
+          setLoading(false);
+          return;
+        }
       }
 
       toast.success('Mensagem salva com sucesso!');

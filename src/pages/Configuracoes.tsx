@@ -811,6 +811,10 @@ export default function Configuracoes() {
               Configure o número padrão do WhatsApp da empresa. 
               Ao enviar mensagens pelo sistema, o WhatsApp Web será aberto automaticamente.
             </p>
+            <p className="text-amber-600 dark:text-amber-500 mt-2 flex items-center gap-1">
+              <Bell className="h-4 w-4" />
+              <span className="font-medium">Importante:</span> Permita pop-ups neste site para que o WhatsApp abra corretamente.
+            </p>
           </div>
           <div>
             <Label htmlFor="whatsappPhone">Número do Telefone *</Label>

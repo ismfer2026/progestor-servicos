@@ -48,7 +48,16 @@ export function WhatsAppMessageDialog({
       const whatsappUrl = `https://wa.me/${phoneFormatted}?text=${encodedMessage}`;
 
       // Abrir WhatsApp
-      window.open(whatsappUrl, '_blank');
+      const whatsappWindow = window.open(whatsappUrl, '_blank');
+      
+      // Verificar se a janela foi bloqueada
+      if (!whatsappWindow || whatsappWindow.closed || typeof whatsappWindow.closed === 'undefined') {
+        toast.error('Pop-up bloqueado! Permita pop-ups para este site e tente novamente.', {
+          duration: 5000,
+        });
+        setLoading(false);
+        return;
+      }
 
       toast.success('Abrindo WhatsApp...');
       
@@ -61,7 +70,7 @@ export function WhatsAppMessageDialog({
       onOpenChange(false);
     } catch (error) {
       console.error('Erro ao abrir WhatsApp:', error);
-      toast.error('Erro ao abrir WhatsApp');
+      toast.error('Erro ao abrir WhatsApp. Verifique se pop-ups estão permitidos.');
     } finally {
       setLoading(false);
     }
