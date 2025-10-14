@@ -186,7 +186,7 @@ export default function Agenda() {
   };
 
   const handleCancelarTarefa = async (tarefaId: string, e?: React.MouseEvent) => {
-    console.log('Cancelando tarefa:', tarefaId);
+    console.log('Excluindo tarefa:', tarefaId);
     if (e) {
       e.stopPropagation();
     }
@@ -194,20 +194,20 @@ export default function Agenda() {
     try {
       const { error } = await supabase
         .from('tarefas')
-        .update({ status: 'cancelado' })
+        .delete()
         .eq('id', tarefaId);
 
       if (error) {
-        console.error('Erro ao cancelar:', error);
+        console.error('Erro ao excluir:', error);
         throw error;
       }
 
-      console.log('Tarefa cancelada com sucesso');
-      toast.success('Tarefa cancelada com sucesso!');
+      console.log('Tarefa excluída com sucesso');
+      toast.success('Tarefa excluída com sucesso!');
       loadTarefas();
     } catch (error) {
-      console.error('Error canceling task:', error);
-      toast.error('Erro ao cancelar tarefa');
+      console.error('Error deleting task:', error);
+      toast.error('Erro ao excluir tarefa');
     }
   };
 
@@ -261,14 +261,23 @@ export default function Agenda() {
                             {format(new Date(tarefa.data_hora), 'HH:mm')} - {tarefa.titulo}
                           </div>
                           {tarefa.status !== 'cancelado' && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="absolute right-0 top-0 h-full w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={(e) => handleCancelarTarefa(tarefa.id, e)}
-                            >
-                              <X className="h-3 w-3 text-destructive" />
-                            </Button>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="absolute right-0 top-0 h-full w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    onClick={(e) => handleCancelarTarefa(tarefa.id, e)}
+                                  >
+                                    <X className="h-3 w-3 text-destructive" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Excluir Tarefa</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           )}
                         </div>
                       </TooltipTrigger>
@@ -375,14 +384,23 @@ export default function Agenda() {
                                 {getPrioridadeLabel(tarefa.prioridade)}
                               </Badge>
                               {tarefa.status !== 'cancelado' && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                  onClick={(e) => handleCancelarTarefa(tarefa.id, e)}
-                                >
-                                  <X className="h-3 w-3 text-destructive" />
-                                </Button>
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        onClick={(e) => handleCancelarTarefa(tarefa.id, e)}
+                                      >
+                                        <X className="h-3 w-3 text-destructive" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Excluir Tarefa</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
                               )}
                             </div>
                           </div>
@@ -463,14 +481,23 @@ export default function Agenda() {
                           {getStatusLabel(tarefa.status)}
                         </Badge>
                         {tarefa.status !== 'cancelado' && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={(e) => handleCancelarTarefa(tarefa.id, e)}
-                          >
-                            <X className="h-4 w-4 text-destructive" />
-                          </Button>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onClick={(e) => handleCancelarTarefa(tarefa.id, e)}
+                                >
+                                  <X className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Excluir Tarefa</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         )}
                       </div>
                     </div>
@@ -589,14 +616,23 @@ export default function Agenda() {
                             )}
                           </div>
                           {tarefa.status !== 'cancelado' && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-8 w-8 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={(e) => handleCancelarTarefa(tarefa.id, e)}
-                            >
-                              <X className="h-4 w-4 text-destructive" />
-                            </Button>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-8 w-8 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    onClick={(e) => handleCancelarTarefa(tarefa.id, e)}
+                                  >
+                                    <X className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Excluir Tarefa</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           )}
                         </div>
                       </Card>
