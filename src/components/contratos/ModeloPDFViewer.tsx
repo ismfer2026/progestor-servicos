@@ -2,6 +2,7 @@ import React from 'react';
 import { X, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import { toast } from 'sonner';
 
 interface Modelo {
@@ -18,56 +19,74 @@ interface ModeloPDFViewerProps {
 }
 
 export function ModeloPDFViewer({ modelo, onClose }: ModeloPDFViewerProps) {
-  const handleDownloadPDF = () => {
+  const contentRef = React.useRef<HTMLDivElement>(null);
+
+  const handleDownloadPDF = async () => {
+    if (!contentRef.current) return;
+
     try {
-      const doc = new jsPDF();
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 20;
-      const maxWidth = pageWidth - (2 * margin);
-      let yPosition = margin;
-
-      // Título do modelo
-      doc.setFontSize(18);
-      doc.setFont('helvetica', 'bold');
-      doc.text(modelo.nome, margin, yPosition);
-      yPosition += 12;
-
-      // Tipo do modelo
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(100, 100, 100);
-      doc.text(`Tipo: ${modelo.tipo.charAt(0).toUpperCase() + modelo.tipo.slice(1)}`, margin, yPosition);
-      yPosition += 15;
-
-      // Linha separadora
-      doc.setDrawColor(200, 200, 200);
-      doc.line(margin, yPosition, pageWidth - margin, yPosition);
-      yPosition += 10;
-
-      // Conteúdo do modelo
-      doc.setFontSize(11);
-      doc.setTextColor(0, 0, 0);
-      doc.setFont('helvetica', 'normal');
+      toast.info('Gerando PDF...');
       
-      const lines = doc.splitTextToSize(modelo.conteudo_template, maxWidth);
-      
-      for (let i = 0; i < lines.length; i++) {
-        if (yPosition > pageHeight - margin) {
-          doc.addPage();
-          yPosition = margin;
-        }
-        doc.text(lines[i], margin, yPosition);
-        yPosition += 7;
+      const canvas = await html2canvas(contentRef.current, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+      });
+
+      const imgWidth = 210; // A4 width in mm
+      const pageHeight = 297; // A4 height in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      let position = 0;
+
+      // Add first page
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      // Add additional pages if content is longer
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
       }
 
-      // Fazer download
-      doc.save(`modelo_${modelo.nome.replace(/\s+/g, '_')}.pdf`);
+      pdf.save(`modelo_${modelo.nome.replace(/\s+/g, '_')}.pdf`);
       toast.success('PDF baixado com sucesso!');
     } catch (error) {
       console.error('Error generating PDF:', error);
       toast.error('Erro ao gerar PDF');
     }
+  };
+
+  // Function to process content and replace image placeholders
+  const processContent = (content: string) => {
+    const parts = content.split(/(\{\{.*?\}\})/g);
+    
+    return parts.map((part, index) => {
+      // Check if it's an assinatura_empresa placeholder
+      if (part === '{{assinatura_empresa}}') {
+        return (
+          <div key={index} className="my-4">
+            <div className="text-sm text-muted-foreground mb-2">Assinatura da Empresa:</div>
+            <div className="border-t-2 border-gray-300 pt-2 w-64">
+              [Assinatura será inserida aqui]
+            </div>
+          </div>
+        );
+      }
+      
+      // Check if part is a variable placeholder
+      if (part.match(/^\{\{.*\}\}$/)) {
+        return <span key={index} className="bg-yellow-100 px-1 rounded">{part}</span>;
+      }
+      
+      return <span key={index}>{part}</span>;
+    });
   };
 
   return (
@@ -100,10 +119,16 @@ export function ModeloPDFViewer({ modelo, onClose }: ModeloPDFViewerProps) {
           </div>
         </div>
         <div className="flex-1 p-8 overflow-auto bg-muted/20">
-          <div className="max-w-4xl mx-auto bg-card p-12 rounded-lg shadow-lg border">
-            <div className="prose prose-sm max-w-none">
-              <div className="whitespace-pre-wrap text-foreground leading-relaxed">
-                {modelo.conteudo_template}
+          <div ref={contentRef} className="max-w-4xl mx-auto bg-white p-12 rounded-lg shadow-lg">
+            <div className="mb-6 text-center">
+              <h1 className="text-2xl font-bold text-gray-900">{modelo.nome}</h1>
+              <p className="text-sm text-gray-600 mt-2">
+                {modelo.tipo.charAt(0).toUpperCase() + modelo.tipo.slice(1)}
+              </p>
+            </div>
+            <div className="prose prose-sm max-w-none text-gray-900">
+              <div className="whitespace-pre-wrap leading-relaxed" style={{ fontFamily: 'Arial, sans-serif' }}>
+                {processContent(modelo.conteudo_template)}
               </div>
             </div>
           </div>

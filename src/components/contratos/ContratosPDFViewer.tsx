@@ -19,7 +19,9 @@ export function ContratosPDFViewer({ contrato, onClose }: ContratosPDFViewerProp
       const canvas = await html2canvas(contentRef.current, {
         scale: 2,
         useCORS: true,
+        allowTaint: true,
         logging: false,
+        backgroundColor: '#ffffff',
       });
 
       const imgWidth = 210;
