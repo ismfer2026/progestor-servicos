@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, Plus, Eye, Edit, Send, Download, Upload } from 'lucide-react';
+import mammoth from 'mammoth';
 import jsPDF from 'jspdf';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -608,26 +609,31 @@ export default function Contratos() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="uploadModelo">Upload de Arquivo do Modelo (.txt apenas)</Label>
+                    <Label htmlFor="uploadModelo">Upload de Arquivo do Modelo</Label>
                     <Input
                       id="uploadModelo"
                       type="file"
-                      accept=".txt"
-                      onChange={(e) => {
+                      accept=".txt,.docx"
+                      onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (file) {
+                          const fileName = file.name.toLowerCase();
+                          
                           // Verificar extensão do arquivo
-                          if (!file.name.toLowerCase().endsWith('.txt')) {
-                            toast.error('Por favor, selecione apenas arquivos .txt');
+                          if (!fileName.endsWith('.txt') && !fileName.endsWith('.docx')) {
+                            toast.error('Por favor, selecione apenas arquivos .txt ou .docx');
                             e.target.value = '';
                             return;
                           }
-                          
-                          const reader = new FileReader();
-                          reader.onload = () => {
+
+                          if (fileName.endsWith('.docx')) {
+                            // Processar arquivo DOCX
                             try {
-                              let conteudo = reader.result as string;
-                              // Remover caracteres nulos e outros caracteres especiais que o PostgreSQL não aceita
+                              const arrayBuffer = await file.arrayBuffer();
+                              const result = await mammoth.extractRawText({ arrayBuffer });
+                              
+                              let conteudo = result.value;
+                              // Remover caracteres nulos e outros caracteres especiais
                               conteudo = conteudo.replace(/\u0000/g, '').replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F]/g, '');
                               
                               if (!conteudo.trim()) {
@@ -636,21 +642,44 @@ export default function Contratos() {
                               }
                               
                               setArquivoModelo(conteudo);
-                              toast.success('Arquivo carregado com sucesso!');
+                              setConteudoModelo(conteudo);
+                              toast.success('Arquivo DOCX carregado com sucesso!');
                             } catch (error) {
-                              console.error('Error reading file:', error);
-                              toast.error('Erro ao ler arquivo. Verifique se é um arquivo de texto válido.');
+                              console.error('Error reading DOCX:', error);
+                              toast.error('Erro ao ler arquivo DOCX. Verifique se o arquivo não está corrompido.');
                             }
-                          };
-                          reader.onerror = () => {
-                            toast.error('Erro ao ler arquivo. Tente novamente.');
-                          };
-                          reader.readAsText(file, 'UTF-8');
+                          } else {
+                            // Processar arquivo TXT
+                            const reader = new FileReader();
+                            reader.onload = () => {
+                              try {
+                                let conteudo = reader.result as string;
+                                // Remover caracteres nulos e outros caracteres especiais
+                                conteudo = conteudo.replace(/\u0000/g, '').replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F]/g, '');
+                                
+                                if (!conteudo.trim()) {
+                                  toast.error('Arquivo vazio ou com formato inválido');
+                                  return;
+                                }
+                                
+                                setArquivoModelo(conteudo);
+                                setConteudoModelo(conteudo);
+                                toast.success('Arquivo TXT carregado com sucesso!');
+                              } catch (error) {
+                                console.error('Error reading file:', error);
+                                toast.error('Erro ao ler arquivo. Verifique se é um arquivo de texto válido.');
+                              }
+                            };
+                            reader.onerror = () => {
+                              toast.error('Erro ao ler arquivo. Tente novamente.');
+                            };
+                            reader.readAsText(file, 'UTF-8');
+                          }
                         }
                       }}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Apenas arquivos .txt são suportados. Para .docx, copie e cole o conteúdo abaixo.
+                      Arquivos .txt e .docx são suportados. O conteúdo será extraído automaticamente.
                     </p>
                     <Label htmlFor="conteudoModelo">Conteúdo do Modelo</Label>
                     <Textarea
