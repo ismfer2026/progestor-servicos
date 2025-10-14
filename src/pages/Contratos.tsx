@@ -15,6 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { ContratosPDFViewer } from '@/components/contratos/ContratosPDFViewer';
+import { ModeloPDFViewer } from '@/components/contratos/ModeloPDFViewer';
 import { NovoContratoDialog } from '@/components/contratos/NovoContratoDialog';
 
 interface Contrato {
@@ -62,7 +63,7 @@ export default function Contratos() {
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
   const [modeloSelecionadoEdit, setModeloSelecionadoEdit] = useState<Modelo | null>(null);
   const [showModeloPDFViewer, setShowModeloPDFViewer] = useState(false);
-  const [modeloPDFUrl, setModeloPDFUrl] = useState<string | null>(null);
+  const [modeloParaVisualizar, setModeloParaVisualizar] = useState<Modelo | null>(null);
 
   useEffect(() => {
     loadContratosData();
@@ -287,50 +288,9 @@ export default function Contratos() {
     }
   };
 
-  const gerarPDFModelo = async (modelo: Modelo) => {
-    try {
-      const doc = new jsPDF();
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 20;
-      const maxWidth = pageWidth - (2 * margin);
-      let yPosition = margin;
-
-      // Título do modelo
-      doc.setFontSize(16);
-      doc.setFont('helvetica', 'bold');
-      doc.text(modelo.nome, margin, yPosition);
-      yPosition += 10;
-
-      // Tipo do modelo
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Tipo: ${modelo.tipo}`, margin, yPosition);
-      yPosition += 15;
-
-      // Conteúdo do modelo
-      doc.setFontSize(11);
-      const lines = doc.splitTextToSize(modelo.conteudo_template, maxWidth);
-      
-      for (let i = 0; i < lines.length; i++) {
-        if (yPosition > pageHeight - margin) {
-          doc.addPage();
-          yPosition = margin;
-        }
-        doc.text(lines[i], margin, yPosition);
-        yPosition += 7;
-      }
-
-      // Gerar blob do PDF
-      const pdfBlob = doc.output('blob');
-      const pdfUrl = URL.createObjectURL(pdfBlob);
-      
-      setModeloPDFUrl(pdfUrl);
-      setShowModeloPDFViewer(true);
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      toast.error('Erro ao gerar PDF do modelo');
-    }
+  const visualizarModelo = (modelo: Modelo) => {
+    setModeloParaVisualizar(modelo);
+    setShowModeloPDFViewer(true);
   };
 
   const numeroParaExtenso = (numero: number): string => {
@@ -748,7 +708,7 @@ export default function Contratos() {
                         <Button 
                           size="sm" 
                           variant="ghost"
-                          onClick={() => gerarPDFModelo(modelo)}
+                          onClick={() => visualizarModelo(modelo)}
                           title="Visualizar em PDF"
                         >
                           <Eye className="h-4 w-4" />
@@ -802,7 +762,7 @@ export default function Contratos() {
                         <Button 
                           size="sm" 
                           variant="ghost"
-                          onClick={() => gerarPDFModelo(modelo)}
+                          onClick={() => visualizarModelo(modelo)}
                           title="Visualizar em PDF"
                         >
                           <Eye className="h-4 w-4" />
@@ -912,20 +872,15 @@ export default function Contratos() {
       )}
 
       {/* Visualizador de PDF do Modelo */}
-      <Dialog open={showModeloPDFViewer} onOpenChange={setShowModeloPDFViewer}>
-        <DialogContent className="max-w-6xl h-[90vh]">
-          <DialogHeader>
-            <DialogTitle>Visualização do Modelo</DialogTitle>
-          </DialogHeader>
-          {modeloPDFUrl && (
-            <iframe
-              src={modeloPDFUrl}
-              className="w-full h-full"
-              title="Visualização do Modelo em PDF"
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      {showModeloPDFViewer && modeloParaVisualizar && (
+        <ModeloPDFViewer
+          modelo={modeloParaVisualizar}
+          onClose={() => {
+            setShowModeloPDFViewer(false);
+            setModeloParaVisualizar(null);
+          }}
+        />
+      )}
     </div>
   );
 }
