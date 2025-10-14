@@ -52,6 +52,7 @@ export function Servicos() {
   const { user } = useAuth();
   const [estoqueItems, setEstoqueItems] = useState<EstoqueItem[]>([]);
   const [selectedEstoqueItems, setSelectedEstoqueItems] = useState<ServicoEstoqueItem[]>([]);
+  const [categorias, setCategorias] = useState<string[]>([]);
 
   const [formData, setFormData] = useState({
     nome: '',
@@ -67,6 +68,7 @@ export function Servicos() {
   useEffect(() => {
     fetchServicos();
     fetchEstoqueItems();
+    fetchCategorias();
   }, [user]);
 
   const fetchEstoqueItems = async () => {
@@ -84,6 +86,29 @@ export function Servicos() {
       setEstoqueItems(data || []);
     } catch (error) {
       console.error('Error fetching estoque items:', error);
+    }
+  };
+
+  const fetchCategorias = async () => {
+    if (!user?.empresa_id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('configuracoes')
+        .select('valor')
+        .eq('empresa_id', user.empresa_id)
+        .eq('chave', 'categorias_servicos')
+        .maybeSingle();
+
+      if (error) throw error;
+      
+      if (data && data.valor) {
+        // Assuming valor is a JSONB array of category names
+        const categoriasArray = Array.isArray(data.valor) ? data.valor.filter((item): item is string => typeof item === 'string') : [];
+        setCategorias(categoriasArray);
+      }
+    } catch (error) {
+      console.error('Error fetching categorias:', error);
     }
   };
 
@@ -536,12 +561,30 @@ export function Servicos() {
 
             <div>
               <Label htmlFor="categoria">Categoria</Label>
-              <Input
-                id="categoria"
-                value={formData.categoria}
-                onChange={(e) => setFormData({ ...formData, categoria: e.target.value })}
-                placeholder="Ex: Elétrica, Hidráulica, Limpeza, etc."
-              />
+              {categorias.length > 0 ? (
+                <Select 
+                  value={formData.categoria} 
+                  onValueChange={(value) => setFormData({ ...formData, categoria: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione uma categoria" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categorias.map((cat, index) => (
+                      <SelectItem key={index} value={cat}>
+                        {cat}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="text-sm text-muted-foreground">
+                  Nenhuma categoria cadastrada. Configure em{' '}
+                  <Link to="/configuracoes" className="text-primary hover:underline">
+                    Configurações &gt; Categorias
+                  </Link>
+                </div>
+              )}
             </div>
 
             <div>
