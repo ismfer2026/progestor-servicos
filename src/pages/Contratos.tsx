@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, Plus, Eye, Edit, Send, Download, Upload } from 'lucide-react';
+import jsPDF from 'jspdf';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -60,6 +61,8 @@ export default function Contratos() {
   const [arquivoModelo, setArquivoModelo] = useState('');
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
   const [modeloSelecionadoEdit, setModeloSelecionadoEdit] = useState<Modelo | null>(null);
+  const [showModeloPDFViewer, setShowModeloPDFViewer] = useState(false);
+  const [modeloPDFUrl, setModeloPDFUrl] = useState<string | null>(null);
 
   useEffect(() => {
     loadContratosData();
@@ -281,6 +284,52 @@ export default function Contratos() {
     } catch (error) {
       console.error('Error updating model:', error);
       toast.error('Erro ao atualizar modelo');
+    }
+  };
+
+  const gerarPDFModelo = async (modelo: Modelo) => {
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 20;
+      const maxWidth = pageWidth - (2 * margin);
+      let yPosition = margin;
+
+      // Título do modelo
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text(modelo.nome, margin, yPosition);
+      yPosition += 10;
+
+      // Tipo do modelo
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Tipo: ${modelo.tipo}`, margin, yPosition);
+      yPosition += 15;
+
+      // Conteúdo do modelo
+      doc.setFontSize(11);
+      const lines = doc.splitTextToSize(modelo.conteudo_template, maxWidth);
+      
+      for (let i = 0; i < lines.length; i++) {
+        if (yPosition > pageHeight - margin) {
+          doc.addPage();
+          yPosition = margin;
+        }
+        doc.text(lines[i], margin, yPosition);
+        yPosition += 7;
+      }
+
+      // Gerar blob do PDF
+      const pdfBlob = doc.output('blob');
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      
+      setModeloPDFUrl(pdfUrl);
+      setShowModeloPDFViewer(true);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast.error('Erro ao gerar PDF do modelo');
     }
   };
 
@@ -699,14 +748,8 @@ export default function Contratos() {
                         <Button 
                           size="sm" 
                           variant="ghost"
-                          onClick={() => {
-                            setModeloSelecionadoEdit(modelo);
-                            setNomeModelo(modelo.nome);
-                            setTipoModelo(modelo.tipo);
-                            setConteudoModelo(modelo.conteudo_template);
-                            setShowNewModel(true);
-                          }}
-                          title="Visualizar"
+                          onClick={() => gerarPDFModelo(modelo)}
+                          title="Visualizar em PDF"
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
@@ -759,14 +802,8 @@ export default function Contratos() {
                         <Button 
                           size="sm" 
                           variant="ghost"
-                          onClick={() => {
-                            setModeloSelecionadoEdit(modelo);
-                            setNomeModelo(modelo.nome);
-                            setTipoModelo(modelo.tipo);
-                            setConteudoModelo(modelo.conteudo_template);
-                            setShowNewModel(true);
-                          }}
-                          title="Visualizar"
+                          onClick={() => gerarPDFModelo(modelo)}
+                          title="Visualizar em PDF"
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
@@ -873,6 +910,22 @@ export default function Contratos() {
           }}
         />
       )}
+
+      {/* Visualizador de PDF do Modelo */}
+      <Dialog open={showModeloPDFViewer} onOpenChange={setShowModeloPDFViewer}>
+        <DialogContent className="max-w-6xl h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>Visualização do Modelo</DialogTitle>
+          </DialogHeader>
+          {modeloPDFUrl && (
+            <iframe
+              src={modeloPDFUrl}
+              className="w-full h-full"
+              title="Visualização do Modelo em PDF"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
