@@ -608,6 +608,7 @@ export default function Contratos() {
                 </div>
               </DialogContent>
             </Dialog>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
