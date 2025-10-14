@@ -186,6 +186,7 @@ export default function Agenda() {
   };
 
   const handleCancelarTarefa = async (tarefaId: string, e?: React.MouseEvent) => {
+    console.log('Cancelando tarefa:', tarefaId);
     if (e) {
       e.stopPropagation();
     }
@@ -196,8 +197,12 @@ export default function Agenda() {
         .update({ status: 'cancelado' })
         .eq('id', tarefaId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao cancelar:', error);
+        throw error;
+      }
 
+      console.log('Tarefa cancelada com sucesso');
       toast.success('Tarefa cancelada com sucesso!');
       loadTarefas();
     } catch (error) {
