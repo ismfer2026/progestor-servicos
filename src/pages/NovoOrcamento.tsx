@@ -32,6 +32,7 @@ interface Servico {
   nome: string;
   descricao?: string;
   preco_venda?: number;
+  imagem_url?: string;
 }
 
 interface ItemOrcamento {
@@ -43,6 +44,7 @@ interface ItemOrcamento {
   desconto: number;
   tipo_desconto: 'valor' | 'percentual';
   preco_total: number;
+  imagem_url?: string;
 }
 
 export function NovoOrcamento() {
@@ -84,13 +86,7 @@ export function NovoOrcamento() {
   const [tipoDesconto, setTipoDesconto] = useState<'valor' | 'percentual'>('valor');
 
   useEffect(() => {
-    if (buscaCliente) {
-      fetchClientes();
-      setMostrarListaClientes(true);
-    }
-  }, [buscaCliente]);
-
-  useEffect(() => {
+    fetchClientes();
     fetchServicos();
     
     // Carregar cliente via query params
@@ -176,17 +172,15 @@ export function NovoOrcamento() {
   };
 
   const fetchClientes = async () => {
+    if (!user?.empresa_id) return;
+    
     try {
-      let query = supabase
+      const { data, error } = await supabase
         .from("clientes")
         .select("id, nome, email, telefone, endereco")
+        .eq("empresa_id", user.empresa_id)
         .order("nome");
 
-      if (buscaCliente) {
-        query = query.or(`nome.ilike.%${buscaCliente}%,email.ilike.%${buscaCliente}%`);
-      }
-
-      const { data, error } = await query;
       if (error) throw error;
       setClientes(data || []);
     } catch (error) {
@@ -195,10 +189,13 @@ export function NovoOrcamento() {
   };
 
   const fetchServicos = async () => {
+    if (!user?.empresa_id) return;
+    
     try {
       const { data, error } = await supabase
         .from("servicos")
-        .select("id, nome, descricao, preco_venda")
+        .select("id, nome, descricao, preco_venda, imagem_url")
+        .eq("empresa_id", user.empresa_id)
         .is("cliente_id", null)
         .eq("status", "Ativo")
         .order("nome");
@@ -272,6 +269,7 @@ export function NovoOrcamento() {
       desconto,
       tipo_desconto: tipoDesconto,
       preco_total: calcularPrecoTotal(),
+      imagem_url: servico.imagem_url,
     };
 
     setItensOrcamento([...itensOrcamento, novoItem]);
@@ -385,29 +383,22 @@ export function NovoOrcamento() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="cliente">Cliente *</Label>
-                <div className="relative">
-                  <Input
-                    id="cliente"
-                    placeholder="Selecione um cliente"
-                    value={buscaCliente}
-                    onChange={(e) => setBuscaCliente(e.target.value)}
-                    onFocus={() => setMostrarListaClientes(true)}
-                  />
-                  {mostrarListaClientes && clientes.length > 0 && (
-                    <div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-lg max-h-60 overflow-y-auto">
-                      {clientes.map((cliente) => (
-                        <div
-                          key={cliente.id}
-                          className="p-3 hover:bg-muted cursor-pointer border-b last:border-b-0"
-                          onClick={() => handleSelecionarCliente(cliente)}
-                        >
-                          <div className="font-medium">{cliente.nome}</div>
-                          <div className="text-sm text-muted-foreground">{cliente.email}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <Select value={clienteSelecionado} onValueChange={(value) => {
+                  setClienteSelecionado(value);
+                  const cliente = clientes.find(c => c.id === value);
+                  if (cliente) setBuscaCliente(cliente.nome);
+                }}>
+                  <SelectTrigger id="cliente">
+                    <SelectValue placeholder="Selecione um cliente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clientes.map((cliente) => (
+                      <SelectItem key={cliente.id} value={cliente.id}>
+                        {cliente.nome} - {cliente.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">

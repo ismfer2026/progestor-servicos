@@ -298,16 +298,22 @@ export function Servicos() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir este serviço/produto?')) {
-      return;
-    }
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [servicoToDelete, setServicoToDelete] = useState<string | null>(null);
+
+  const handleDeleteClick = (id: string) => {
+    setServicoToDelete(id);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!servicoToDelete) return;
 
     try {
       const { error } = await supabase
         .from('servicos')
         .delete()
-        .eq('id', id);
+        .eq('id', servicoToDelete);
 
       if (error) throw error;
       toast.success('Serviço/Produto excluído com sucesso!');
@@ -315,6 +321,9 @@ export function Servicos() {
     } catch (error) {
       console.error('Error deleting servico:', error);
       toast.error('Erro ao excluir serviço/produto');
+    } finally {
+      setDeleteDialogOpen(false);
+      setServicoToDelete(null);
     }
   };
 
@@ -506,7 +515,7 @@ export function Servicos() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleDelete(servico.id)}
+                        onClick={() => handleDeleteClick(servico.id)}
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -763,6 +772,26 @@ export function Servicos() {
                 {editingServico ? 'Atualizar' : 'Criar'} Serviço/Produto
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar Exclusão</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja excluir este serviço/produto? Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmDelete}>
+              Excluir
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

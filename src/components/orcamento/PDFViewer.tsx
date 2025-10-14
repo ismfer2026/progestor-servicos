@@ -157,17 +157,28 @@ export function PDFViewer({ orcamento, onClose }: PDFViewerProps) {
                 {Array.isArray(orcamento.servicos) && orcamento.servicos.map((servico: any, index: number) => (
                   <tr key={index} className="border-b border-gray-200">
                     <td className="py-4 px-4">
-                      <p className="font-medium text-gray-900">{servico.nome}</p>
-                      {servico.descricao && (
-                        <p className="text-sm text-gray-500 mt-1">{servico.descricao}</p>
-                      )}
-                      {servico.desconto > 0 && (
-                        <p className="text-sm text-green-600 mt-1">
-                          Desconto: {servico.tipo_desconto === 'percentual' 
-                            ? `${servico.desconto}%` 
-                            : formatCurrency(servico.desconto)}
-                        </p>
-                      )}
+                      <div className="flex items-start gap-3">
+                        {servico.imagem_url && (
+                          <img 
+                            src={servico.imagem_url} 
+                            alt={servico.nome}
+                            className="w-12 h-12 object-cover rounded"
+                          />
+                        )}
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">{servico.nome}</p>
+                          {servico.descricao && (
+                            <p className="text-sm text-gray-500 mt-1">{servico.descricao}</p>
+                          )}
+                          {servico.desconto > 0 && (
+                            <p className="text-sm text-green-600 mt-1">
+                              Desconto: {servico.tipo_desconto === 'percentual' 
+                                ? `${servico.desconto}%` 
+                                : formatCurrency(servico.desconto)}
+                            </p>
+                          )}
+                        </div>
+                      </div>
                     </td>
                     <td className="py-4 px-4 text-center text-gray-900">{servico.quantidade || 1}</td>
                     <td className="py-4 px-4 text-right text-gray-900">{formatCurrency(servico.preco_unitario || 0)}</td>
