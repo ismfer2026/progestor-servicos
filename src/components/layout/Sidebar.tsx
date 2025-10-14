@@ -22,7 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 const navigation = [
-  { name: 'Dashboard', href: '/', icon: Home },
+  { name: 'Tela Principal', href: '/', icon: Home },
   { name: 'Orçamentos', href: '/orcamentos', icon: FileText },
   { name: 'Serviços/Produtos', href: '/servicos', icon: Wrench },
   { name: 'Funil de Vendas', href: '/funil', icon: TrendingUp },
