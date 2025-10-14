@@ -584,12 +584,34 @@ export default function Contratos() {
                       </p>
                     </div>
                   </div>
-                  <div>
+                  <div className="space-y-2">
+                    <Label htmlFor="uploadModelo">Upload de Arquivo do Modelo</Label>
+                    <Input
+                      id="uploadModelo"
+                      type="file"
+                      accept=".txt,.doc,.docx"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setArquivoModelo(reader.result as string);
+                          };
+                          reader.readAsText(file);
+                        }
+                      }}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Ou digite o conteúdo manualmente abaixo
+                    </p>
                     <Label htmlFor="conteudoModelo">Conteúdo do Modelo</Label>
                     <Textarea
                       id="conteudoModelo"
-                      value={conteudoModelo}
-                      onChange={(e) => setConteudoModelo(e.target.value)}
+                      value={conteudoModelo || arquivoModelo}
+                      onChange={(e) => {
+                        setConteudoModelo(e.target.value);
+                        setArquivoModelo('');
+                      }}
                       className="min-h-[400px]"
                       placeholder="Digite o conteúdo do modelo aqui. Use as variáveis {{variavel}} para campos dinâmicos."
                     />
@@ -598,13 +620,17 @@ export default function Contratos() {
                 <div className="flex justify-end space-x-2 mt-4">
                   <Button variant="outline" onClick={() => {
                     setShowNewModel(false);
+                    setModeloSelecionadoEdit(null);
                     setNomeModelo('');
                     setTipoModelo('contrato');
                     setConteudoModelo('');
+                    setArquivoModelo('');
                   }}>
                     Cancelar
                   </Button>
-                  <Button onClick={handleSalvarModelo}>Salvar Modelo</Button>
+                  <Button onClick={modeloSelecionadoEdit ? handleEditModelo : handleSalvarModelo}>
+                    {modeloSelecionadoEdit ? 'Atualizar Modelo' : 'Salvar Modelo'}
+                  </Button>
                 </div>
               </DialogContent>
             </Dialog>
@@ -612,36 +638,120 @@ export default function Contratos() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {modelos.map(modelo => (
-              <Card key={modelo.id} className="hover:shadow-md transition-shadow">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{modelo.nome}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <Badge variant="outline">{modelo.tipo}</Badge>
-                    <p className="text-sm text-muted-foreground line-clamp-3">
-                      {modelo.conteudo_template.substring(0, 100)}...
-                    </p>
-                  </div>
-                  <div className="flex justify-between items-center mt-4">
-                    <span className={`text-xs px-2 py-1 rounded ${modelo.ativo ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-600'}`}>
-                      {modelo.ativo ? 'Ativo' : 'Inativo'}
-                    </span>
-                    <div className="flex space-x-1">
-                      <Button size="sm" variant="ghost">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button size="sm" variant="ghost">
-                        <Edit className="h-4 w-4" />
-                      </Button>
+          {viewMode === 'card' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {modelos.map(modelo => (
+                <Card key={modelo.id} className="hover:shadow-md transition-shadow">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">{modelo.nome}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <Badge variant="outline">{modelo.tipo}</Badge>
+                      <p className="text-sm text-muted-foreground line-clamp-3">
+                        {modelo.conteudo_template.substring(0, 100)}...
+                      </p>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                    <div className="flex justify-between items-center mt-4">
+                      <span className={`text-xs px-2 py-1 rounded ${modelo.ativo ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-600'}`}>
+                        {modelo.ativo ? 'Ativo' : 'Inativo'}
+                      </span>
+                      <div className="flex space-x-1">
+                        <Button 
+                          size="sm" 
+                          variant="ghost"
+                          onClick={() => {
+                            setModeloSelecionadoEdit(modelo);
+                            setNomeModelo(modelo.nome);
+                            setTipoModelo(modelo.tipo);
+                            setConteudoModelo(modelo.conteudo_template);
+                            setShowNewModel(true);
+                          }}
+                          title="Visualizar"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="ghost"
+                          onClick={() => {
+                            setModeloSelecionadoEdit(modelo);
+                            setNomeModelo(modelo.nome);
+                            setTipoModelo(modelo.tipo);
+                            setConteudoModelo(modelo.conteudo_template);
+                            setShowNewModel(true);
+                          }}
+                          title="Editar"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {modelos.map(modelo => (
+                  <TableRow key={modelo.id}>
+                    <TableCell>
+                      <p className="font-medium">{modelo.nome}</p>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{modelo.tipo}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <span className={`text-xs px-2 py-1 rounded ${modelo.ativo ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-600'}`}>
+                        {modelo.ativo ? 'Ativo' : 'Inativo'}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex space-x-1">
+                        <Button 
+                          size="sm" 
+                          variant="ghost"
+                          onClick={() => {
+                            setModeloSelecionadoEdit(modelo);
+                            setNomeModelo(modelo.nome);
+                            setTipoModelo(modelo.tipo);
+                            setConteudoModelo(modelo.conteudo_template);
+                            setShowNewModel(true);
+                          }}
+                          title="Visualizar"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="ghost"
+                          onClick={() => {
+                            setModeloSelecionadoEdit(modelo);
+                            setNomeModelo(modelo.nome);
+                            setTipoModelo(modelo.tipo);
+                            setConteudoModelo(modelo.conteudo_template);
+                            setShowNewModel(true);
+                          }}
+                          title="Editar"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>
