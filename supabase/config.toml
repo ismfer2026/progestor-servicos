@@ -2,3 +2,6 @@ project_id = "txxadrpsnkotlavovnea"
 
 [functions.enviar-orcamento]
 verify_jwt = true
+
+[functions.processar-contrato-docx]
+verify_jwt = true

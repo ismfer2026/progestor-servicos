@@ -1132,6 +1132,7 @@ export type Database = {
       }
       modelos: {
         Row: {
+          arquivo_docx_url: string | null
           ativo: boolean | null
           conteudo_template: string
           created_at: string | null
@@ -1144,6 +1145,7 @@ export type Database = {
           variaveis: Json | null
         }
         Insert: {
+          arquivo_docx_url?: string | null
           ativo?: boolean | null
           conteudo_template: string
           created_at?: string | null
@@ -1156,6 +1158,7 @@ export type Database = {
           variaveis?: Json | null
         }
         Update: {
+          arquivo_docx_url?: string | null
           ativo?: boolean | null
           conteudo_template?: string
           created_at?: string | null

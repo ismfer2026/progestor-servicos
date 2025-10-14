@@ -43,6 +43,7 @@ interface Modelo {
   tipo: string;
   conteudo_template: string;
   ativo: boolean;
+  arquivo_docx_url?: string;
 }
 
 export default function Contratos() {
@@ -212,25 +213,43 @@ export default function Contratos() {
   };
 
   const handleSalvarModelo = async () => {
-    if (!nomeModelo || (!conteudoModelo && !arquivoModelo)) {
-      toast.error('Preencha o nome e o conteúdo do modelo');
+    if (!nomeModelo) {
+      toast.error('Preencha o nome do modelo');
       return;
     }
 
     try {
-      // Buscar assinatura empresa para incluir no modelo
-      const { data: configData } = await supabase
-        .from('configuracoes')
-        .select('valor')
-        .eq('empresa_id', user?.empresa_id)
-        .eq('chave', 'assinatura_empresa')
-        .single();
-
-      let conteudoFinal = conteudoModelo || arquivoModelo;
+      let arquivoDocxUrl = null;
       
-      // Adicionar assinatura empresa ao modelo se existir
-      if (configData?.valor && !conteudoFinal.includes('{{assinatura_empresa}}')) {
-        conteudoFinal += '\n\n{{assinatura_empresa}}';
+      // Se há arquivo carregado, fazer upload para o storage
+      if (arquivoModelo && arquivoModelo.startsWith('data:')) {
+        const toastId = toast.loading('Fazendo upload do arquivo...');
+        
+        // Converter base64 para Blob
+        const base64Response = await fetch(arquivoModelo);
+        const blob = await base64Response.blob();
+        
+        // Nome do arquivo
+        const fileName = `${user?.empresa_id}/${Date.now()}_${nomeModelo.replace(/\s+/g, '_')}.docx`;
+        
+        // Upload para o storage
+        const { data: uploadData, error: uploadError } = await supabase
+          .storage
+          .from('modelos-contratos')
+          .upload(fileName, blob, {
+            contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            upsert: false
+          });
+
+        toast.dismiss(toastId);
+
+        if (uploadError) {
+          console.error('Upload error:', uploadError);
+          throw new Error('Erro ao fazer upload do arquivo');
+        }
+
+        arquivoDocxUrl = `modelos-contratos/${fileName}`;
+        toast.success('Arquivo enviado com sucesso!');
       }
 
       const { error } = await supabase
@@ -239,7 +258,8 @@ export default function Contratos() {
           empresa_id: user?.empresa_id,
           nome: nomeModelo,
           tipo: tipoModelo,
-          conteudo_template: conteudoFinal,
+          conteudo_template: arquivoDocxUrl ? `Arquivo: ${nomeModelo}.docx` : conteudoModelo,
+          arquivo_docx_url: arquivoDocxUrl,
           ativo: true
         });
 
@@ -648,104 +668,19 @@ export default function Contratos() {
                           }
 
                           if (fileName.endsWith('.docx')) {
-                            // Processar arquivo DOCX mantendo formatação
+                            // Armazenar arquivo DOCX original sem conversão
                             try {
-                              const arrayBuffer = await file.arrayBuffer();
-                              
-                              // Converter DOCX para HTML preservando TODA a formatação possível
-                              const result = await mammoth.convertToHtml({ 
-                                arrayBuffer,
-                              }, {
-                                // Preservar imagens em base64
-                                convertImage: mammoth.images.imgElement(function(image) {
-                                  return image.read("base64").then(function(imageBuffer) {
-                                    return {
-                                      src: "data:" + image.contentType + ";base64," + imageBuffer
-                                    };
-                                  });
-                                }),
-                                // Mapeamento de estilos para preservar formatação
-                                styleMap: [
-                                  "p[style-name='Heading 1'] => h1:fresh",
-                                  "p[style-name='Heading 2'] => h2:fresh",
-                                  "p[style-name='Heading 3'] => h3:fresh",
-                                  "r[style-name='Strong'] => strong",
-                                  "p[style-name='Normal'] => p:fresh",
-                                  "p[style-name='Title'] => h1.title:fresh",
-                                  "p[style-name='Subtitle'] => p.subtitle:fresh",
-                                  "p[style-name='Quote'] => blockquote:fresh",
-                                  "r[style-name='Emphasis'] => em",
-                                  "p[style-name='List Paragraph'] => p.list-paragraph:fresh",
-                                  "table => table.docx-table",
-                                  "tr => tr",
-                                  "td => td"
-                                ],
-                                // Incluir estilos inline
-                                includeDefaultStyleMap: true,
-                                // Incluir estilos embutidos
-                                includeEmbeddedStyleMap: true
-                              });
-                              
-                              let htmlContent = result.value;
-                              
-                              if (!htmlContent.trim()) {
-                                toast.error('Arquivo vazio ou com formato inválido');
-                                return;
-                              }
-                              
-                              // Adicionar estilos CSS avançados para preservar formatação complexa
-                              const styledContent = `
-                                <style>
-                                  .docx-content {
-                                    font-family: inherit;
-                                    line-height: inherit;
-                                    color: inherit;
-                                  }
-                                  .docx-content p {
-                                    margin: 0;
-                                    padding: 0;
-                                    white-space: pre-wrap;
-                                  }
-                                  .docx-content img {
-                                    max-width: 100%;
-                                    height: auto;
-                                    display: block;
-                                  }
-                                  .docx-content table {
-                                    border-collapse: collapse;
-                                    width: 100%;
-                                  }
-                                  .docx-content td, .docx-content th {
-                                    border: 1px solid #ddd;
-                                    padding: 8px;
-                                  }
-                                  .docx-content h1, .docx-content h2, .docx-content h3 {
-                                    margin: 0.5em 0;
-                                  }
-                                  .docx-content strong {
-                                    font-weight: bold;
-                                  }
-                                  .docx-content em {
-                                    font-style: italic;
-                                  }
-                                  .docx-content blockquote {
-                                    border-left: 4px solid #ccc;
-                                    padding-left: 1em;
-                                    margin: 1em 0;
-                                  }
-                                  .docx-content ul, .docx-content ol {
-                                    margin: 0.5em 0;
-                                    padding-left: 2em;
-                                  }
-                                </style>
-                                <div class="docx-content">
-                                  ${htmlContent}
-                                </div>
-                              `;
-                              
-                              setArquivoModelo(styledContent);
-                              setConteudoModelo(styledContent);
-                              toast.success('Arquivo DOCX carregado com sucesso! Formatação completa preservada.');
+                              const reader = new FileReader();
+                              reader.onload = () => {
+                                const base64 = reader.result as string;
+                                setArquivoModelo(base64);
+                                setConteudoModelo(`Arquivo DOCX: ${file.name}`);
+                                toast.success('Arquivo DOCX carregado! Toda a formatação será preservada.');
+                              };
+                              reader.onerror = () => {
+                                toast.error('Erro ao ler arquivo DOCX.');
+                              };
+                              reader.readAsDataURL(file);
                             } catch (error) {
                               console.error('Error reading DOCX:', error);
                               toast.error('Erro ao ler arquivo DOCX. Verifique se o arquivo não está corrompido.');

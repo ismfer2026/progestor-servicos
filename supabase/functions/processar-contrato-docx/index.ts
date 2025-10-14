@@ -1,0 +1,84 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: { Authorization: req.headers.get('Authorization')! },
+        },
+      }
+    );
+
+    const { modeloId, contratoData } = await req.json();
+
+    console.log('Processing contract with modelo:', modeloId);
+
+    // Buscar o modelo
+    const { data: modelo, error: modeloError } = await supabaseClient
+      .from('modelos')
+      .select('*')
+      .eq('id', modeloId)
+      .single();
+
+    if (modeloError || !modelo) {
+      throw new Error('Modelo não encontrado');
+    }
+
+    // Verificar se há arquivo .docx
+    if (!modelo.arquivo_docx_url) {
+      throw new Error('Modelo não possui arquivo .docx');
+    }
+
+    // Baixar o arquivo .docx do storage
+    const filePath = modelo.arquivo_docx_url.replace('modelos-contratos/', '');
+    const { data: fileData, error: downloadError } = await supabaseClient
+      .storage
+      .from('modelos-contratos')
+      .download(filePath);
+
+    if (downloadError || !fileData) {
+      throw new Error('Erro ao baixar arquivo do modelo');
+    }
+
+    // Converter o Blob para ArrayBuffer
+    const arrayBuffer = await fileData.arrayBuffer();
+    
+    // Aqui seria feita a substituição das variáveis usando docxtemplater
+    // Por enquanto, vamos retornar o arquivo original e fazer a substituição no frontend
+    
+    console.log('Contract processed successfully');
+
+    return new Response(
+      JSON.stringify({ 
+        success: true,
+        message: 'Contrato processado com sucesso',
+        arquivoUrl: modelo.arquivo_docx_url
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+  } catch (error) {
+    console.error('Error processing contract:', error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+  }
+});

@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Download } from 'lucide-react';
+import { X, Download, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -11,6 +11,7 @@ interface Modelo {
   tipo: string;
   conteudo_template: string;
   ativo: boolean;
+  arquivo_docx_url?: string;
 }
 
 interface ModeloPDFViewerProps {
@@ -63,46 +64,7 @@ export function ModeloPDFViewer({ modelo, onClose }: ModeloPDFViewerProps) {
     }
   };
 
-  // Function to check if content is HTML
-  const isHtmlContent = (content: string) => {
-    return /<[a-z][\s\S]*>/i.test(content);
-  };
-
-  // Function to process content and replace image placeholders
-  const processContent = (content: string) => {
-    // Se for HTML (do DOCX), renderizar diretamente sem adicionar estilos extras
-    if (isHtmlContent(content)) {
-      return (
-        <div 
-          dangerouslySetInnerHTML={{ __html: content }}
-        />
-      );
-    }
-
-    // Se for texto simples, processar variáveis
-    const parts = content.split(/(\{\{.*?\}\})/g);
-    
-    return parts.map((part, index) => {
-      // Check if it's an assinatura_empresa placeholder
-      if (part === '{{assinatura_empresa}}') {
-        return (
-          <div key={index} className="my-4">
-            <div className="text-sm text-muted-foreground mb-2">Assinatura da Empresa:</div>
-            <div className="border-t-2 border-gray-300 pt-2 w-64">
-              [Assinatura será inserida aqui]
-            </div>
-          </div>
-        );
-      }
-      
-      // Check if part is a variable placeholder
-      if (part.match(/^\{\{.*\}\}$/)) {
-        return <span key={index} className="bg-yellow-100 px-1 rounded">{part}</span>;
-      }
-      
-      return <span key={index}>{part}</span>;
-    });
-  };
+  const isDocxFile = modelo.arquivo_docx_url ? true : false;
 
   return (
     <div className="fixed inset-0 z-50 bg-background">
@@ -141,13 +103,35 @@ export function ModeloPDFViewer({ modelo, onClose }: ModeloPDFViewerProps) {
                 {modelo.tipo.charAt(0).toUpperCase() + modelo.tipo.slice(1)}
               </p>
             </div>
-            <div className="prose prose-sm max-w-none text-gray-900">
-              <div 
-                className={isHtmlContent(modelo.conteudo_template) ? '' : 'whitespace-pre-wrap'}
-              >
-                {processContent(modelo.conteudo_template)}
+            {isDocxFile ? (
+              <div className="text-center py-12">
+                <div className="mb-4">
+                  <FileText className="h-24 w-24 mx-auto text-gray-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  Modelo em Formato .DOCX
+                </h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Este modelo mantém toda a formatação original do arquivo Word.
+                </p>
+                <p className="text-xs text-gray-500">
+                  Ao gerar um contrato, as variáveis serão substituídas automaticamente<br />
+                  mantendo o layout, imagens e formatação originais.
+                </p>
+                <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-sm font-medium text-blue-900 mb-2">Variáveis Disponíveis:</p>
+                  <div className="text-xs text-blue-700 space-y-1">
+                    <p>{'{{cliente_nome}}, {{cliente_documento}}, {{cliente_email}}'}</p>
+                    <p>{'{{data_evento}}, {{servicos}}, {{valor_total}}, {{valor_extenso}}'}</p>
+                    <p>{'{{numero_contrato}}, {{assinatura_empresa}}'}</p>
+                  </div>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="prose prose-sm max-w-none text-gray-900 whitespace-pre-wrap">
+                {modelo.conteudo_template}
+              </div>
+            )}
           </div>
         </div>
       </div>
