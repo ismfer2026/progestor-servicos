@@ -599,22 +599,38 @@ export default function Contratos() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="uploadModelo">Upload de Arquivo do Modelo</Label>
+                    <Label htmlFor="uploadModelo">Upload de Arquivo do Modelo (.txt apenas)</Label>
                     <Input
                       id="uploadModelo"
                       type="file"
-                      accept=".txt,.doc,.docx"
+                      accept=".txt"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
+                          // Verificar extensão do arquivo
+                          if (!file.name.toLowerCase().endsWith('.txt')) {
+                            toast.error('Por favor, selecione apenas arquivos .txt');
+                            e.target.value = '';
+                            return;
+                          }
+                          
                           const reader = new FileReader();
                           reader.onload = () => {
                             try {
-                              setArquivoModelo(reader.result as string);
+                              let conteudo = reader.result as string;
+                              // Remover caracteres nulos e outros caracteres especiais que o PostgreSQL não aceita
+                              conteudo = conteudo.replace(/\u0000/g, '').replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F]/g, '');
+                              
+                              if (!conteudo.trim()) {
+                                toast.error('Arquivo vazio ou com formato inválido');
+                                return;
+                              }
+                              
+                              setArquivoModelo(conteudo);
                               toast.success('Arquivo carregado com sucesso!');
                             } catch (error) {
                               console.error('Error reading file:', error);
-                              toast.error('Erro ao ler arquivo. Tente um arquivo .txt');
+                              toast.error('Erro ao ler arquivo. Verifique se é um arquivo de texto válido.');
                             }
                           };
                           reader.onerror = () => {
@@ -625,7 +641,7 @@ export default function Contratos() {
                       }}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Ou digite o conteúdo manualmente abaixo
+                      Apenas arquivos .txt são suportados. Para .docx, copie e cole o conteúdo abaixo.
                     </p>
                     <Label htmlFor="conteudoModelo">Conteúdo do Modelo</Label>
                     <Textarea
