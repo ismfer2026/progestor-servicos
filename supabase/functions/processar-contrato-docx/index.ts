@@ -61,10 +61,21 @@ serve(async (req) => {
     
     // Processar DOCX com docxtemplater
     const zip = new PizZip(arrayBuffer);
-    const doc = new Docxtemplater(zip, {
-      paragraphLoop: true,
-      linebreaks: true,
-    });
+    
+    let doc;
+    try {
+      doc = new Docxtemplater(zip, {
+        paragraphLoop: true,
+        linebreaks: true,
+        delimiters: {
+          start: '{{',
+          end: '}}'
+        }
+      });
+    } catch (error) {
+      console.error('Error creating Docxtemplater instance:', error);
+      throw new Error('Erro ao processar o modelo DOCX. Verifique se o arquivo está correto e se as variáveis estão no formato {{variavel}}');
+    }
 
     // Preparar dados para substituição
     const templateData = {
@@ -88,7 +99,15 @@ serve(async (req) => {
     };
 
     // Substituir variáveis
-    doc.render(templateData);
+    try {
+      doc.render(templateData);
+    } catch (error) {
+      console.error('Error rendering template:', error);
+      if (error.properties && error.properties.errors) {
+        console.error('Template errors:', JSON.stringify(error.properties.errors));
+      }
+      throw new Error('Erro ao substituir as variáveis no modelo. Verifique se todas as tags estão corretas no formato {{variavel}}');
+    }
 
     // Gerar novo arquivo DOCX
     const processedBuffer = doc.getZip().generate({
@@ -135,8 +154,21 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error('Error processing contract:', error);
+    
+    let errorMessage = error.message || 'Erro desconhecido ao processar contrato';
+    
+    // Se for erro do docxtemplater, dar uma mensagem mais clara
+    if (error.properties && error.properties.errors) {
+      console.error('Docxtemplater errors:', JSON.stringify(error.properties.errors));
+      errorMessage = 'Erro no modelo DOCX: verifique se todas as variáveis estão no formato {{variavel}} sem espaços ou caracteres extras';
+    }
+    
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        success: false,
+        error: errorMessage,
+        details: error.properties?.errors || null
+      }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
