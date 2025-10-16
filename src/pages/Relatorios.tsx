@@ -18,10 +18,10 @@ const relatoriosData = [
     icon: TrendingUp,
     color: 'text-green-600',
     relatorios: [
-      { nome: 'Vendas por Período', descricao: 'Análise de vendas em período específico', formato: ['PDF', 'CSV'] },
-      { nome: 'Vendas por Cliente', descricao: 'Ranking de clientes por volume de vendas', formato: ['PDF', 'CSV'] },
-      { nome: 'Vendas por Serviço', descricao: 'Análise de performance por tipo de serviço', formato: ['PDF', 'CSV'] },
-      { nome: 'Comissões', descricao: 'Relatório de comissões por vendedor', formato: ['PDF', 'CSV'] }
+      { nome: 'Vendas por Período', descricao: 'Análise de vendas em período específico', formato: ['Excel'] },
+      { nome: 'Vendas por Cliente', descricao: 'Ranking de clientes por volume de vendas', formato: ['Excel'] },
+      { nome: 'Vendas por Serviço/Produto', descricao: 'Análise de performance por tipo de serviço', formato: ['Excel'] },
+      { nome: 'Vendas por Colaborador', descricao: 'Relatório de vendas por colaborador', formato: ['Excel'] }
     ]
   },
   {
@@ -138,27 +138,139 @@ export default function Relatorios() {
       
       // Vendas
       if (categoria === 'Vendas') {
-        if (relatorio === 'Vendas por Período') {
-          query = supabase
-            .from('orcamentos')
-            .select('*, clientes(nome)')
-            .eq('empresa_id', userData.empresa_id)
-            .gte('criado_em', from.toISOString())
-            .lte('criado_em', to.toISOString())
-            .eq('status', 'Aprovado');
-        } else if (relatorio === 'Vendas por Cliente') {
-          query = supabase
-            .from('orcamentos')
-            .select('*, clientes(nome)')
-            .eq('empresa_id', userData.empresa_id)
-            .eq('status', 'Aprovado');
-        } else if (relatorio === 'Vendas por Serviço') {
-          query = supabase
-            .from('servicos')
-            .select('*')
-            .eq('empresa_id', userData.empresa_id)
-            .gte('created_at', from.toISOString())
-            .lte('created_at', to.toISOString());
+        if (relatorio === 'Vendas por Período' || relatorio === 'Vendas por Cliente') {
+          // Buscar contratos com filtro de data considerando data_assinatura primeiro, depois data_inicio
+          const { data: contratos, error } = await supabase
+            .from('contratos')
+            .select(`
+              *,
+              clientes(nome, documento, telefone),
+              orcamentos(usuario_id, servicos, data_envio, criado_em)
+            `)
+            .eq('empresa_id', userData.empresa_id);
+
+          if (error) throw error;
+
+          // Filtrar por período se necessário
+          const filtered = relatorio === 'Vendas por Período' 
+            ? contratos?.filter(c => {
+                const dataRef = c.data_assinatura || c.data_inicio;
+                if (!dataRef) return false;
+                const date = new Date(dataRef);
+                return date >= from && date <= to;
+              })
+            : contratos;
+
+          // Buscar nomes dos usuários
+          const usuarioIds = filtered?.map(c => c.orcamentos?.usuario_id).filter(Boolean) || [];
+          const { data: usuarios } = await supabase
+            .from('usuarios')
+            .select('id, nome')
+            .in('id', usuarioIds);
+
+          // Mapear dados para o formato do relatório
+          return filtered?.map(contrato => {
+            const usuario = usuarios?.find(u => u.id === contrato.orcamentos?.usuario_id);
+            const dataRef = contrato.data_assinatura || contrato.data_inicio;
+            
+            return {
+              'Nome do Cliente': contrato.clientes?.nome || '-',
+              'Nome do Usuário': usuario?.nome || '-',
+              'Valor Total': contrato.valor_total || 0,
+              'Data Envio Contrato': contrato.orcamentos?.data_envio 
+                ? format(new Date(contrato.orcamentos.data_envio), 'dd/MM/yyyy')
+                : '-',
+              'Criado em': dataRef ? format(new Date(dataRef), 'dd/MM/yyyy') : '-',
+              'Status': contrato.status_assinatura || 'Pendente'
+            };
+          }) || [];
+        } else if (relatorio === 'Vendas por Serviço/Produto') {
+          // Buscar contratos com seus serviços
+          const { data: contratos, error } = await supabase
+            .from('contratos')
+            .select(`
+              *,
+              clientes(nome),
+              orcamentos(servicos)
+            `)
+            .eq('empresa_id', userData.empresa_id);
+
+          if (error) throw error;
+
+          const filtered = contratos?.filter(c => {
+            const dataRef = c.data_assinatura || c.data_inicio;
+            if (!dataRef) return false;
+            const date = new Date(dataRef);
+            return date >= from && date <= to;
+          });
+
+          // Expandir cada serviço em uma linha separada
+          const rows: any[] = [];
+          filtered?.forEach(contrato => {
+            const servicos = contrato.orcamentos?.servicos || [];
+            const dataRef = contrato.data_assinatura || contrato.data_inicio;
+
+            if (Array.isArray(servicos) && servicos.length > 0) {
+              servicos.forEach((servico: any) => {
+                rows.push({
+                  'Nome do Cliente': contrato.clientes?.nome || '-',
+                  'Data da Venda': dataRef ? format(new Date(dataRef), 'dd/MM/yyyy') : '-',
+                  'Produto/Serviço': servico.descricao || servico.nome || '-',
+                  'Valor Venda': servico.valor_total || servico.preco_venda || 0,
+                  'Valor Custo': servico.custo_produto || 0,
+                  'Markup Percentual': servico.markup_percent ? `${servico.markup_percent}%` : '-'
+                });
+              });
+            }
+          });
+
+          return rows;
+        } else if (relatorio === 'Vendas por Colaborador') {
+          // Buscar contratos com responsável
+          const { data: contratos, error } = await supabase
+            .from('contratos')
+            .select(`
+              *,
+              clientes(nome),
+              orcamentos(usuario_id, servicos, criado_em)
+            `)
+            .eq('empresa_id', userData.empresa_id);
+
+          if (error) throw error;
+
+          const filtered = contratos?.filter(c => {
+            const dataRef = c.data_assinatura || c.data_inicio;
+            if (!dataRef) return false;
+            const date = new Date(dataRef);
+            return date >= from && date <= to;
+          });
+
+          // Buscar nomes dos usuários
+          const usuarioIds = filtered?.map(c => c.orcamentos?.usuario_id).filter(Boolean) || [];
+          const { data: usuarios } = await supabase
+            .from('usuarios')
+            .select('id, nome')
+            .in('id', usuarioIds);
+
+          return filtered?.map(contrato => {
+            const usuario = usuarios?.find(u => u.id === contrato.orcamentos?.usuario_id);
+            const servicos = contrato.orcamentos?.servicos || [];
+            const servicosTexto = Array.isArray(servicos) 
+              ? servicos.map((s: any) => `${s.descricao || s.nome}: R$ ${s.valor_total || s.preco_venda || 0}`).join('; ')
+              : '-';
+            const dataVenda = contrato.data_assinatura || contrato.data_inicio;
+            const dataPrimeiroContato = contrato.orcamentos?.criado_em;
+
+            return {
+              'Nome do Colaborador': usuario?.nome || '-',
+              'Nome do Cliente': contrato.clientes?.nome || '-',
+              'Valor da Venda': contrato.valor_total || 0,
+              'Data da Venda': dataVenda ? format(new Date(dataVenda), 'dd/MM/yyyy') : '-',
+              'Data do 1º Contato': dataPrimeiroContato ? format(new Date(dataPrimeiroContato), 'dd/MM/yyyy') : '-',
+              'Serviços/Produtos Vendidos': servicosTexto,
+              'Status': contrato.status_assinatura || 'Pendente'
+            };
+          }) || [];
         }
       }
       
@@ -414,14 +526,18 @@ export default function Relatorios() {
         return;
       }
 
+      if (!data || data.length === 0) {
+        toast.dismiss();
+        toast.warning('Nenhum dado encontrado para o período selecionado');
+        setLoading(false);
+        return;
+      }
+
       toast.dismiss();
       
-      if (formato === 'PDF') {
-        generatePDF(categoria, relatorio, data);
-        toast.success('PDF gerado com sucesso!');
-      } else if (formato === 'CSV') {
+      if (formato === 'Excel') {
         generateCSV(relatorio, data);
-        toast.success('CSV gerado com sucesso!');
+        toast.success('Excel gerado com sucesso!');
       }
     } catch (error) {
       console.error('Erro ao gerar relatório:', error);
