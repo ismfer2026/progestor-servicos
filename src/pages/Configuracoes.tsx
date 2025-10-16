@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Users, Building, Mail, MessageCircle, Palette, Bell, CreditCard, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Settings, Users, Building, Mail, MessageCircle, Palette, Bell, CreditCard, Plus, Pencil, Trash2, AlertTriangle, Check, X, Link as LinkIcon } from 'lucide-react';
 import { useWhatsAppConfig } from '@/hooks/useWhatsAppConfig';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,20 +16,9 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Label } from '@/components/ui/label';
-
-// Mock data para demonstração
-const usuarios = [
-  { id: '1', nome: 'João Silva', email: 'joao@empresa.com', permissao: 'admin', status: 'ativo' },
-  { id: '2', nome: 'Maria Santos', email: 'maria@empresa.com', permissao: 'colaborador', status: 'ativo' },
-  { id: '3', nome: 'Pedro Costa', email: 'pedro@empresa.com', permissao: 'colaborador', status: 'inativo' }
-];
-
-const categoriasServicos = [
-  { id: '1', nome: 'Instalação', cor: '#3B82F6' },
-  { id: '2', nome: 'Manutenção', cor: '#EF4444' },
-  { id: '3', nome: 'Consultoria', cor: '#10B981' },
-  { id: '4', nome: 'Suporte', cor: '#F59E0B' }
-];
+import { Checkbox } from '@/components/ui/checkbox';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface Colaborador {
   id: string;
@@ -42,6 +31,57 @@ interface CategoriaServico {
   nome: string;
   cor: string;
 }
+
+interface Usuario {
+  id: string;
+  nome_completo: string | null;
+  nome: string;
+  email: string;
+  telefone_whatsapp: string | null;
+  cpf_cnpj: string | null;
+  data_cadastro: string | null;
+  status_conta: string;
+  ultimo_pagamento: string | null;
+  proximo_vencimento: string | null;
+  observacoes: string | null;
+  bloqueado: boolean;
+  conta_principal: boolean;
+  funcao: string | null;
+  ativo: boolean;
+  empresa_id: string;
+}
+
+interface EmpresaData {
+  id: string;
+  plano: string;
+  limite_usuarios: number;
+  data_proximo_pagamento: string | null;
+  data_ultimo_pagamento: string | null;
+  status_pagamento: string;
+}
+
+const MODULOS_DISPONIVEIS = [
+  { value: 'dashboard', label: 'Tela Principal' },
+  { value: 'orcamentos', label: 'Orçamentos' },
+  { value: 'servicos', label: 'Serviços / Produtos' },
+  { value: 'funil_vendas', label: 'Funil de Vendas' },
+  { value: 'agenda', label: 'Agenda' },
+  { value: 'clientes', label: 'Clientes' },
+  { value: 'estoque', label: 'Estoque' },
+  { value: 'financeiro', label: 'Financeiro' },
+  { value: 'contratos', label: 'Contratos' },
+  { value: 'relatorios', label: 'Relatórios' },
+  { value: 'configuracoes', label: 'Configurações' },
+  { value: 'vendas', label: 'Vendas (futuro)' },
+];
+
+const PERMISSOES_PADRAO = {
+  administrador: ['dashboard', 'orcamentos', 'servicos', 'funil_vendas', 'agenda', 'clientes', 'estoque', 'financeiro', 'contratos', 'relatorios', 'configuracoes', 'vendas'],
+  gerente: ['dashboard', 'orcamentos', 'servicos', 'funil_vendas', 'agenda', 'clientes', 'estoque', 'financeiro', 'contratos', 'relatorios', 'vendas'],
+  lider: ['dashboard', 'orcamentos', 'servicos', 'agenda', 'clientes', 'vendas'],
+  colaborador: ['funil_vendas', 'agenda'],
+  personalizado: []
+};
 
 export default function Configuracoes() {
   const { user } = useAuth();
@@ -62,6 +102,23 @@ export default function Configuracoes() {
   const [corCategoria, setCorCategoria] = useState('#3B82F6');
   const [editingCategoriaIndex, setEditingCategoriaIndex] = useState<number | null>(null);
 
+  // Estados para gerenciamento de usuários
+  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [empresaData, setEmpresaData] = useState<EmpresaData | null>(null);
+  const [showUsuarioDialog, setShowUsuarioDialog] = useState(false);
+  const [editingUsuario, setEditingUsuario] = useState<Usuario | null>(null);
+  const [usuarioForm, setUsuarioForm] = useState({
+    nome_completo: '',
+    email: '',
+    telefone_whatsapp: '',
+    cpf_cnpj: '',
+    funcao: 'colaborador',
+    observacoes: '',
+    modulos: [] as string[]
+  });
+  const [gerarLinkConvite, setGerarLinkConvite] = useState(false);
+  const [linkConvite, setLinkConvite] = useState('');
+
   useEffect(() => {
     if (defaultPhone) {
       setWhatsappPhone(defaultPhone);
@@ -73,6 +130,9 @@ export default function Configuracoes() {
       loadColaboradores();
     } else if (activeTab === 'categorias') {
       loadCategorias();
+    } else if (activeTab === 'usuarios') {
+      loadUsuarios();
+      loadEmpresaData();
     }
   }, [activeTab]);
 
@@ -293,6 +353,272 @@ export default function Configuracoes() {
     }
   };
 
+  // ===== FUNÇÕES DE GERENCIAMENTO DE USUÁRIOS =====
+  
+  const loadEmpresaData = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('empresas')
+        .select('*')
+        .eq('id', user.empresa_id)
+        .single();
+
+      if (error) throw error;
+      if (data) setEmpresaData(data as EmpresaData);
+    } catch (error) {
+      console.error('Error loading empresa data:', error);
+      toast.error('Erro ao carregar dados da empresa');
+    }
+  };
+
+  const loadUsuarios = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('*')
+        .eq('empresa_id', user.empresa_id)
+        .order('conta_principal', { ascending: false })
+        .order('nome_completo');
+
+      if (error) throw error;
+      if (data) setUsuarios(data as Usuario[]);
+    } catch (error) {
+      console.error('Error loading usuarios:', error);
+      toast.error('Erro ao carregar usuários');
+    }
+  };
+
+  const verificarLimiteUsuarios = (): boolean => {
+    if (!empresaData) return false;
+    
+    const usuariosAtivos = usuarios.filter(u => u.status_conta === 'ativo' && u.ativo).length;
+    
+    if (empresaData.plano === 'Ilimitado') return true;
+    if (empresaData.plano === '2 colaboradores' && usuariosAtivos >= 2) return false;
+    if (empresaData.plano === '5 colaboradores' && usuariosAtivos >= 5) return false;
+    
+    return true;
+  };
+
+  const handleSaveUsuario = async () => {
+    if (!usuarioForm.nome_completo.trim() || !usuarioForm.email.trim() || !usuarioForm.cpf_cnpj.trim()) {
+      toast.error('Preencha todos os campos obrigatórios');
+      return;
+    }
+
+    if (!user || !empresaData) return;
+
+    // Verificar limite de usuários apenas para novos usuários
+    if (!editingUsuario && !verificarLimiteUsuarios()) {
+      toast.error('🚫 Limite de usuários do plano atingido. Atualize seu plano para adicionar mais colaboradores.');
+      return;
+    }
+
+    try {
+      const senha = usuarioForm.cpf_cnpj.replace(/\D/g, ''); // Remove pontuação do CPF/CNPJ
+
+      if (editingUsuario) {
+        // Atualizar usuário existente
+        const { error } = await supabase
+          .from('usuarios')
+          .update({
+            nome_completo: usuarioForm.nome_completo,
+            nome: usuarioForm.nome_completo,
+            email: usuarioForm.email,
+            telefone_whatsapp: usuarioForm.telefone_whatsapp,
+            cpf_cnpj: usuarioForm.cpf_cnpj,
+            funcao: usuarioForm.funcao,
+            observacoes: usuarioForm.observacoes,
+          })
+          .eq('id', editingUsuario.id);
+
+        if (error) throw error;
+
+        // Atualizar módulos de acesso
+        await atualizarModulosAcesso(editingUsuario.id, usuarioForm.modulos);
+        
+        toast.success('Usuário atualizado com sucesso!');
+      } else {
+        // Criar novo usuário
+        const { data: newUser, error } = await supabase
+          .from('usuarios')
+          .insert({
+            empresa_id: user.empresa_id,
+            nome_completo: usuarioForm.nome_completo,
+            nome: usuarioForm.nome_completo,
+            email: usuarioForm.email,
+            telefone_whatsapp: usuarioForm.telefone_whatsapp,
+            cpf_cnpj: usuarioForm.cpf_cnpj,
+            funcao: usuarioForm.funcao,
+            observacoes: usuarioForm.observacoes,
+            status_conta: 'ativo',
+            ativo: true,
+            conta_principal: false,
+            data_cadastro: new Date().toISOString().split('T')[0],
+            primeiro_acesso: true,
+            senha_hash: senha, // Senha inicial = CPF/CNPJ
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        if (newUser) {
+          // Adicionar módulos de acesso
+          await atualizarModulosAcesso(newUser.id, usuarioForm.modulos);
+        }
+
+        toast.success('Usuário cadastrado com sucesso! Senha inicial: CPF/CNPJ');
+      }
+
+      setShowUsuarioDialog(false);
+      resetUsuarioForm();
+      loadUsuarios();
+    } catch (error: any) {
+      console.error('Error saving usuario:', error);
+      if (error.code === '23505') {
+        toast.error('E-mail ou CPF/CNPJ já cadastrado');
+      } else {
+        toast.error('Erro ao salvar usuário');
+      }
+    }
+  };
+
+  const atualizarModulosAcesso = async (userId: string, modulos: string[]) => {
+    // Deletar módulos antigos
+    await supabase
+      .from('user_modulos_acesso')
+      .delete()
+      .eq('user_id', userId);
+
+    // Inserir novos módulos
+    if (modulos.length > 0) {
+      const modulosData = modulos.map(modulo => ({
+        user_id: userId,
+        modulo: modulo as 'dashboard' | 'orcamentos' | 'servicos' | 'funil_vendas' | 'agenda' | 'clientes' | 'estoque' | 'financeiro' | 'contratos' | 'relatorios' | 'configuracoes' | 'vendas'
+      }));
+
+      await supabase
+        .from('user_modulos_acesso')
+        .insert(modulosData);
+    }
+  };
+
+  const handleEditUsuario = async (usuario: Usuario) => {
+    setEditingUsuario(usuario);
+    
+    // Carregar módulos de acesso do usuário
+    const { data: modulosData } = await supabase
+      .from('user_modulos_acesso')
+      .select('modulo')
+      .eq('user_id', usuario.id);
+
+    const modulos = modulosData?.map(m => m.modulo) || [];
+
+    setUsuarioForm({
+      nome_completo: usuario.nome_completo || usuario.nome,
+      email: usuario.email,
+      telefone_whatsapp: usuario.telefone_whatsapp || '',
+      cpf_cnpj: usuario.cpf_cnpj || '',
+      funcao: usuario.funcao || 'colaborador',
+      observacoes: usuario.observacoes || '',
+      modulos: modulos
+    });
+    
+    setShowUsuarioDialog(true);
+  };
+
+  const handleToggleUsuarioStatus = async (usuario: Usuario) => {
+    try {
+      const novoStatus = usuario.status_conta === 'ativo' ? 'inativo' : 'ativo';
+      
+      const { error } = await supabase
+        .from('usuarios')
+        .update({ 
+          status_conta: novoStatus,
+          ativo: novoStatus === 'ativo'
+        })
+        .eq('id', usuario.id);
+
+      if (error) throw error;
+      toast.success(`Usuário ${novoStatus === 'ativo' ? 'ativado' : 'desativado'} com sucesso!`);
+      loadUsuarios();
+    } catch (error) {
+      console.error('Error toggling usuario status:', error);
+      toast.error('Erro ao alterar status do usuário');
+    }
+  };
+
+  const handleToggleBloqueio = async (usuario: Usuario) => {
+    try {
+      const { error } = await supabase
+        .from('usuarios')
+        .update({ bloqueado: !usuario.bloqueado })
+        .eq('id', usuario.id);
+
+      if (error) throw error;
+      toast.success(`Usuário ${usuario.bloqueado ? 'desbloqueado' : 'bloqueado'} com sucesso!`);
+      loadUsuarios();
+    } catch (error) {
+      console.error('Error toggling usuario bloqueio:', error);
+      toast.error('Erro ao alterar bloqueio do usuário');
+    }
+  };
+
+  const handleFuncaoChange = (funcao: string) => {
+    setUsuarioForm(prev => ({
+      ...prev,
+      funcao,
+      modulos: funcao === 'personalizado' ? prev.modulos : PERMISSOES_PADRAO[funcao as keyof typeof PERMISSOES_PADRAO] || []
+    }));
+  };
+
+  const handleModuloToggle = (modulo: string) => {
+    setUsuarioForm(prev => ({
+      ...prev,
+      modulos: prev.modulos.includes(modulo)
+        ? prev.modulos.filter(m => m !== modulo)
+        : [...prev.modulos, modulo]
+    }));
+  };
+
+  const resetUsuarioForm = () => {
+    setUsuarioForm({
+      nome_completo: '',
+      email: '',
+      telefone_whatsapp: '',
+      cpf_cnpj: '',
+      funcao: 'colaborador',
+      observacoes: '',
+      modulos: []
+    });
+    setEditingUsuario(null);
+  };
+
+  const gerarLinkDeConvite = () => {
+    if (!user) return;
+    const baseUrl = window.location.origin;
+    const token = btoa(`${user.empresa_id}:${Date.now()}`); // Token simples para demo
+    const link = `${baseUrl}/cadastro-convite?token=${token}`;
+    setLinkConvite(link);
+    toast.success('Link de convite gerado!');
+  };
+
+  const copiarLink = () => {
+    navigator.clipboard.writeText(linkConvite);
+    toast.success('Link copiado para a área de transferência!');
+  };
+
+  const isPagamentoAtrasado = (vencimento: string | null): boolean => {
+    if (!vencimento) return false;
+    const hoje = new Date();
+    const dataVencimento = new Date(vencimento);
+    return dataVencimento < hoje;
+  };
+
   const renderEmpresaTab = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       <Card>
@@ -406,131 +732,317 @@ export default function Configuracoes() {
 
   const renderUsuariosTab = () => (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle>Usuários do Sistema</CardTitle>
-            <Dialog open={showInviteUser} onOpenChange={setShowInviteUser}>
-              <DialogTrigger asChild>
-                <Button>Convidar Usuário</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Convidar Novo Usuário</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="nomeUsuario">Nome</Label>
-                    <Input id="nomeUsuario" placeholder="Nome completo" />
-                  </div>
-                  <div>
-                    <Label htmlFor="emailUsuario">E-mail</Label>
-                    <Input id="emailUsuario" type="email" placeholder="email@exemplo.com" />
-                  </div>
-                  <div>
-                    <Label htmlFor="permissaoUsuario">Permissão</Label>
-                    <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione a permissão" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="admin">Administrador</SelectItem>
-                        <SelectItem value="gerente">Gerente</SelectItem>
-                        <SelectItem value="colaborador">Colaborador</SelectItem>
-                        <SelectItem value="vendedor">Vendedor</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex justify-end space-x-2">
-                    <Button variant="outline" onClick={() => setShowInviteUser(false)}>
-                      Cancelar
-                    </Button>
-                    <Button>Enviar Convite</Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
+      {/* Alerta de pagamento atrasado */}
+      {empresaData && empresaData.data_proximo_pagamento && isPagamentoAtrasado(empresaData.data_proximo_pagamento) && (
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 flex items-center gap-3">
+          <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-500" />
+          <div className="flex-1">
+            <p className="font-medium text-yellow-800 dark:text-yellow-200">
+              ⚠️ Pagamento em atraso
+            </p>
+            <p className="text-sm text-yellow-700 dark:text-yellow-300">
+              Regularize para evitar bloqueio automático. Vencimento: {format(new Date(empresaData.data_proximo_pagamento), 'dd/MM/yyyy', { locale: ptBR })}
+            </p>
           </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Usuário</TableHead>
-                <TableHead>E-mail</TableHead>
-                <TableHead>Permissão</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {usuarios.map(usuario => (
-                <TableRow key={usuario.id}>
-                  <TableCell>
-                    <div className="flex items-center space-x-2">
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback>
-                          {usuario.nome.slice(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span>{usuario.nome}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>{usuario.email}</TableCell>
-                  <TableCell>
-                    <Badge variant={usuario.permissao === 'admin' ? 'default' : 'secondary'}>
-                      {usuario.permissao}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={usuario.status === 'ativo' ? 'default' : 'secondary'}>
-                      {usuario.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex space-x-1">
-                      <Button size="sm" variant="ghost">Editar</Button>
-                      <Button size="sm" variant="ghost">
-                        {usuario.status === 'ativo' ? 'Desativar' : 'Ativar'}
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+        </div>
+      )}
+
+      {/* Info do plano */}
+      {empresaData && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Plano e Limites</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground">Plano Atual</p>
+                <p className="text-xl font-bold">{empresaData.plano}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Usuários Ativos / Limite</p>
+                <p className="text-xl font-bold">
+                  {usuarios.filter(u => u.status_conta === 'ativo' && u.ativo).length} / {empresaData.plano === 'Ilimitado' ? '∞' : empresaData.limite_usuarios}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Status Pagamento</p>
+                <Badge variant={empresaData.status_pagamento === 'ativo' ? 'default' : 'destructive'}>
+                  {empresaData.status_pagamento}
+                </Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
-          <CardTitle>Permissões por Função</CardTitle>
+          <div className="flex justify-between items-center">
+            <CardTitle>Gerenciamento de Usuários</CardTitle>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => { setGerarLinkConvite(true); gerarLinkDeConvite(); }}>
+                <LinkIcon className="h-4 w-4 mr-2" />
+                Gerar Link de Convite
+              </Button>
+              <Dialog open={showUsuarioDialog} onOpenChange={(open) => {
+                setShowUsuarioDialog(open);
+                if (!open) resetUsuarioForm();
+              }}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Novo Usuário
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>
+                      {editingUsuario ? 'Editar Usuário' : 'Novo Usuário'}
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="nome_completo">Nome Completo *</Label>
+                        <Input
+                          id="nome_completo"
+                          value={usuarioForm.nome_completo}
+                          onChange={(e) => setUsuarioForm(prev => ({ ...prev, nome_completo: e.target.value }))}
+                          placeholder="Nome completo do usuário"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="email">E-mail *</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={usuarioForm.email}
+                          onChange={(e) => setUsuarioForm(prev => ({ ...prev, email: e.target.value }))}
+                          placeholder="email@exemplo.com"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="telefone_whatsapp">Telefone/WhatsApp</Label>
+                        <Input
+                          id="telefone_whatsapp"
+                          value={usuarioForm.telefone_whatsapp}
+                          onChange={(e) => setUsuarioForm(prev => ({ ...prev, telefone_whatsapp: e.target.value }))}
+                          placeholder="(11) 99999-9999"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="cpf_cnpj">CPF/CNPJ *</Label>
+                        <Input
+                          id="cpf_cnpj"
+                          value={usuarioForm.cpf_cnpj}
+                          onChange={(e) => setUsuarioForm(prev => ({ ...prev, cpf_cnpj: e.target.value }))}
+                          placeholder="000.000.000-00"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">Senha inicial será o CPF/CNPJ sem pontuação</p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="funcao">Função</Label>
+                      <Select value={usuarioForm.funcao} onValueChange={handleFuncaoChange}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="administrador">Administrador</SelectItem>
+                          <SelectItem value="gerente">Gerente</SelectItem>
+                          <SelectItem value="lider">Líder</SelectItem>
+                          <SelectItem value="colaborador">Colaborador</SelectItem>
+                          <SelectItem value="personalizado">Personalizado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label>Níveis de Acesso (Módulos)</Label>
+                      <div className="grid grid-cols-2 gap-3 mt-2 max-h-60 overflow-y-auto p-2 border rounded">
+                        {MODULOS_DISPONIVEIS.map(modulo => (
+                          <div key={modulo.value} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={modulo.value}
+                              checked={usuarioForm.modulos.includes(modulo.value)}
+                              onCheckedChange={() => handleModuloToggle(modulo.value)}
+                              disabled={usuarioForm.funcao !== 'personalizado'}
+                            />
+                            <Label htmlFor={modulo.value} className="text-sm cursor-pointer">
+                              {modulo.label}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                      {usuarioForm.funcao !== 'personalizado' && (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Permissões padrão da função selecionada. Selecione "Personalizado" para editar manualmente.
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label htmlFor="observacoes">Observações</Label>
+                      <Textarea
+                        id="observacoes"
+                        value={usuarioForm.observacoes}
+                        onChange={(e) => setUsuarioForm(prev => ({ ...prev, observacoes: e.target.value }))}
+                        placeholder="Observações sobre o usuário..."
+                        rows={3}
+                      />
+                    </div>
+
+                    <div className="flex justify-end space-x-2">
+                      <Button variant="outline" onClick={() => setShowUsuarioDialog(false)}>
+                        Cancelar
+                      </Button>
+                      <Button onClick={handleSaveUsuario}>Salvar</Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-sm font-medium">Módulo</div>
-              <div className="text-sm font-medium text-center">Admin</div>
-              <div className="text-sm font-medium text-center">Gerente</div>
-              <div className="text-sm font-medium text-center">Colaborador</div>
+          {usuarios.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              Nenhum usuário cadastrado
             </div>
-            {['Dashboard', 'Orçamentos', 'Serviços', 'Clientes', 'Financeiro', 'Estoque', 'Relatórios'].map(modulo => (
-              <div key={modulo} className="grid grid-cols-2 md:grid-cols-4 gap-4 items-center">
-                <div className="text-sm">{modulo}</div>
-                <div className="flex justify-center">
-                  <Switch defaultChecked />
-                </div>
-                <div className="flex justify-center">
-                  <Switch defaultChecked={modulo !== 'Configurações'} />
-                </div>
-                <div className="flex justify-center">
-                  <Switch defaultChecked={!['Financeiro', 'Relatórios'].includes(modulo)} />
-                </div>
-              </div>
-            ))}
-          </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>E-mail</TableHead>
+                    <TableHead>Telefone</TableHead>
+                    <TableHead>Função</TableHead>
+                    <TableHead>Último Pgto</TableHead>
+                    <TableHead>Próximo Venc.</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {usuarios.map(usuario => (
+                    <TableRow key={usuario.id} className={usuario.conta_principal ? 'bg-blue-50/50 dark:bg-blue-950/20' : ''}>
+                      <TableCell>
+                        <div className="flex items-center space-x-2">
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback>
+                              {(usuario.nome_completo || usuario.nome).slice(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="font-medium">{usuario.nome_completo || usuario.nome}</p>
+                            {usuario.conta_principal && (
+                              <Badge variant="outline" className="text-xs">Titular</Badge>
+                            )}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>{usuario.email}</TableCell>
+                      <TableCell>{usuario.telefone_whatsapp || '-'}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">
+                          {usuario.funcao || 'colaborador'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {usuario.ultimo_pagamento ? format(new Date(usuario.ultimo_pagamento), 'dd/MM/yyyy', { locale: ptBR }) : '-'}
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          {usuario.proximo_vencimento ? format(new Date(usuario.proximo_vencimento), 'dd/MM/yyyy', { locale: ptBR }) : '-'}
+                          {usuario.proximo_vencimento && isPagamentoAtrasado(usuario.proximo_vencimento) && (
+                            <div className="text-xs text-yellow-600 dark:text-yellow-500 mt-1">
+                              ⚠️ Atrasado
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <Badge variant={usuario.status_conta === 'ativo' ? 'default' : usuario.status_conta === 'suspenso' ? 'destructive' : 'secondary'}>
+                            {usuario.status_conta}
+                          </Badge>
+                          {usuario.bloqueado && (
+                            <Badge variant="destructive" className="text-xs">Bloqueado</Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleEditUsuario(usuario)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          {!usuario.conta_principal && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleToggleUsuarioStatus(usuario)}
+                              >
+                                {usuario.status_conta === 'ativo' ? (
+                                  <X className="h-4 w-4 text-red-500" />
+                                ) : (
+                                  <Check className="h-4 w-4 text-green-500" />
+                                )}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleToggleBloqueio(usuario)}
+                                title={usuario.bloqueado ? 'Desbloquear' : 'Bloquear'}
+                              >
+                                {usuario.bloqueado ? '🔓' : '🔒'}
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      {/* Dialog de Link de Convite */}
+      <Dialog open={gerarLinkConvite} onOpenChange={setGerarLinkConvite}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Link de Convite Gerado</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Compartilhe este link com a pessoa que deseja convidar. O link permite que ela crie sua própria conta vinculada à sua empresa.
+            </p>
+            <div className="flex gap-2">
+              <Input value={linkConvite} readOnly className="flex-1" />
+              <Button onClick={copiarLink}>
+                <LinkIcon className="h-4 w-4 mr-2" />
+                Copiar
+              </Button>
+            </div>
+            <Button className="w-full" onClick={() => setGerarLinkConvite(false)}>
+              Fechar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 

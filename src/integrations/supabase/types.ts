@@ -268,26 +268,38 @@ export type Database = {
         Row: {
           cnpj: string | null
           data_criacao: string | null
+          data_proximo_pagamento: string | null
+          data_ultimo_pagamento: string | null
           email_admin: string
           id: string
+          limite_usuarios: number | null
           nome_fantasia: string
           plano: string | null
+          status_pagamento: string | null
         }
         Insert: {
           cnpj?: string | null
           data_criacao?: string | null
+          data_proximo_pagamento?: string | null
+          data_ultimo_pagamento?: string | null
           email_admin: string
           id?: string
+          limite_usuarios?: number | null
           nome_fantasia: string
           plano?: string | null
+          status_pagamento?: string | null
         }
         Update: {
           cnpj?: string | null
           data_criacao?: string | null
+          data_proximo_pagamento?: string | null
+          data_ultimo_pagamento?: string | null
           email_admin?: string
           id?: string
+          limite_usuarios?: number | null
           nome_fantasia?: string
           plano?: string | null
+          status_pagamento?: string | null
         }
         Relationships: []
       }
@@ -1520,33 +1532,127 @@ export type Database = {
         }
         Relationships: []
       }
+      user_modulos_acesso: {
+        Row: {
+          created_at: string | null
+          id: string
+          modulo: Database["public"]["Enums"]["modulo_acesso"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          modulo: Database["public"]["Enums"]["modulo_acesso"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          modulo?: Database["public"]["Enums"]["modulo_acesso"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_modulos_acesso_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       usuarios: {
         Row: {
           ativo: boolean | null
+          bloqueado: boolean | null
+          conta_principal: boolean | null
+          cpf_cnpj: string | null
+          data_cadastro: string | null
           email: string
           empresa_id: string | null
           funcao: string | null
           id: string
           nome: string
+          nome_completo: string | null
+          observacoes: string | null
           permissao: string | null
+          primeiro_acesso: boolean | null
+          proximo_vencimento: string | null
+          senha_hash: string | null
+          status_conta: string | null
+          telefone_whatsapp: string | null
+          ultimo_pagamento: string | null
         }
         Insert: {
           ativo?: boolean | null
+          bloqueado?: boolean | null
+          conta_principal?: boolean | null
+          cpf_cnpj?: string | null
+          data_cadastro?: string | null
           email: string
           empresa_id?: string | null
           funcao?: string | null
           id?: string
           nome: string
+          nome_completo?: string | null
+          observacoes?: string | null
           permissao?: string | null
+          primeiro_acesso?: boolean | null
+          proximo_vencimento?: string | null
+          senha_hash?: string | null
+          status_conta?: string | null
+          telefone_whatsapp?: string | null
+          ultimo_pagamento?: string | null
         }
         Update: {
           ativo?: boolean | null
+          bloqueado?: boolean | null
+          conta_principal?: boolean | null
+          cpf_cnpj?: string | null
+          data_cadastro?: string | null
           email?: string
           empresa_id?: string | null
           funcao?: string | null
           id?: string
           nome?: string
+          nome_completo?: string | null
+          observacoes?: string | null
           permissao?: string | null
+          primeiro_acesso?: boolean | null
+          proximo_vencimento?: string | null
+          senha_hash?: string | null
+          status_conta?: string | null
+          telefone_whatsapp?: string | null
+          ultimo_pagamento?: string | null
         }
         Relationships: [
           {
@@ -1563,13 +1669,53 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      count_active_users: {
+        Args: { _empresa_id: string }
+        Returns: number
+      }
       criar_etapas_padrao_funil: {
         Args: { p_empresa_id: string }
         Returns: undefined
       }
+      get_user_modules: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["modulo_acesso"][]
+      }
+      has_module_access: {
+        Args: {
+          _modulo: Database["public"]["Enums"]["modulo_acesso"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role:
+        | "administrador"
+        | "gerente"
+        | "lider"
+        | "colaborador"
+        | "personalizado"
+      modulo_acesso:
+        | "dashboard"
+        | "orcamentos"
+        | "servicos"
+        | "funil_vendas"
+        | "agenda"
+        | "clientes"
+        | "estoque"
+        | "financeiro"
+        | "contratos"
+        | "relatorios"
+        | "configuracoes"
+        | "vendas"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1696,6 +1842,28 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: [
+        "administrador",
+        "gerente",
+        "lider",
+        "colaborador",
+        "personalizado",
+      ],
+      modulo_acesso: [
+        "dashboard",
+        "orcamentos",
+        "servicos",
+        "funil_vendas",
+        "agenda",
+        "clientes",
+        "estoque",
+        "financeiro",
+        "contratos",
+        "relatorios",
+        "configuracoes",
+        "vendas",
+      ],
+    },
   },
 } as const
