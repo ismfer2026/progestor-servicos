@@ -45,20 +45,21 @@ export function WhatsAppMessageDialog({
     const encodedMessage = encodeURIComponent(mensagem);
     const whatsappUrl = `https://wa.me/${phoneFormatted}?text=${encodedMessage}`;
 
-    // Mostrar link clicável
-    const confirmOpen = window.confirm("Para enviar a mensagem, clique em OK para abrir o WhatsApp em outra aba.");
+    // Copiar link para área de transferência
+    navigator.clipboard
+      .writeText(whatsappUrl)
+      .then(() => {
+        toast.success("Link do WhatsApp copiado! Abra no navegador para enviar.");
+      })
+      .catch(() => {
+        toast.error("Não foi possível copiar o link. Copie manualmente: " + whatsappUrl);
+      });
 
-    if (confirmOpen) {
-      // Força abrir fora do Lovable
-      window.open(whatsappUrl, "_blank", "noopener,noreferrer");
-      toast.success("WhatsApp aberto em nova aba");
+    // Limpar campos e fechar diálogo
+    setMensagem("");
+    onOpenChange(false);
 
-      // Limpar campos e fechar diálogo
-      setMensagem("");
-      onOpenChange(false);
-
-      if (onSent) onSent();
-    }
+    if (onSent) onSent();
   };
 
   // Atualizar mensagem quando defaultMessage mudar
