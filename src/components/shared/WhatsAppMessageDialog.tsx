@@ -40,31 +40,24 @@ export function WhatsAppMessageDialog({
       return;
     }
 
-    setLoading(true);
+    // Formatar número e mensagem
+    const phoneFormatted = formatPhoneNumber(recipientPhone);
+    const encodedMessage = encodeURIComponent(mensagem);
+    const whatsappUrl = `https://wa.me/${phoneFormatted}?text=${encodedMessage}`;
 
-    try {
-      // Formatar número para padrão internacional
-      const phoneFormatted = formatPhoneNumber(recipientPhone);
-      const encodedMessage = encodeURIComponent(mensagem);
-      const whatsappUrl = `https://wa.me/${phoneFormatted}?text=${encodedMessage}`;
+    // Mostrar link clicável
+    const confirmOpen = window.confirm("Para enviar a mensagem, clique em OK para abrir o WhatsApp em outra aba.");
 
-      // Abrir WhatsApp fora do Lovable
-      window.location.href = whatsappUrl;
+    if (confirmOpen) {
+      // Força abrir fora do Lovable
+      window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+      toast.success("WhatsApp aberto em nova aba");
 
-      toast.success("Abrindo WhatsApp...");
-
-      // Callback opcional
-      if (onSent) {
-        onSent();
-      }
-
+      // Limpar campos e fechar diálogo
       setMensagem("");
       onOpenChange(false);
-    } catch (error) {
-      console.error("Erro ao abrir WhatsApp:", error);
-      toast.error("Erro ao abrir WhatsApp. Verifique se pop-ups estão permitidos.");
-    } finally {
-      setLoading(false);
+
+      if (onSent) onSent();
     }
   };
 
