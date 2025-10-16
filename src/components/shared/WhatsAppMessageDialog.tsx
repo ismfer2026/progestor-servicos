@@ -48,15 +48,15 @@ export function WhatsAppMessageDialog({
       const whatsappUrl = `https://wa.me/${phoneFormatted}?text=${encodedMessage}`;
 
       // Abrir WhatsApp
-      const whatsappWindow = window.open(whatsappUrl, '_blank');
-      
-      // Verificar se a janela foi bloqueada
-      if (!whatsappWindow || whatsappWindow.closed || typeof whatsappWindow.closed === 'undefined') {
-        toast.error('Pop-up bloqueado! Permita pop-ups para este site e tente novamente.', {
-          duration: 5000,
-        });
-        setLoading(false);
-        return;
+      // Tenta abrir via link direto, forçando navegador externo
+window.location.href = whatsappUrl;
+setLoading(false);
+toast.success('Abrindo WhatsApp...');
+if (onSent) onSent();
+setMensagem('');
+onOpenChange(false);
+return;
+
       }
 
       toast.success('Abrindo WhatsApp...');
