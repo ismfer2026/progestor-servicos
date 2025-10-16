@@ -12,7 +12,7 @@ interface WhatsAppMessageDialogProps {
   recipientPhone?: string;
   defaultMessage?: string;
   onSent?: () => void;
-  context?: 'orcamento' | 'contrato' | 'cliente' | 'funil' | 'geral';
+  context?: "orcamento" | "contrato" | "cliente" | "funil" | "geral";
   contextId?: string;
 }
 
@@ -20,57 +20,49 @@ export function WhatsAppMessageDialog({
   open,
   onOpenChange,
   recipientPhone,
-  defaultMessage = '',
+  defaultMessage = "",
   onSent,
-  context = 'geral',
-  contextId
+  context = "geral",
+  contextId,
 }: WhatsAppMessageDialogProps) {
   const { formatPhoneNumber } = useWhatsAppConfig();
   const [mensagem, setMensagem] = useState(defaultMessage);
   const [loading, setLoading] = useState(false);
 
-  const handleEnviar = async () => {
+  const handleEnviar = () => {
     if (!mensagem.trim()) {
-      toast.error('Digite uma mensagem');
+      toast.error("Digite uma mensagem");
       return;
     }
 
     if (!recipientPhone) {
-      toast.error('Número do destinatário não informado');
+      toast.error("Número do destinatário não informado");
       return;
     }
 
     setLoading(true);
+
     try {
       // Formatar número para padrão internacional
       const phoneFormatted = formatPhoneNumber(recipientPhone);
       const encodedMessage = encodeURIComponent(mensagem);
       const whatsappUrl = `https://wa.me/${phoneFormatted}?text=${encodedMessage}`;
 
-      // Abrir WhatsApp
-      // Tenta abrir via link direto, forçando navegador externo
-window.location.href = whatsappUrl;
-setLoading(false);
-toast.success('Abrindo WhatsApp...');
-if (onSent) onSent();
-setMensagem('');
-onOpenChange(false);
-return;
+      // Abrir WhatsApp fora do Lovable
+      window.location.href = whatsappUrl;
 
-      }
+      toast.success("Abrindo WhatsApp...");
 
-      toast.success('Abrindo WhatsApp...');
-      
       // Callback opcional
       if (onSent) {
         onSent();
       }
 
-      setMensagem('');
+      setMensagem("");
       onOpenChange(false);
     } catch (error) {
-      console.error('Erro ao abrir WhatsApp:', error);
-      toast.error('Erro ao abrir WhatsApp. Verifique se pop-ups estão permitidos.');
+      console.error("Erro ao abrir WhatsApp:", error);
+      toast.error("Erro ao abrir WhatsApp. Verifique se pop-ups estão permitidos.");
     } finally {
       setLoading(false);
     }
@@ -108,18 +100,11 @@ return;
             />
           </div>
           <div className="flex justify-end space-x-2">
-            <Button 
-              variant="outline" 
-              onClick={() => onOpenChange(false)}
-              disabled={loading}
-            >
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
               Cancelar
             </Button>
-            <Button 
-              onClick={handleEnviar} 
-              disabled={loading || !recipientPhone}
-            >
-              {loading ? 'Enviando...' : 'Enviar'}
+            <Button onClick={handleEnviar} disabled={loading || !recipientPhone}>
+              {loading ? "Enviando..." : "Enviar"}
             </Button>
           </div>
         </div>
