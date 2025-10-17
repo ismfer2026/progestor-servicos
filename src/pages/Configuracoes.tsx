@@ -829,9 +829,6 @@ export default function Configuracoes() {
                     <DialogTitle>
                       {editingUsuario ? 'Editar Usuário' : 'Novo Usuário'}
                     </DialogTitle>
-                    <p className="text-sm text-muted-foreground">
-                      Preencha os dados do usuário. Para personalizar os módulos de acesso, selecione a função "Personalizado".
-                    </p>
                   </DialogHeader>
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -917,53 +914,34 @@ export default function Configuracoes() {
                       </div>
                     </div>
 
-                    <div className={usuarioForm.funcao === 'personalizado' ? 'border-2 border-blue-500 rounded-lg p-4 bg-blue-50/50 dark:bg-blue-950/20' : ''}>
-                      <div className="flex items-center justify-between mb-2">
-                        <Label className="text-base font-semibold">Níveis de Acesso (Módulos)</Label>
-                        {usuarioForm.funcao !== 'personalizado' && (
-                          <Badge variant="outline" className="text-xs">
-                            Automático
-                          </Badge>
-                        )}
-                        {usuarioForm.funcao === 'personalizado' && (
-                          <Badge className="text-xs bg-blue-600">
-                            Personalizado Ativo
-                          </Badge>
-                        )}
-                      </div>
-                      
-                      {usuarioForm.funcao !== 'personalizado' ? (
-                        <div className="bg-muted/30 border border-dashed rounded-lg p-4 text-center">
-                          <p className="text-sm text-muted-foreground mb-2">
-                            ℹ️ Permissões automáticas baseadas na função selecionada
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Para personalizar manualmente os módulos, selecione <strong>"Personalizado"</strong> no campo "Função" acima
-                          </p>
-                        </div>
-                      ) : (
-                        <>
-                          <p className="text-sm text-blue-600 dark:text-blue-400 mb-3 font-medium">
-                            ✓ Selecione os módulos que este usuário poderá acessar:
-                          </p>
-                          <div className="grid grid-cols-2 gap-3 max-h-60 overflow-y-auto p-3 border-2 border-blue-200 dark:border-blue-800 rounded-md bg-background">
-                            {MODULOS_DISPONIVEIS.map(modulo => (
-                              <div key={modulo.value} className="flex items-center space-x-2">
-                                <Checkbox
-                                  id={modulo.value}
-                                  checked={usuarioForm.modulos.includes(modulo.value)}
-                                  onCheckedChange={() => handleModuloToggle(modulo.value)}
-                                />
-                                <Label 
-                                  htmlFor={modulo.value} 
-                                  className="text-sm cursor-pointer hover:text-blue-600"
-                                >
-                                  {modulo.label}
-                                </Label>
-                              </div>
-                            ))}
+                    <div>
+                      <Label>Níveis de Acesso (Módulos)</Label>
+                      <div className="grid grid-cols-2 gap-3 mt-2 max-h-60 overflow-y-auto p-2 border rounded-md bg-muted/50">
+                        {MODULOS_DISPONIVEIS.map(modulo => (
+                          <div key={modulo.value} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={modulo.value}
+                              checked={usuarioForm.modulos.includes(modulo.value)}
+                              onCheckedChange={() => handleModuloToggle(modulo.value)}
+                              disabled={usuarioForm.funcao !== 'personalizado'}
+                            />
+                            <Label 
+                              htmlFor={modulo.value} 
+                              className={`text-sm ${usuarioForm.funcao === 'personalizado' ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
+                            >
+                              {modulo.label}
+                            </Label>
                           </div>
-                        </>
+                        ))}
+                      </div>
+                      {usuarioForm.funcao !== 'personalizado' ? (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          ℹ️ Permissões padrão da função selecionada. Selecione "Personalizado" para editar manualmente.
+                        </p>
+                      ) : (
+                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
+                          ✓ Modo personalizado ativado. Selecione os módulos desejados acima.
+                        </p>
                       )}
                     </div>
 
