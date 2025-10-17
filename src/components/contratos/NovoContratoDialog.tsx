@@ -302,9 +302,15 @@ export function NovoContratoDialog({ open, onOpenChange, modelos, onSuccess }: N
       onSuccess();
       onOpenChange(false);
       resetForm();
-    } catch (error) {
-      console.error("Error saving contract:", error);
-      toast.error("Erro ao criar contrato");
+    } catch (error: any) {
+      console.error("❌ Erro detalhado ao salvar contrato:", error);
+      if (error?.message) {
+        toast.error(`Erro: ${error.message}`);
+      } else if (error?.error_description) {
+        toast.error(`Erro: ${error.error_description}`);
+      } else {
+        toast.error("Erro ao criar contrato. Veja o console para mais detalhes.");
+      }
     } finally {
       setSaving(false);
     }
