@@ -1677,6 +1677,10 @@ export type Database = {
         Args: { p_empresa_id: string }
         Returns: undefined
       }
+      get_user_empresa_id: {
+        Args: { _user_id: string }
+        Returns: string
+      }
       get_user_modules: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["modulo_acesso"][]
@@ -1693,6 +1697,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_conta_principal: {
+        Args: { _user_id: string }
         Returns: boolean
       }
     }
