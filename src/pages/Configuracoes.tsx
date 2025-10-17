@@ -405,8 +405,23 @@ export default function Configuracoes() {
   };
 
   const handleSaveUsuario = async () => {
+    // Validação de campos obrigatórios
     if (!usuarioForm.nome_completo.trim() || !usuarioForm.email.trim() || !usuarioForm.cpf_cnpj.trim()) {
-      toast.error('Preencha todos os campos obrigatórios');
+      toast.error('Preencha todos os campos obrigatórios (Nome, E-mail e CPF/CNPJ)');
+      return;
+    }
+
+    // Validação básica de e-mail
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(usuarioForm.email.trim())) {
+      toast.error('Digite um e-mail válido');
+      return;
+    }
+
+    // Validação de CPF/CNPJ (deve ter pelo menos 11 dígitos para CPF ou 14 para CNPJ)
+    const cpfCnpjNumeros = usuarioForm.cpf_cnpj.replace(/\D/g, '');
+    if (cpfCnpjNumeros.length < 11) {
+      toast.error('CPF/CNPJ deve ter pelo menos 11 dígitos');
       return;
     }
 
@@ -754,7 +769,7 @@ export default function Configuracoes() {
             <CardTitle className="text-lg">Plano e Limites</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <p className="text-sm text-muted-foreground">Plano Atual</p>
                 <p className="text-xl font-bold">{empresaData.plano}</p>
@@ -763,6 +778,15 @@ export default function Configuracoes() {
                 <p className="text-sm text-muted-foreground">Usuários Ativos / Limite</p>
                 <p className="text-xl font-bold">
                   {usuarios.filter(u => u.status_conta === 'ativo' && u.ativo).length} / {empresaData.plano === 'Ilimitado' ? '∞' : empresaData.limite_usuarios}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Acessos Disponíveis</p>
+                <p className="text-xl font-bold">
+                  {empresaData.plano === 'Ilimitado' 
+                    ? '∞' 
+                    : Math.max(0, empresaData.limite_usuarios - usuarios.filter(u => u.status_conta === 'ativo' && u.ativo).length)
+                  }
                 </p>
               </div>
               <div>
@@ -864,7 +888,7 @@ export default function Configuracoes() {
 
                     <div>
                       <Label>Níveis de Acesso (Módulos)</Label>
-                      <div className="grid grid-cols-2 gap-3 mt-2 max-h-60 overflow-y-auto p-2 border rounded">
+                      <div className="grid grid-cols-2 gap-3 mt-2 max-h-60 overflow-y-auto p-2 border rounded-md bg-muted/50">
                         {MODULOS_DISPONIVEIS.map(modulo => (
                           <div key={modulo.value} className="flex items-center space-x-2">
                             <Checkbox
@@ -873,15 +897,22 @@ export default function Configuracoes() {
                               onCheckedChange={() => handleModuloToggle(modulo.value)}
                               disabled={usuarioForm.funcao !== 'personalizado'}
                             />
-                            <Label htmlFor={modulo.value} className="text-sm cursor-pointer">
+                            <Label 
+                              htmlFor={modulo.value} 
+                              className={`text-sm ${usuarioForm.funcao === 'personalizado' ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
+                            >
                               {modulo.label}
                             </Label>
                           </div>
                         ))}
                       </div>
-                      {usuarioForm.funcao !== 'personalizado' && (
+                      {usuarioForm.funcao !== 'personalizado' ? (
                         <p className="text-xs text-muted-foreground mt-2">
-                          Permissões padrão da função selecionada. Selecione "Personalizado" para editar manualmente.
+                          ℹ️ Permissões padrão da função selecionada. Selecione "Personalizado" para editar manualmente.
+                        </p>
+                      ) : (
+                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
+                          ✓ Modo personalizado ativado. Selecione os módulos desejados acima.
                         </p>
                       )}
                     </div>
