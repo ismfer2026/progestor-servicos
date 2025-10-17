@@ -114,7 +114,8 @@ export default function Configuracoes() {
     cpf_cnpj: '',
     funcao: 'colaborador',
     observacoes: '',
-    modulos: [] as string[]
+    modulos: [] as string[],
+    limite_usuarios_criacao: 0
   });
   const [gerarLinkConvite, setGerarLinkConvite] = useState(false);
   const [linkConvite, setLinkConvite] = useState('');
@@ -448,6 +449,7 @@ export default function Configuracoes() {
             cpf_cnpj: usuarioForm.cpf_cnpj,
             funcao: usuarioForm.funcao,
             observacoes: usuarioForm.observacoes,
+            limite_usuarios_criacao: usuarioForm.limite_usuarios_criacao
           })
           .eq('id', editingUsuario.id);
 
@@ -475,7 +477,8 @@ export default function Configuracoes() {
             conta_principal: false,
             data_cadastro: new Date().toISOString().split('T')[0],
             primeiro_acesso: true,
-            senha_hash: senha, // Senha inicial = CPF/CNPJ
+            senha_hash: senha,
+            limite_usuarios_criacao: usuarioForm.limite_usuarios_criacao
           })
           .select()
           .single();
@@ -540,7 +543,8 @@ export default function Configuracoes() {
       cpf_cnpj: usuario.cpf_cnpj || '',
       funcao: usuario.funcao || 'colaborador',
       observacoes: usuario.observacoes || '',
-      modulos: modulos
+      modulos: modulos,
+      limite_usuarios_criacao: (usuario as any).limite_usuarios_criacao || 0
     });
     
     setShowUsuarioDialog(true);
@@ -608,7 +612,8 @@ export default function Configuracoes() {
       cpf_cnpj: '',
       funcao: 'colaborador',
       observacoes: '',
-      modulos: []
+      modulos: [],
+      limite_usuarios_criacao: 0
     });
     setEditingUsuario(null);
   };
@@ -870,20 +875,43 @@ export default function Configuracoes() {
                       </div>
                     </div>
 
-                    <div>
-                      <Label htmlFor="funcao">Função</Label>
-                      <Select value={usuarioForm.funcao} onValueChange={handleFuncaoChange}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="administrador">Administrador</SelectItem>
-                          <SelectItem value="gerente">Gerente</SelectItem>
-                          <SelectItem value="lider">Líder</SelectItem>
-                          <SelectItem value="colaborador">Colaborador</SelectItem>
-                          <SelectItem value="personalizado">Personalizado</SelectItem>
-                        </SelectContent>
-                      </Select>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="funcao">Função</Label>
+                        <Select value={usuarioForm.funcao} onValueChange={handleFuncaoChange}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="administrador">Administrador</SelectItem>
+                            <SelectItem value="gerente">Gerente</SelectItem>
+                            <SelectItem value="lider">Líder</SelectItem>
+                            <SelectItem value="colaborador">Colaborador</SelectItem>
+                            <SelectItem value="personalizado">Personalizado</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="limite_usuarios">Limite de Usuários que pode Criar</Label>
+                        <Select 
+                          value={usuarioForm.limite_usuarios_criacao.toString()} 
+                          onValueChange={(value) => setUsuarioForm(prev => ({ ...prev, limite_usuarios_criacao: parseInt(value) }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="0">Sem permissão</SelectItem>
+                            <SelectItem value="2">2 usuários</SelectItem>
+                            <SelectItem value="5">5 usuários</SelectItem>
+                            <SelectItem value="-1">Ilimitado</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Define quantos usuários este usuário poderá criar
+                        </p>
+                      </div>
                     </div>
 
                     <div>

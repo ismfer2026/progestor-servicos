@@ -1601,6 +1601,7 @@ export type Database = {
           empresa_id: string | null
           funcao: string | null
           id: string
+          limite_usuarios_criacao: number | null
           nome: string
           nome_completo: string | null
           observacoes: string | null
@@ -1622,6 +1623,7 @@ export type Database = {
           empresa_id?: string | null
           funcao?: string | null
           id?: string
+          limite_usuarios_criacao?: number | null
           nome: string
           nome_completo?: string | null
           observacoes?: string | null
@@ -1643,6 +1645,7 @@ export type Database = {
           empresa_id?: string | null
           funcao?: string | null
           id?: string
+          limite_usuarios_criacao?: number | null
           nome?: string
           nome_completo?: string | null
           observacoes?: string | null
