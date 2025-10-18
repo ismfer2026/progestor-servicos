@@ -116,10 +116,17 @@ export default function Configuracoes() {
     observacoes: '',
     modulos: [] as string[],
     limite_usuarios_criacao: 0,
-    modoPersonalizado: false
+    modoPersonalizado: false,
+    plano: ''
   });
   const [gerarLinkConvite, setGerarLinkConvite] = useState(false);
   const [linkConvite, setLinkConvite] = useState('');
+  
+  // Estados para gerenciamento de planos
+  const [planos, setPlanos] = useState<string[]>([]);
+  const [showPlanoDialog, setShowPlanoDialog] = useState(false);
+  const [novoPlano, setNovoPlano] = useState('');
+  const [editingPlanoIndex, setEditingPlanoIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (defaultPhone) {
@@ -135,6 +142,7 @@ export default function Configuracoes() {
     } else if (activeTab === 'usuarios') {
       loadUsuarios();
       loadEmpresaData();
+      loadPlanos();
     }
   }, [activeTab]);
 
@@ -394,6 +402,101 @@ export default function Configuracoes() {
     }
   };
 
+  const loadPlanos = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('configuracoes')
+        .select('valor')
+        .eq('empresa_id', user.empresa_id)
+        .eq('chave', 'planos_usuarios')
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      
+      if (data && data.valor) {
+        setPlanos(data.valor as string[]);
+      } else {
+        // Planos padrão
+        setPlanos(['Gratuito', 'Básico', 'Profissional', 'Premium']);
+      }
+    } catch (error) {
+      console.error('Error loading planos:', error);
+      // Usar planos padrão em caso de erro
+      setPlanos(['Gratuito', 'Básico', 'Profissional', 'Premium']);
+    }
+  };
+
+  const handleSavePlanos = async () => {
+    if (!user) return;
+
+    try {
+      const { data: existing } = await supabase
+        .from('configuracoes')
+        .select('id')
+        .eq('empresa_id', user.empresa_id)
+        .eq('chave', 'planos_usuarios')
+        .single();
+
+      if (existing) {
+        await supabase
+          .from('configuracoes')
+          .update({ valor: planos })
+          .eq('id', existing.id);
+      } else {
+        await supabase
+          .from('configuracoes')
+          .insert({
+            empresa_id: user.empresa_id,
+            chave: 'planos_usuarios',
+            valor: planos,
+            tipo: 'json',
+            descricao: 'Lista de planos disponíveis para usuários'
+          });
+      }
+      
+      toast.success('Planos atualizados com sucesso!');
+    } catch (error) {
+      console.error('Error saving planos:', error);
+      toast.error('Erro ao salvar planos');
+    }
+  };
+
+  const handleAddPlano = () => {
+    if (!novoPlano.trim()) {
+      toast.error('Digite o nome do plano');
+      return;
+    }
+
+    if (planos.includes(novoPlano.trim())) {
+      toast.error('Este plano já existe');
+      return;
+    }
+
+    const novosPlanos = [...planos, novoPlano.trim()];
+    setPlanos(novosPlanos);
+    setNovoPlano('');
+    setShowPlanoDialog(false);
+    
+    // Salvar automaticamente
+    setTimeout(() => {
+      handleSavePlanos();
+    }, 100);
+  };
+
+  const handleDeletePlano = (index: number) => {
+    if (!confirm('Deseja realmente excluir este plano?')) return;
+    
+    const novosPlanos = planos.filter((_, i) => i !== index);
+    setPlanos(novosPlanos);
+    
+    // Salvar automaticamente
+    setTimeout(() => {
+      handleSavePlanos();
+    }, 100);
+  };
+
   const verificarLimiteUsuarios = (): boolean => {
     if (!empresaData) return false;
     
@@ -550,7 +653,8 @@ export default function Configuracoes() {
       observacoes: usuario.observacoes || '',
       modulos: modulos,
       limite_usuarios_criacao: (usuario as any).limite_usuarios_criacao || 0,
-      modoPersonalizado: isModoPersonalizado
+      modoPersonalizado: isModoPersonalizado,
+      plano: (usuario as any).plano || ''
     });
     
     setShowUsuarioDialog(true);
@@ -620,7 +724,8 @@ export default function Configuracoes() {
       observacoes: '',
       modulos: [],
       limite_usuarios_criacao: 0,
-      modoPersonalizado: false
+      modoPersonalizado: false,
+      plano: ''
     });
     setEditingUsuario(null);
   };
@@ -775,6 +880,73 @@ export default function Configuracoes() {
       )}
 
 
+      {/* Card de Gerenciamento de Planos */}
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle>Planos Disponíveis</CardTitle>
+            <Dialog open={showPlanoDialog} onOpenChange={setShowPlanoDialog}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Novo Plano
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Adicionar Novo Plano</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="nome_plano">Nome do Plano</Label>
+                    <Input
+                      id="nome_plano"
+                      value={novoPlano}
+                      onChange={(e) => setNovoPlano(e.target.value)}
+                      placeholder="Ex: Básico, Premium..."
+                      onKeyPress={(e) => e.key === 'Enter' && handleAddPlano()}
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => {
+                      setShowPlanoDialog(false);
+                      setNovoPlano('');
+                    }}>
+                      Cancelar
+                    </Button>
+                    <Button onClick={handleAddPlano}>
+                      Adicionar
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {planos.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhum plano cadastrado. Adicione um plano para começar.</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {planos.map((plano, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                    <span className="font-medium">{plano}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeletePlano(index)}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
@@ -861,6 +1033,27 @@ export default function Configuracoes() {
                         </Select>
                       </div>
 
+                      <div>
+                        <Label htmlFor="plano">Plano</Label>
+                        <Select 
+                          value={usuarioForm.plano} 
+                          onValueChange={(value) => setUsuarioForm(prev => ({ ...prev, plano: value }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione um plano" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {planos.map((plano) => (
+                              <SelectItem key={plano} value={plano}>
+                                {plano}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="limite_usuarios">Limite de Usuários que pode Criar</Label>
                         <Select 
