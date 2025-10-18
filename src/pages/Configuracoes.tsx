@@ -60,6 +60,12 @@ interface EmpresaData {
   status_pagamento: string;
 }
 
+interface PlanoConfig {
+  nome: string;
+  quantidade_acessos_adicionais: number;
+  modulos: string[];
+}
+
 const MODULOS_DISPONIVEIS = [
   { value: 'dashboard', label: 'Tela Principal' },
   { value: 'orcamentos', label: 'Orçamentos' },
@@ -123,9 +129,13 @@ export default function Configuracoes() {
   const [linkConvite, setLinkConvite] = useState('');
   
   // Estados para gerenciamento de planos
-  const [planos, setPlanos] = useState<string[]>([]);
+  const [planos, setPlanos] = useState<PlanoConfig[]>([]);
   const [showPlanoDialog, setShowPlanoDialog] = useState(false);
-  const [novoPlano, setNovoPlano] = useState('');
+  const [novoPlano, setNovoPlano] = useState<PlanoConfig>({
+    nome: '',
+    quantidade_acessos_adicionais: 0,
+    modulos: []
+  });
   const [editingPlanoIndex, setEditingPlanoIndex] = useState<number | null>(null);
 
   useEffect(() => {
@@ -415,16 +425,24 @@ export default function Configuracoes() {
 
       if (error && error.code !== 'PGRST116') throw error;
       
-      if (data && data.valor) {
-        setPlanos(data.valor as string[]);
+      if (data && data.valor && Array.isArray(data.valor)) {
+        setPlanos(data.valor as unknown as PlanoConfig[]);
       } else {
         // Planos padrão
-        setPlanos(['Gratuito', 'Básico', 'Profissional', 'Premium']);
+        setPlanos([
+          { nome: 'Gratuito', quantidade_acessos_adicionais: 0, modulos: ['dashboard'] },
+          { nome: 'Básico', quantidade_acessos_adicionais: 2, modulos: ['dashboard', 'orcamentos', 'servicos', 'clientes'] },
+          { nome: 'Profissional', quantidade_acessos_adicionais: 5, modulos: ['dashboard', 'orcamentos', 'servicos', 'funil_vendas', 'agenda', 'clientes', 'estoque', 'financeiro'] },
+          { nome: 'Premium', quantidade_acessos_adicionais: 10, modulos: MODULOS_DISPONIVEIS.map(m => m.value) }
+        ]);
       }
     } catch (error) {
       console.error('Error loading planos:', error);
       // Usar planos padrão em caso de erro
-      setPlanos(['Gratuito', 'Básico', 'Profissional', 'Premium']);
+      setPlanos([
+        { nome: 'Gratuito', quantidade_acessos_adicionais: 0, modulos: ['dashboard'] },
+        { nome: 'Básico', quantidade_acessos_adicionais: 2, modulos: ['dashboard', 'orcamentos', 'servicos', 'clientes'] }
+      ]);
     }
   };
 
@@ -442,7 +460,7 @@ export default function Configuracoes() {
       if (existing) {
         await supabase
           .from('configuracoes')
-          .update({ valor: planos })
+          .update({ valor: planos as any })
           .eq('id', existing.id);
       } else {
         await supabase
@@ -450,7 +468,7 @@ export default function Configuracoes() {
           .insert({
             empresa_id: user.empresa_id,
             chave: 'planos_usuarios',
-            valor: planos,
+            valor: planos as any,
             tipo: 'json',
             descricao: 'Lista de planos disponíveis para usuários'
           });
@@ -464,19 +482,19 @@ export default function Configuracoes() {
   };
 
   const handleAddPlano = () => {
-    if (!novoPlano.trim()) {
+    if (!novoPlano.nome.trim()) {
       toast.error('Digite o nome do plano');
       return;
     }
 
-    if (planos.includes(novoPlano.trim())) {
+    if (planos.some(p => p.nome === novoPlano.nome.trim())) {
       toast.error('Este plano já existe');
       return;
     }
 
-    const novosPlanos = [...planos, novoPlano.trim()];
+    const novosPlanos = [...planos, { ...novoPlano, nome: novoPlano.nome.trim() }];
     setPlanos(novosPlanos);
-    setNovoPlano('');
+    setNovoPlano({ nome: '', quantidade_acessos_adicionais: 0, modulos: [] });
     setShowPlanoDialog(false);
     
     // Salvar automaticamente
@@ -892,7 +910,7 @@ export default function Configuracoes() {
                   Novo Plano
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Adicionar Novo Plano</DialogTitle>
                 </DialogHeader>
@@ -901,16 +919,52 @@ export default function Configuracoes() {
                     <Label htmlFor="nome_plano">Nome do Plano</Label>
                     <Input
                       id="nome_plano"
-                      value={novoPlano}
-                      onChange={(e) => setNovoPlano(e.target.value)}
+                      value={novoPlano.nome}
+                      onChange={(e) => setNovoPlano({ ...novoPlano, nome: e.target.value })}
                       placeholder="Ex: Básico, Premium..."
-                      onKeyPress={(e) => e.key === 'Enter' && handleAddPlano()}
                     />
+                  </div>
+                  <div>
+                    <Label htmlFor="quantidade_acessos">Quantidade de Acessos Adicionais para Colaboradores</Label>
+                    <Input
+                      id="quantidade_acessos"
+                      type="number"
+                      min="0"
+                      value={novoPlano.quantidade_acessos_adicionais}
+                      onChange={(e) => setNovoPlano({ ...novoPlano, quantidade_acessos_adicionais: parseInt(e.target.value) || 0 })}
+                      placeholder="Ex: 5"
+                    />
+                  </div>
+                  <div>
+                    <Label>Níveis de Acesso (Módulos)</Label>
+                    <div className="grid grid-cols-2 gap-3 mt-2 p-4 border rounded-lg">
+                      {MODULOS_DISPONIVEIS.map((modulo) => (
+                        <div key={modulo.value} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`plano-modulo-${modulo.value}`}
+                            checked={novoPlano.modulos.includes(modulo.value)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setNovoPlano({ ...novoPlano, modulos: [...novoPlano.modulos, modulo.value] });
+                              } else {
+                                setNovoPlano({ ...novoPlano, modulos: novoPlano.modulos.filter(m => m !== modulo.value) });
+                              }
+                            }}
+                          />
+                          <Label 
+                            htmlFor={`plano-modulo-${modulo.value}`}
+                            className="text-sm font-normal cursor-pointer"
+                          >
+                            {modulo.label}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                   <div className="flex justify-end gap-2">
                     <Button variant="outline" onClick={() => {
                       setShowPlanoDialog(false);
-                      setNovoPlano('');
+                      setNovoPlano({ nome: '', quantidade_acessos_adicionais: 0, modulos: [] });
                     }}>
                       Cancelar
                     </Button>
@@ -928,17 +982,37 @@ export default function Configuracoes() {
             {planos.length === 0 ? (
               <p className="text-sm text-muted-foreground">Nenhum plano cadastrado. Adicione um plano para começar.</p>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {planos.map((plano, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                    <span className="font-medium">{plano}</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeletePlano(index)}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                  <div key={index} className="border rounded-lg p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-semibold text-lg">{plano.nome}</h4>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeletePlano(index)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      <p className="text-muted-foreground">
+                        <span className="font-medium">Acessos adicionais:</span> {plano.quantidade_acessos_adicionais}
+                      </p>
+                      <div>
+                        <p className="font-medium mb-2">Módulos inclusos:</p>
+                        <div className="flex flex-wrap gap-1">
+                          {plano.modulos.map((modulo) => {
+                            const moduloInfo = MODULOS_DISPONIVEIS.find(m => m.value === modulo);
+                            return (
+                              <Badge key={modulo} variant="secondary" className="text-xs">
+                                {moduloInfo?.label || modulo}
+                              </Badge>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1044,8 +1118,8 @@ export default function Configuracoes() {
                           </SelectTrigger>
                           <SelectContent>
                             {planos.map((plano) => (
-                              <SelectItem key={plano} value={plano}>
-                                {plano}
+                              <SelectItem key={plano.nome} value={plano.nome}>
+                                {plano.nome}
                               </SelectItem>
                             ))}
                           </SelectContent>
