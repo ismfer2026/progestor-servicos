@@ -115,7 +115,8 @@ export default function Configuracoes() {
     funcao: 'colaborador',
     observacoes: '',
     modulos: [] as string[],
-    limite_usuarios_criacao: 0
+    limite_usuarios_criacao: 0,
+    modoPersonalizado: false
   });
   const [gerarLinkConvite, setGerarLinkConvite] = useState(false);
   const [linkConvite, setLinkConvite] = useState('');
@@ -536,15 +537,20 @@ export default function Configuracoes() {
 
     const modulos = modulosData?.map(m => m.modulo) || [];
 
+    const funcao = usuario.funcao || 'colaborador';
+    const permissoesPadrao = PERMISSOES_PADRAO[funcao as keyof typeof PERMISSOES_PADRAO] || [];
+    const isModoPersonalizado = JSON.stringify(modulos.sort()) !== JSON.stringify(permissoesPadrao.sort());
+
     setUsuarioForm({
       nome_completo: usuario.nome_completo || usuario.nome,
       email: usuario.email,
       telefone_whatsapp: usuario.telefone_whatsapp || '',
       cpf_cnpj: usuario.cpf_cnpj || '',
-      funcao: usuario.funcao || 'colaborador',
+      funcao: funcao,
       observacoes: usuario.observacoes || '',
       modulos: modulos,
-      limite_usuarios_criacao: (usuario as any).limite_usuarios_criacao || 0
+      limite_usuarios_criacao: (usuario as any).limite_usuarios_criacao || 0,
+      modoPersonalizado: isModoPersonalizado
     });
     
     setShowUsuarioDialog(true);
@@ -591,7 +597,7 @@ export default function Configuracoes() {
     setUsuarioForm(prev => ({
       ...prev,
       funcao,
-      modulos: funcao === 'personalizado' ? prev.modulos : PERMISSOES_PADRAO[funcao as keyof typeof PERMISSOES_PADRAO] || []
+      modulos: prev.modoPersonalizado ? prev.modulos : PERMISSOES_PADRAO[funcao as keyof typeof PERMISSOES_PADRAO] || []
     }));
   };
 
@@ -613,7 +619,8 @@ export default function Configuracoes() {
       funcao: 'colaborador',
       observacoes: '',
       modulos: [],
-      limite_usuarios_criacao: 0
+      limite_usuarios_criacao: 0,
+      modoPersonalizado: false
     });
     setEditingUsuario(null);
   };
@@ -850,7 +857,6 @@ export default function Configuracoes() {
                             <SelectItem value="gerente">Gerente</SelectItem>
                             <SelectItem value="lider">Líder</SelectItem>
                             <SelectItem value="colaborador">Colaborador</SelectItem>
-                            <SelectItem value="personalizado">Personalizado</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -878,7 +884,25 @@ export default function Configuracoes() {
                     </div>
 
                     <div>
-                      <Label>Níveis de Acesso (Módulos)</Label>
+                      <div className="flex items-center justify-between mb-2">
+                        <Label>Níveis de Acesso (Módulos)</Label>
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="modo-personalizado" className="text-sm font-normal cursor-pointer">
+                            Personalizado
+                          </Label>
+                          <Switch
+                            id="modo-personalizado"
+                            checked={usuarioForm.modoPersonalizado}
+                            onCheckedChange={(checked) => {
+                              setUsuarioForm(prev => ({
+                                ...prev,
+                                modoPersonalizado: checked,
+                                modulos: checked ? prev.modulos : PERMISSOES_PADRAO[prev.funcao as keyof typeof PERMISSOES_PADRAO] || []
+                              }));
+                            }}
+                          />
+                        </div>
+                      </div>
                       <div className="grid grid-cols-2 gap-3 mt-2 max-h-60 overflow-y-auto p-2 border rounded-md bg-muted/50">
                         {MODULOS_DISPONIVEIS.map(modulo => (
                           <div key={modulo.value} className="flex items-center space-x-2">
@@ -886,20 +910,20 @@ export default function Configuracoes() {
                               id={modulo.value}
                               checked={usuarioForm.modulos.includes(modulo.value)}
                               onCheckedChange={() => handleModuloToggle(modulo.value)}
-                              disabled={usuarioForm.funcao !== 'personalizado'}
+                              disabled={!usuarioForm.modoPersonalizado}
                             />
                             <Label 
                               htmlFor={modulo.value} 
-                              className={`text-sm ${usuarioForm.funcao === 'personalizado' ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
+                              className={`text-sm ${usuarioForm.modoPersonalizado ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
                             >
                               {modulo.label}
                             </Label>
                           </div>
                         ))}
                       </div>
-                      {usuarioForm.funcao !== 'personalizado' ? (
+                      {!usuarioForm.modoPersonalizado ? (
                         <p className="text-xs text-muted-foreground mt-2">
-                          ℹ️ Permissões padrão da função selecionada. Selecione "Personalizado" para editar manualmente.
+                          ℹ️ Permissões padrão da função selecionada. Ative "Personalizado" para editar manualmente.
                         </p>
                       ) : (
                         <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
