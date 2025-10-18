@@ -206,15 +206,15 @@ export function NovoContratoDialog({ open, onOpenChange, modelos, onSuccess }: N
       let conteudoContrato = "";
 
       // Caso o modelo tenha sido feito upload e tenha um arquivo externo
-      if (modelo && !modelo.conteudo_template && modelo.file_url) {
+      if (modelo && !modelo.conteudo_template && (modelo as any).arquivo_docx_url) {
         // Busca o conteúdo do arquivo (docx/html) hospedado
         try {
-          const response = await fetch(modelo.file_url);
+          const response = await fetch((modelo as any).arquivo_docx_url);
           if (response.ok) {
             conteudoContrato = await response.text();
-            console.log("✅ Modelo carregado do upload:", modelo.file_url);
+            console.log("✅ Modelo carregado do upload:", (modelo as any).arquivo_docx_url);
           } else {
-            console.warn("⚠️ Erro ao carregar o arquivo do modelo:", modelo.file_url);
+            console.warn("⚠️ Erro ao carregar o arquivo do modelo:", (modelo as any).arquivo_docx_url);
           }
         } catch (error) {
           console.error("Erro ao buscar modelo:", error);
@@ -255,7 +255,7 @@ export function NovoContratoDialog({ open, onOpenChange, modelos, onSuccess }: N
           data_inicio: dataInicio,
           data_fim: dataFim,
           modelo_id: modelo?.id || null,
-          modelo_url: modelo?.file_url || null,
+          modelo_url: (modelo as any)?.arquivo_docx_url || null,
           observacoes: `${observacoes}\n\nServiços:\n${servicosTexto}\n\nEndereço: ${endereco}\nColaborador: ${colaborador?.nome || "N/A"}\nHorário: ${horarioInicio} - ${horarioFim}`,
           pdf_contrato: conteudoContrato,
           status_assinatura: "rascunho",

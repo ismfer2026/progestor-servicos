@@ -767,43 +767,6 @@ export default function Configuracoes() {
         </div>
       )}
 
-      {/* Info do plano */}
-      {empresaData && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Plano e Limites</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Plano Atual</p>
-                <p className="text-xl font-bold">{empresaData.plano}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Usuários Ativos / Limite</p>
-                <p className="text-xl font-bold">
-                  {usuarios.filter(u => u.status_conta === 'ativo' && u.ativo).length} / {empresaData.plano === 'Ilimitado' ? '∞' : empresaData.limite_usuarios}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Acessos Disponíveis</p>
-                <p className="text-xl font-bold">
-                  {empresaData.plano === 'Ilimitado' 
-                    ? '∞' 
-                    : Math.max(0, empresaData.limite_usuarios - usuarios.filter(u => u.status_conta === 'ativo' && u.ativo).length)
-                  }
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Status Pagamento</p>
-                <Badge variant={empresaData.status_pagamento === 'ativo' ? 'default' : 'destructive'}>
-                  {empresaData.status_pagamento}
-                </Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       <Card>
         <CardHeader>
