@@ -149,10 +149,6 @@ export default function Configuracoes() {
       loadColaboradores();
     } else if (activeTab === 'categorias') {
       loadCategorias();
-    } else if (activeTab === 'usuarios') {
-      loadUsuarios();
-      loadEmpresaData();
-      loadPlanos();
     }
   }, [activeTab]);
 

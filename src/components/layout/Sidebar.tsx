@@ -15,11 +15,13 @@ import {
   Wrench,
   ChevronDown,
   RefreshCw,
-  FileCheck
+  FileCheck,
+  Shield
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { useAuth } from '@/contexts/AuthContext';
 
 const navigation = [
   { name: 'Tela Principal', href: '/', icon: Home },
@@ -33,11 +35,15 @@ const navigation = [
   { name: 'Contratos', href: '/contratos', icon: FileText },
   { name: 'Relatórios', href: '/relatorios', icon: BarChart3 },
   { name: 'Configurações', href: '/configuracoes', icon: Settings },
+  { name: 'ADM', href: '/adm', icon: Shield, adminOnly: true },
 ];
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const { user } = useAuth();
+  
+  const isAdmin = user?.role === 'admin' || user?.id === user?.empresa_id;
 
   const isActive = (path: string) => {
     if (path === '/') {
@@ -69,6 +75,9 @@ export function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
         {navigation.map((item) => {
+          // Ocultar item ADM se não for admin
+          if (item.adminOnly && !isAdmin) return null;
+          
           const Icon = item.icon;
           const active = isActive(item.href);
           

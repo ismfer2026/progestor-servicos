@@ -25,6 +25,7 @@ import Relatorios from "@/pages/Relatorios";
 import Configuracoes from "@/pages/Configuracoes";
 import Contratos from "@/pages/Contratos";
 import { NovoContrato } from "@/pages/NovoContrato";
+import ADM from "@/pages/ADM";
 
 const queryClient = new QueryClient();
 
@@ -222,6 +223,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <Contratos />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/adm" 
+                element={
+                  <ProtectedRoute>
+                    <ADM />
                   </ProtectedRoute>
                 } 
               />
