@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Users, CreditCard, Settings as SettingsIcon, Plus, Pencil, Trash2, AlertTriangle, Check, X, Link as LinkIcon } from 'lucide-react';
+import { Users, CreditCard, Settings as SettingsIcon, Plus, Pencil, Trash2, AlertTriangle, Check, X, Link as LinkIcon, Mail, MessageCircle, Bell } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useWhatsAppConfig } from '@/hooks/useWhatsAppConfig';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -80,7 +81,9 @@ const PERMISSOES_PADRAO = {
 
 export default function ADM() {
   const { user } = useAuth();
+  const { defaultPhone, saveWhatsAppConfig } = useWhatsAppConfig();
   const [activeTab, setActiveTab] = useState('usuarios');
+  const [whatsappPhone, setWhatsappPhone] = useState('');
   
   // Estados para gerenciamento de usuários
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
@@ -119,6 +122,12 @@ export default function ADM() {
   if (!isAdmin) {
     return <Navigate to="/" replace />;
   }
+
+  useEffect(() => {
+    if (defaultPhone) {
+      setWhatsappPhone(defaultPhone);
+    }
+  }, [defaultPhone]);
 
   useEffect(() => {
     if (activeTab === 'usuarios') {
@@ -508,6 +517,15 @@ export default function ADM() {
     const hoje = new Date();
     const dataVencimento = new Date(vencimento);
     return dataVencimento < hoje;
+  };
+
+  const handleSaveWhatsApp = async () => {
+    const success = await saveWhatsAppConfig(whatsappPhone);
+    if (success) {
+      toast.success('Configuração do WhatsApp salva com sucesso!');
+    } else {
+      toast.error('Erro ao salvar configuração do WhatsApp');
+    }
   };
 
   return (
@@ -1007,18 +1025,85 @@ export default function ADM() {
         </TabsContent>
 
         <TabsContent value="integracoes" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Integrações</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-12 text-muted-foreground">
-                <SettingsIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Nenhuma integração disponível no momento.</p>
-                <p className="text-sm mt-2">Em breve você poderá conectar seu sistema com outras ferramentas.</p>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Mail className="mr-2 h-5 w-5" />
+                  Configurações de E-mail
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="smtpHost">Servidor SMTP</Label>
+                  <Input id="smtpHost" placeholder="smtp.gmail.com" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="smtpPort">Porta</Label>
+                    <Input id="smtpPort" defaultValue="587" />
+                  </div>
+                  <div>
+                    <Label htmlFor="smtpSecurity">Segurança</Label>
+                    <Select defaultValue="tls">
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="tls">TLS</SelectItem>
+                        <SelectItem value="ssl">SSL</SelectItem>
+                        <SelectItem value="none">Nenhuma</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="smtpUser">Usuário</Label>
+                  <Input id="smtpUser" placeholder="seu@email.com" />
+                </div>
+                <div>
+                  <Label htmlFor="smtpPass">Senha</Label>
+                  <Input id="smtpPass" type="password" placeholder="********" />
+                </div>
+                <Button>Testar Conexão</Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <MessageCircle className="mr-2 h-5 w-5" />
+                  Integração WhatsApp (Gratuita)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="bg-muted p-3 rounded-lg text-sm">
+                  <p className="font-medium mb-1">Integração gratuita via WhatsApp Web</p>
+                  <p className="text-muted-foreground">
+                    Configure o número padrão do WhatsApp da empresa. 
+                    Ao enviar mensagens pelo sistema, o WhatsApp Web será aberto automaticamente.
+                  </p>
+                  <p className="text-amber-600 dark:text-amber-500 mt-2 flex items-center gap-1">
+                    <Bell className="h-4 w-4" />
+                    <span className="font-medium">Importante:</span> Permita pop-ups neste site para que o WhatsApp abra corretamente.
+                  </p>
+                </div>
+                <div>
+                  <Label htmlFor="whatsappPhone">Número do Telefone *</Label>
+                  <Input 
+                    id="whatsappPhone" 
+                    placeholder="5511999999999" 
+                    value={whatsappPhone}
+                    onChange={(e) => setWhatsappPhone(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Formato: Código do país + DDD + número (ex: 5511999999999)
+                  </p>
+                </div>
+                <Button onClick={handleSaveWhatsApp}>Salvar Configuração</Button>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
