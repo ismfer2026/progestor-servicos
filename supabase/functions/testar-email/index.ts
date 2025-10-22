@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -26,30 +27,53 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log(`Testing email connection to ${smtpHost}:${smtpPort} with security ${smtpSecurity}`);
 
-    // Preparar configurações de segurança
-    const secureConnection = smtpSecurity === 'ssl';
-    const startTls = smtpSecurity === 'tls';
-
-    // Criar conexão SMTP usando fetch para enviar e-mail
-    // Como Deno não tem uma biblioteca SMTP nativa, vamos simular o teste
-    // Em produção, você pode usar uma biblioteca como nodemailer ou similar
-    
-    // Por enquanto, vamos validar os parâmetros e simular sucesso
     if (!smtpHost || !smtpUser || !smtpPass) {
       throw new Error("Configurações incompletas");
     }
 
-    // Tentar fazer uma conexão básica para validar
+    // Configurar cliente SMTP
+    const client = new SMTPClient({
+      connection: {
+        hostname: smtpHost,
+        port: smtpPort,
+        tls: smtpSecurity === 'tls' || smtpSecurity === 'ssl',
+        auth: {
+          username: smtpUser,
+          password: smtpPass,
+        },
+      },
+    });
+
     try {
-      const protocol = secureConnection ? 'https' : 'http';
-      // Apenas validação básica - em produção use uma biblioteca SMTP adequada
+      // Enviar e-mail de teste
+      await client.send({
+        from: smtpUser,
+        to: testEmail,
+        subject: "Teste de Configuração SMTP",
+        content: "Este é um e-mail de teste para verificar as configurações SMTP.",
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 20px;">
+            <h2 style="color: #4CAF50;">✅ Configuração SMTP Testada com Sucesso!</h2>
+            <p>Este é um e-mail de teste enviado pelo sistema.</p>
+            <p>Se você recebeu esta mensagem, suas configurações SMTP estão funcionando corretamente.</p>
+            <hr style="border: 1px solid #eee; margin: 20px 0;">
+            <p style="color: #666; font-size: 12px;">
+              Servidor: ${smtpHost}<br>
+              Porta: ${smtpPort}<br>
+              Segurança: ${smtpSecurity.toUpperCase()}
+            </p>
+          </div>
+        `,
+      });
+
+      await client.close();
       
-      console.log(`Configuration validated for ${smtpUser}`);
+      console.log(`Test email sent successfully to ${testEmail}`);
       
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: "Configurações validadas com sucesso! Nota: Para envio real de e-mails, integre com um serviço como Resend ou SendGrid." 
+          message: "E-mail de teste enviado com sucesso! Verifique sua caixa de entrada." 
         }),
         {
           status: 200,
@@ -60,8 +84,20 @@ const handler = async (req: Request): Promise<Response> => {
         }
       );
     } catch (error: any) {
-      console.error("Connection test failed:", error);
-      throw new Error(`Falha ao conectar: ${error.message}`);
+      console.error("SMTP error:", error);
+      await client.close();
+      
+      let errorMessage = "Erro ao enviar e-mail de teste";
+      
+      if (error.message.includes("authentication")) {
+        errorMessage = "Erro de autenticação. Verifique usuário e senha.";
+      } else if (error.message.includes("connection")) {
+        errorMessage = "Erro de conexão. Verifique servidor e porta.";
+      } else if (error.message.includes("tls") || error.message.includes("ssl")) {
+        errorMessage = "Erro de segurança. Verifique o tipo de segurança (TLS/SSL).";
+      }
+      
+      throw new Error(`${errorMessage}: ${error.message}`);
     }
   } catch (error: any) {
     console.error("Error in email test function:", error);
