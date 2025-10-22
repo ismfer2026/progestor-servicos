@@ -1204,15 +1204,7 @@ export default function ADM() {
                     onChange={(e) => setEmailConfig({ ...emailConfig, smtpPass: e.target.value })}
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Para Gmail, use uma senha de app. 
-                    <a 
-                      href="https://support.google.com/accounts/answer/185833" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline ml-1"
-                    >
-                      Saiba mais
-                    </a>
+                    Digite a senha da sua conta de e-mail
                   </p>
                 </div>
                 <div className="flex gap-2">
