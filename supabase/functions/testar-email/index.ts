@@ -45,25 +45,19 @@ const handler = async (req: Request): Promise<Response> => {
     });
 
     try {
-      // Enviar e-mail de teste
+      // Enviar e-mail de teste simples (apenas texto)
       await client.send({
         from: smtpUser,
         to: testEmail,
-        subject: "Teste de Configuração SMTP",
-        content: "Este é um e-mail de teste para verificar as configurações SMTP.",
-        html: `
-          <div style="font-family: Arial, sans-serif; padding: 20px;">
-            <h2 style="color: #4CAF50;">✅ Configuração SMTP Testada com Sucesso!</h2>
-            <p>Este é um e-mail de teste enviado pelo sistema.</p>
-            <p>Se você recebeu esta mensagem, suas configurações SMTP estão funcionando corretamente.</p>
-            <hr style="border: 1px solid #eee; margin: 20px 0;">
-            <p style="color: #666; font-size: 12px;">
-              Servidor: ${smtpHost}<br>
-              Porta: ${smtpPort}<br>
-              Segurança: ${smtpSecurity.toUpperCase()}
-            </p>
-          </div>
-        `,
+        subject: "Teste de Configuracao SMTP",
+        content: `Configuracao SMTP Testada com Sucesso!
+
+Este e um e-mail de teste enviado pelo sistema.
+Se voce recebeu esta mensagem, suas configuracoes SMTP estao funcionando corretamente.
+
+Servidor: ${smtpHost}
+Porta: ${smtpPort}
+Seguranca: ${smtpSecurity.toUpperCase()}`,
       });
 
       await client.close();
@@ -85,19 +79,24 @@ const handler = async (req: Request): Promise<Response> => {
       );
     } catch (error: any) {
       console.error("SMTP error:", error);
-      await client.close();
+      
+      try {
+        await client.close();
+      } catch (e) {
+        console.error("Error closing client:", e);
+      }
       
       let errorMessage = "Erro ao enviar e-mail de teste";
       
-      if (error.message.includes("authentication")) {
+      if (error.message && error.message.includes("authentication")) {
         errorMessage = "Erro de autenticação. Verifique usuário e senha.";
-      } else if (error.message.includes("connection")) {
+      } else if (error.message && error.message.includes("connection")) {
         errorMessage = "Erro de conexão. Verifique servidor e porta.";
-      } else if (error.message.includes("tls") || error.message.includes("ssl")) {
+      } else if (error.message && (error.message.includes("tls") || error.message.includes("ssl"))) {
         errorMessage = "Erro de segurança. Verifique o tipo de segurança (TLS/SSL).";
       }
       
-      throw new Error(`${errorMessage}: ${error.message}`);
+      throw new Error(`${errorMessage}: ${error.message || error.name}`);
     }
   } catch (error: any) {
     console.error("Error in email test function:", error);
