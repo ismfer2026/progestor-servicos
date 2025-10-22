@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, CreditCard, Settings as SettingsIcon, Plus, Pencil, Trash2, AlertTriangle, Check, X, Link as LinkIcon, Mail, MessageCircle, Bell } from 'lucide-react';
+import { Users, CreditCard, Settings as SettingsIcon, Plus, Pencil, Trash2, AlertTriangle, Check, X, Link as LinkIcon, Mail, MessageCircle, Bell, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWhatsAppConfig } from '@/hooks/useWhatsAppConfig';
 import { supabase } from '@/integrations/supabase/client';
@@ -94,6 +94,7 @@ export default function ADM() {
     smtpPass: ''
   });
   const [testingEmail, setTestingEmail] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   
   // Estados para gerenciamento de usuários
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
@@ -1196,13 +1197,29 @@ export default function ADM() {
                 </div>
                 <div>
                   <Label htmlFor="smtpPass">Senha *</Label>
-                  <Input 
-                    id="smtpPass" 
-                    type="password" 
-                    placeholder="********"
-                    value={emailConfig.smtpPass}
-                    onChange={(e) => setEmailConfig({ ...emailConfig, smtpPass: e.target.value })}
-                  />
+                  <div className="relative">
+                    <Input 
+                      id="smtpPass" 
+                      type={showPassword ? "text" : "password"}
+                      placeholder="********"
+                      value={emailConfig.smtpPass}
+                      onChange={(e) => setEmailConfig({ ...emailConfig, smtpPass: e.target.value })}
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <Eye className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <EyeOff className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </Button>
+                  </div>
                   <p className="text-xs text-muted-foreground mt-1">
                     Digite a senha da sua conta de e-mail
                   </p>
