@@ -85,6 +85,16 @@ export default function ADM() {
   const [activeTab, setActiveTab] = useState('usuarios');
   const [whatsappPhone, setWhatsappPhone] = useState('');
   
+  // Estados para configuração de e-mail
+  const [emailConfig, setEmailConfig] = useState({
+    smtpHost: '',
+    smtpPort: '587',
+    smtpSecurity: 'tls',
+    smtpUser: '',
+    smtpPass: ''
+  });
+  const [testingEmail, setTestingEmail] = useState(false);
+  
   // Estados para gerenciamento de usuários
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [empresaData, setEmpresaData] = useState<EmpresaData | null>(null);
@@ -136,6 +146,8 @@ export default function ADM() {
       loadPlanos();
     } else if (activeTab === 'planos') {
       loadPlanos();
+    } else if (activeTab === 'integracoes') {
+      loadEmailConfig();
     }
   }, [activeTab]);
 
@@ -496,6 +508,102 @@ export default function ADM() {
       plano: ''
     });
     setEditingUsuario(null);
+  };
+
+  const loadEmailConfig = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('configuracoes')
+        .select('valor')
+        .eq('empresa_id', user.empresa_id)
+        .eq('chave', 'email_config')
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      
+      if (data && data.valor) {
+        setEmailConfig(data.valor as any);
+      }
+    } catch (error) {
+      console.error('Error loading email config:', error);
+    }
+  };
+
+  const handleSaveEmailConfig = async () => {
+    if (!user) return;
+
+    if (!emailConfig.smtpHost || !emailConfig.smtpUser || !emailConfig.smtpPass) {
+      toast.error('Preencha todos os campos obrigatórios');
+      return;
+    }
+
+    try {
+      const { data: existing } = await supabase
+        .from('configuracoes')
+        .select('id')
+        .eq('empresa_id', user.empresa_id)
+        .eq('chave', 'email_config')
+        .single();
+
+      if (existing) {
+        await supabase
+          .from('configuracoes')
+          .update({ valor: emailConfig as any })
+          .eq('id', existing.id);
+      } else {
+        await supabase
+          .from('configuracoes')
+          .insert({
+            empresa_id: user.empresa_id,
+            chave: 'email_config',
+            valor: emailConfig as any,
+            tipo: 'json',
+            descricao: 'Configurações de e-mail SMTP'
+          });
+      }
+      
+      toast.success('Configurações de e-mail salvas com sucesso!');
+    } catch (error) {
+      console.error('Error saving email config:', error);
+      toast.error('Erro ao salvar configurações de e-mail');
+    }
+  };
+
+  const handleTestEmailConnection = async () => {
+    if (!emailConfig.smtpHost || !emailConfig.smtpUser || !emailConfig.smtpPass) {
+      toast.error('Configure todos os campos antes de testar');
+      return;
+    }
+
+    setTestingEmail(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('testar-email', {
+        body: {
+          smtpHost: emailConfig.smtpHost,
+          smtpPort: parseInt(emailConfig.smtpPort),
+          smtpSecurity: emailConfig.smtpSecurity,
+          smtpUser: emailConfig.smtpUser,
+          smtpPass: emailConfig.smtpPass,
+          testEmail: emailConfig.smtpUser
+        }
+      });
+
+      if (error) throw error;
+      
+      if (data?.success) {
+        toast.success('Conexão testada com sucesso! E-mail de teste enviado.');
+      } else {
+        toast.error(data?.error || 'Erro ao testar conexão');
+      }
+    } catch (error: any) {
+      console.error('Error testing email:', error);
+      toast.error('Erro ao testar conexão: ' + (error.message || 'Erro desconhecido'));
+    } finally {
+      setTestingEmail(false);
+    }
   };
 
   const gerarLinkDeConvite = () => {
@@ -1034,18 +1142,38 @@ export default function ADM() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg text-sm mb-4">
+                  <p className="font-medium text-blue-900 dark:text-blue-100">
+                    Configure o servidor SMTP para enviar e-mails pelo sistema
+                  </p>
+                  <p className="text-blue-700 dark:text-blue-300 mt-1">
+                    Funciona com Gmail, Outlook, ou qualquer servidor SMTP
+                  </p>
+                </div>
                 <div>
-                  <Label htmlFor="smtpHost">Servidor SMTP</Label>
-                  <Input id="smtpHost" placeholder="smtp.gmail.com" />
+                  <Label htmlFor="smtpHost">Servidor SMTP *</Label>
+                  <Input 
+                    id="smtpHost" 
+                    placeholder="smtp.gmail.com" 
+                    value={emailConfig.smtpHost}
+                    onChange={(e) => setEmailConfig({ ...emailConfig, smtpHost: e.target.value })}
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="smtpPort">Porta</Label>
-                    <Input id="smtpPort" defaultValue="587" />
+                    <Label htmlFor="smtpPort">Porta *</Label>
+                    <Input 
+                      id="smtpPort" 
+                      value={emailConfig.smtpPort}
+                      onChange={(e) => setEmailConfig({ ...emailConfig, smtpPort: e.target.value })}
+                    />
                   </div>
                   <div>
                     <Label htmlFor="smtpSecurity">Segurança</Label>
-                    <Select defaultValue="tls">
+                    <Select 
+                      value={emailConfig.smtpSecurity}
+                      onValueChange={(value) => setEmailConfig({ ...emailConfig, smtpSecurity: value })}
+                    >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -1058,14 +1186,47 @@ export default function ADM() {
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="smtpUser">Usuário</Label>
-                  <Input id="smtpUser" placeholder="seu@email.com" />
+                  <Label htmlFor="smtpUser">Usuário (E-mail) *</Label>
+                  <Input 
+                    id="smtpUser" 
+                    placeholder="seu@email.com"
+                    value={emailConfig.smtpUser}
+                    onChange={(e) => setEmailConfig({ ...emailConfig, smtpUser: e.target.value })}
+                  />
                 </div>
                 <div>
-                  <Label htmlFor="smtpPass">Senha</Label>
-                  <Input id="smtpPass" type="password" placeholder="********" />
+                  <Label htmlFor="smtpPass">Senha *</Label>
+                  <Input 
+                    id="smtpPass" 
+                    type="password" 
+                    placeholder="********"
+                    value={emailConfig.smtpPass}
+                    onChange={(e) => setEmailConfig({ ...emailConfig, smtpPass: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Para Gmail, use uma senha de app. 
+                    <a 
+                      href="https://support.google.com/accounts/answer/185833" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline ml-1"
+                    >
+                      Saiba mais
+                    </a>
+                  </p>
                 </div>
-                <Button>Testar Conexão</Button>
+                <div className="flex gap-2">
+                  <Button onClick={handleSaveEmailConfig} className="flex-1">
+                    Salvar Configuração
+                  </Button>
+                  <Button 
+                    onClick={handleTestEmailConnection} 
+                    variant="outline"
+                    disabled={testingEmail}
+                  >
+                    {testingEmail ? 'Testando...' : 'Testar Conexão'}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
 

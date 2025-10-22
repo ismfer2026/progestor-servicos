@@ -5,3 +5,6 @@ verify_jwt = true
 
 [functions.processar-contrato-docx]
 verify_jwt = true
+
+[functions.testar-email]
+verify_jwt = true
