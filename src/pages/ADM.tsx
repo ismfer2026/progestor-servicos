@@ -592,16 +592,22 @@ export default function ADM() {
         }
       });
 
-      if (error) throw error;
+      console.log('Test response:', { data, error });
+
+      if (error) {
+        console.error('Function invocation error:', error);
+        toast.error('Erro ao chamar função de teste. Tente novamente em alguns segundos.');
+        return;
+      }
       
       if (data?.success) {
-        toast.success('Conexão testada com sucesso! E-mail de teste enviado.');
+        toast.success(data.message || 'Conexão testada com sucesso!');
       } else {
         toast.error(data?.error || 'Erro ao testar conexão');
       }
     } catch (error: any) {
       console.error('Error testing email:', error);
-      toast.error('Erro ao testar conexão: ' + (error.message || 'Erro desconhecido'));
+      toast.error('Erro ao testar: ' + (error.message || 'Erro desconhecido'));
     } finally {
       setTestingEmail(false);
     }

@@ -15,8 +15,104 @@ interface EmailTestRequest {
   testEmail: string;
 }
 
+async function testSmtpConnection(
+  host: string,
+  port: number,
+  secure: boolean,
+  user: string,
+  pass: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    // Conectar ao servidor SMTP
+    const conn = await Deno.connect({
+      hostname: host,
+      port: port,
+    });
+
+    const decoder = new TextDecoder();
+    const encoder = new TextEncoder();
+    
+    // Buffer para ler respostas
+    const buffer = new Uint8Array(1024);
+    
+    // Ler banner de boas-vindas
+    await conn.read(buffer);
+    console.log("Banner:", decoder.decode(buffer));
+    
+    // EHLO
+    await conn.write(encoder.encode(`EHLO lovable.dev\r\n`));
+    await conn.read(buffer);
+    console.log("EHLO response:", decoder.decode(buffer));
+    
+    // STARTTLS se necessário
+    if (secure && port !== 465) {
+      await conn.write(encoder.encode(`STARTTLS\r\n`));
+      await conn.read(buffer);
+      console.log("STARTTLS response:", decoder.decode(buffer));
+    }
+    
+    // AUTH LOGIN
+    await conn.write(encoder.encode(`AUTH LOGIN\r\n`));
+    await conn.read(buffer);
+    
+    // Enviar username em base64
+    const userB64 = btoa(user);
+    await conn.write(encoder.encode(`${userB64}\r\n`));
+    await conn.read(buffer);
+    
+    // Enviar password em base64
+    const passB64 = btoa(pass);
+    await conn.write(encoder.encode(`${passB64}\r\n`));
+    const authResponse = await conn.read(buffer);
+    const authText = decoder.decode(buffer.subarray(0, authResponse || 0));
+    
+    console.log("AUTH response:", authText);
+    
+    // QUIT
+    await conn.write(encoder.encode(`QUIT\r\n`));
+    conn.close();
+    
+    // Verificar se autenticação foi bem-sucedida
+    if (authText.includes("235") || authText.includes("Authentication successful")) {
+      return {
+        success: true,
+        message: "Autenticação SMTP realizada com sucesso! Credenciais válidas."
+      };
+    } else if (authText.includes("535") || authText.includes("authentication failed")) {
+      return {
+        success: false,
+        message: "Erro de autenticação. Verifique usuário e senha."
+      };
+    } else {
+      return {
+        success: false,
+        message: `Resposta inesperada do servidor: ${authText.substring(0, 100)}`
+      };
+    }
+  } catch (error: any) {
+    console.error("Connection error:", error);
+    
+    if (error.message?.includes("connection refused")) {
+      return {
+        success: false,
+        message: "Conexão recusada. Verifique o host e porta."
+      };
+    } else if (error.message?.includes("timeout")) {
+      return {
+        success: false,
+        message: "Timeout na conexão. Verifique o host e porta."
+      };
+    } else {
+      return {
+        success: false,
+        message: `Erro na conexão: ${error.message}`
+      };
+    }
+  }
+}
+
 const handler = async (req: Request): Promise<Response> => {
-  console.log("testar-email function called", { method: req.method });
+  console.log("testar-email function called");
   
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -25,105 +121,22 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     const body = await req.json();
-    console.log("Request body received:", { 
-      smtpHost: body.smtpHost, 
-      smtpPort: body.smtpPort,
-      smtpSecurity: body.smtpSecurity,
-      hasUser: !!body.smtpUser,
-      hasPass: !!body.smtpPass,
-      testEmail: body.testEmail
-    });
-    
     const { smtpHost, smtpPort, smtpSecurity, smtpUser, smtpPass, testEmail }: EmailTestRequest = body;
 
-    console.log(`Testing email connection to ${smtpHost}:${smtpPort} with security ${smtpSecurity}`);
+    console.log(`Testing SMTP: ${smtpHost}:${smtpPort} (${smtpSecurity})`);
 
     if (!smtpHost || !smtpUser || !smtpPass) {
-      console.error("Missing configuration");
       throw new Error("Configurações incompletas");
     }
 
-    // Criar comando SMTP usando raw TCP
-    const secure = smtpSecurity === 'ssl' || smtpSecurity === 'tls';
-    const protocol = secure ? 'smtps' : 'smtp';
+    const isSecure = smtpSecurity === 'tls' || smtpSecurity === 'ssl';
+    const result = await testSmtpConnection(smtpHost, smtpPort, isSecure, smtpUser, smtpPass);
     
-    console.log(`Attempting to send email via ${protocol}://${smtpHost}:${smtpPort}`);
-    
-    // Usar curl para enviar email de teste
-    const emailBody = `From: ${smtpUser}
-To: ${testEmail}
-Subject: Teste de Configuracao SMTP
-Content-Type: text/plain; charset=utf-8
-
-Configuracao SMTP Testada com Sucesso!
-
-Este e um e-mail de teste enviado pelo sistema.
-Se voce recebeu esta mensagem, suas configuracoes SMTP estao funcionando corretamente.
-
-Servidor: ${smtpHost}
-Porta: ${smtpPort}
-Seguranca: ${smtpSecurity.toUpperCase()}`;
-
-    // Criar comando curl
-    const curlCommand = [
-      'curl',
-      '--url', `${protocol}://${smtpHost}:${smtpPort}`,
-      '--mail-from', smtpUser,
-      '--mail-rcpt', testEmail,
-      '--user', `${smtpUser}:${smtpPass}`,
-      '--upload-file', '-',
-    ];
-    
-    if (secure) {
-      curlCommand.push('--ssl-reqd');
-    }
-    
-    console.log("Executing curl command (password hidden)");
-    
-    try {
-      const process = new Deno.Command('curl', {
-        args: curlCommand.slice(1),
-        stdin: 'piped',
-        stdout: 'piped',
-        stderr: 'piped',
-      });
-
-      const child = process.spawn();
-      
-      // Enviar o corpo do email via stdin
-      const writer = child.stdin.getWriter();
-      await writer.write(new TextEncoder().encode(emailBody));
-      await writer.close();
-      
-      const { code, stdout, stderr } = await child.output();
-      
-      const stdoutText = new TextDecoder().decode(stdout);
-      const stderrText = new TextDecoder().decode(stderr);
-      
-      console.log("Curl exit code:", code);
-      console.log("Curl stdout:", stdoutText);
-      console.log("Curl stderr:", stderrText);
-      
-      if (code !== 0) {
-        let errorMessage = "Erro ao enviar e-mail de teste";
-        
-        if (stderrText.includes("authentication") || stderrText.includes("login") || stderrText.includes("535")) {
-          errorMessage = "Erro de autenticação. Verifique usuário e senha.";
-        } else if (stderrText.includes("connect") || stderrText.includes("resolve")) {
-          errorMessage = "Erro de conexão. Verifique servidor e porta.";
-        } else if (stderrText.includes("ssl") || stderrText.includes("tls")) {
-          errorMessage = "Erro de segurança. Verifique o tipo de segurança (TLS/SSL).";
-        }
-        
-        throw new Error(`${errorMessage}: ${stderrText || stdoutText}`);
-      }
-      
-      console.log(`Test email sent successfully to ${testEmail}`);
-      
+    if (result.success) {
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: "E-mail de teste enviado com sucesso! Verifique sua caixa de entrada." 
+          message: result.message
         }),
         {
           status: 200,
@@ -133,9 +146,20 @@ Seguranca: ${smtpSecurity.toUpperCase()}`;
           },
         }
       );
-    } catch (error: any) {
-      console.error("SMTP/Curl error:", error);
-      throw error;
+    } else {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: result.message
+        }),
+        {
+          status: 400,
+          headers: {
+            "Content-Type": "application/json",
+            ...corsHeaders,
+          },
+        }
+      );
     }
   } catch (error: any) {
     console.error("Error in email test function:", error);
