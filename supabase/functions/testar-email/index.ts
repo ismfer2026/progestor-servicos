@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createTransport } from "npm:nodemailer@6.9.7";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,102 +14,6 @@ interface EmailTestRequest {
   smtpUser: string;
   smtpPass: string;
   testEmail: string;
-}
-
-async function testSmtpConnection(
-  host: string,
-  port: number,
-  secure: boolean,
-  user: string,
-  pass: string
-): Promise<{ success: boolean; message: string }> {
-  try {
-    // Conectar ao servidor SMTP
-    const conn = await Deno.connect({
-      hostname: host,
-      port: port,
-    });
-
-    const decoder = new TextDecoder();
-    const encoder = new TextEncoder();
-    
-    // Buffer para ler respostas
-    const buffer = new Uint8Array(1024);
-    
-    // Ler banner de boas-vindas
-    await conn.read(buffer);
-    console.log("Banner:", decoder.decode(buffer));
-    
-    // EHLO
-    await conn.write(encoder.encode(`EHLO lovable.dev\r\n`));
-    await conn.read(buffer);
-    console.log("EHLO response:", decoder.decode(buffer));
-    
-    // STARTTLS se necessário
-    if (secure && port !== 465) {
-      await conn.write(encoder.encode(`STARTTLS\r\n`));
-      await conn.read(buffer);
-      console.log("STARTTLS response:", decoder.decode(buffer));
-    }
-    
-    // AUTH LOGIN
-    await conn.write(encoder.encode(`AUTH LOGIN\r\n`));
-    await conn.read(buffer);
-    
-    // Enviar username em base64
-    const userB64 = btoa(user);
-    await conn.write(encoder.encode(`${userB64}\r\n`));
-    await conn.read(buffer);
-    
-    // Enviar password em base64
-    const passB64 = btoa(pass);
-    await conn.write(encoder.encode(`${passB64}\r\n`));
-    const authResponse = await conn.read(buffer);
-    const authText = decoder.decode(buffer.subarray(0, authResponse || 0));
-    
-    console.log("AUTH response:", authText);
-    
-    // QUIT
-    await conn.write(encoder.encode(`QUIT\r\n`));
-    conn.close();
-    
-    // Verificar se autenticação foi bem-sucedida
-    if (authText.includes("235") || authText.includes("Authentication successful")) {
-      return {
-        success: true,
-        message: "Autenticação SMTP realizada com sucesso! Credenciais válidas."
-      };
-    } else if (authText.includes("535") || authText.includes("authentication failed")) {
-      return {
-        success: false,
-        message: "Erro de autenticação. Verifique usuário e senha."
-      };
-    } else {
-      return {
-        success: false,
-        message: `Resposta inesperada do servidor: ${authText.substring(0, 100)}`
-      };
-    }
-  } catch (error: any) {
-    console.error("Connection error:", error);
-    
-    if (error.message?.includes("connection refused")) {
-      return {
-        success: false,
-        message: "Conexão recusada. Verifique o host e porta."
-      };
-    } else if (error.message?.includes("timeout")) {
-      return {
-        success: false,
-        message: "Timeout na conexão. Verifique o host e porta."
-      };
-    } else {
-      return {
-        success: false,
-        message: `Erro na conexão: ${error.message}`
-      };
-    }
-  }
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -129,14 +34,62 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error("Configurações incompletas");
     }
 
-    const isSecure = smtpSecurity === 'tls' || smtpSecurity === 'ssl';
-    const result = await testSmtpConnection(smtpHost, smtpPort, isSecure, smtpUser, smtpPass);
+    // Configurar transporter do nodemailer
+    const transporter = createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpSecurity === 'ssl', // true para porta 465, false para outras portas
+      auth: {
+        user: smtpUser,
+        pass: smtpPass,
+      },
+      tls: {
+        rejectUnauthorized: false, // Aceita certificados autoassinados
+      },
+    });
+
+    console.log("Verifying SMTP connection...");
     
-    if (result.success) {
+    // Verificar conexão
+    try {
+      await transporter.verify();
+      console.log("SMTP connection verified successfully");
+      
+      // Enviar email de teste
+      console.log(`Sending test email to ${testEmail}`);
+      const info = await transporter.sendMail({
+        from: smtpUser,
+        to: testEmail,
+        subject: "Teste de Configuração SMTP",
+        text: `Configuração SMTP Testada com Sucesso!
+
+Este é um e-mail de teste enviado pelo sistema.
+Se você recebeu esta mensagem, suas configurações SMTP estão funcionando corretamente.
+
+Servidor: ${smtpHost}
+Porta: ${smtpPort}
+Segurança: ${smtpSecurity.toUpperCase()}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px;">
+            <h2 style="color: #4CAF50;">✅ Configuração SMTP Testada com Sucesso!</h2>
+            <p>Este é um e-mail de teste enviado pelo sistema.</p>
+            <p>Se você recebeu esta mensagem, suas configurações SMTP estão funcionando corretamente.</p>
+            <hr style="border: 1px solid #eee; margin: 20px 0;">
+            <p style="color: #666; font-size: 14px;">
+              <strong>Servidor:</strong> ${smtpHost}<br>
+              <strong>Porta:</strong> ${smtpPort}<br>
+              <strong>Segurança:</strong> ${smtpSecurity.toUpperCase()}
+            </p>
+          </div>
+        `,
+      });
+      
+      console.log("Test email sent successfully:", info.messageId);
+      
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: result.message
+          message: "E-mail de teste enviado com sucesso! Verifique sua caixa de entrada." 
         }),
         {
           status: 200,
@@ -146,20 +99,20 @@ const handler = async (req: Request): Promise<Response> => {
           },
         }
       );
-    } else {
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: result.message
-        }),
-        {
-          status: 400,
-          headers: {
-            "Content-Type": "application/json",
-            ...corsHeaders,
-          },
-        }
-      );
+    } catch (error: any) {
+      console.error("SMTP verification/send error:", error);
+      
+      let errorMessage = "Erro ao testar conexão SMTP";
+      
+      if (error.code === 'EAUTH' || error.responseCode === 535) {
+        errorMessage = "Erro de autenticação. Verifique usuário e senha.";
+      } else if (error.code === 'ECONNECTION' || error.code === 'ETIMEDOUT') {
+        errorMessage = "Erro de conexão. Verifique servidor e porta.";
+      } else if (error.code === 'ESOCKET') {
+        errorMessage = "Erro de conexão. Verifique o tipo de segurança (TLS/SSL).";
+      }
+      
+      throw new Error(`${errorMessage} - ${error.message}`);
     }
   } catch (error: any) {
     console.error("Error in email test function:", error);
