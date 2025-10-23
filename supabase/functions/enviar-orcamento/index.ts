@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.56.0';
 import { Resend } from "npm:resend@2.0.0";
+import puppeteer from "https://deno.land/x/puppeteer@16.2.0/mod.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -83,45 +84,82 @@ const handler = async (req: Request): Promise<Response> => {
         `).join('')
       : '<tr><td colspan="4" style="padding: 8px; text-align: center;">Nenhum serviço encontrado</td></tr>';
 
-    const emailHtml = `
+    // Generate PDF HTML content
+    const pdfHtml = `
       <!DOCTYPE html>
       <html>
         <head>
           <meta charset="utf-8">
           <title>Orçamento - ${orcamento.empresas?.nome_fantasia || 'Empresa'}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .info-box { background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+            table { width: 100%; border-collapse: collapse; border: 1px solid #ddd; margin-bottom: 20px; }
+            th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+            th { background: #f8f9fa; }
+            .total { text-align: right; font-size: 18px; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>${orcamento.empresas?.nome_fantasia || 'Empresa'}</h1>
+            <p>Orçamento #${orcamento_id.slice(0, 8)}</p>
+          </div>
+          <div class="info-box">
+            <h2>Dados do Cliente</h2>
+            <p><strong>Nome:</strong> ${orcamento.clientes?.nome || 'N/A'}</p>
+            <p><strong>Email:</strong> ${orcamento.clientes?.email || 'N/A'}</p>
+            <p><strong>Telefone:</strong> ${orcamento.clientes?.telefone || 'N/A'}</p>
+          </div>
+          <h2>Serviços</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Serviço</th>
+                <th style="text-align: center;">Qtd</th>
+                <th style="text-align: right;">Valor Unit.</th>
+                <th style="text-align: right;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${servicosHtml}
+            </tbody>
+          </table>
+          <div class="total">
+            Valor Total: R$ ${Number(orcamento.valor_total || 0).toFixed(2)}
+          </div>
+          <p style="text-align: center; margin-top: 30px; color: #666;">
+            Orçamento válido por 30 dias<br>
+            Status: ${orcamento.status}
+          </p>
+        </body>
+      </html>
+    `;
+
+    // Generate PDF using puppeteer
+    let pdfBuffer: Uint8Array | null = null;
+    try {
+      const browser = await puppeteer.launch();
+      const page = await browser.newPage();
+      await page.setContent(pdfHtml);
+      pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
+      await browser.close();
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+    }
+
+    // Email HTML (with message first, then PDF attachment info)
+    const emailHtml = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
         </head>
         <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="text-align: center; margin-bottom: 30px;">
             <h1 style="color: #333; margin: 0;">${orcamento.empresas?.nome_fantasia || 'Empresa'}</h1>
             <p style="color: #666; margin: 5px 0;">Orçamento #${orcamento_id.slice(0, 8)}</p>
-          </div>
-
-          <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-            <h2 style="color: #333; margin-top: 0;">Dados do Cliente</h2>
-            <p><strong>Nome:</strong> ${orcamento.clientes?.nome || 'N/A'}</p>
-            <p><strong>Email:</strong> ${orcamento.clientes?.email || 'N/A'}</p>
-            <p><strong>Telefone:</strong> ${orcamento.clientes?.telefone || 'N/A'}</p>
-          </div>
-
-          <div style="margin-bottom: 20px;">
-            <h2 style="color: #333;">Serviços</h2>
-            <table style="width: 100%; border-collapse: collapse; border: 1px solid #ddd;">
-              <thead>
-                <tr style="background: #f8f9fa;">
-                  <th style="padding: 12px; text-align: left; border-bottom: 2px solid #ddd;">Serviço</th>
-                  <th style="padding: 12px; text-align: center; border-bottom: 2px solid #ddd;">Qtd</th>
-                  <th style="padding: 12px; text-align: right; border-bottom: 2px solid #ddd;">Valor Unit.</th>
-                  <th style="padding: 12px; text-align: right; border-bottom: 2px solid #ddd;">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${servicosHtml}
-              </tbody>
-            </table>
-          </div>
-
-          <div style="text-align: right; margin-bottom: 20px;">
-            <h3 style="color: #333; margin: 0;">Valor Total: R$ ${Number(orcamento.valor_total || 0).toFixed(2)}</h3>
           </div>
 
           ${mensagem_adicional ? `
@@ -131,21 +169,36 @@ const handler = async (req: Request): Promise<Response> => {
             </div>
           ` : ''}
 
+          <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <p style="margin: 0; color: #333;">
+              📎 O orçamento completo está anexado a este e-mail em formato PDF.
+            </p>
+          </div>
+
           <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
             <p style="color: #666; margin: 0;">Orçamento válido por 30 dias</p>
-            <p style="color: #666; margin: 5px 0 0 0;">Status: ${orcamento.status}</p>
           </div>
         </body>
       </html>
     `;
 
-    // Send email using Resend
-    const emailResponse = await resend.emails.send({
+    // Send email using Resend with PDF attachment
+    const emailPayload: any = {
       from: `${orcamento.empresas?.nome_fantasia || 'Empresa'} <onboarding@resend.dev>`,
       to: [email_destinatario],
       subject: `Orçamento - ${orcamento.empresas?.nome_fantasia || 'Empresa'}`,
       html: emailHtml,
-    });
+    };
+
+    // Add PDF attachment if generated successfully
+    if (pdfBuffer) {
+      emailPayload.attachments = [{
+        filename: `Orcamento_${orcamento_id.slice(0, 8)}.pdf`,
+        content: pdfBuffer,
+      }];
+    }
+
+    const emailResponse = await resend.emails.send(emailPayload);
 
     console.log("Email sent successfully:", emailResponse);
 
