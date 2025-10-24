@@ -60,6 +60,18 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
+    // Get SMTP configuration for the company
+    const { data: smtpConfig } = await supabaseClient
+      .from('configuracoes')
+      .select('valor')
+      .eq('empresa_id', orcamento.empresa_id)
+      .eq('chave', 'smtp_user')
+      .single();
+
+    const emailFrom = smtpConfig?.valor 
+      ? `${orcamento.empresas?.nome_fantasia || 'Empresa'} <${smtpConfig.valor}>`
+      : `${orcamento.empresas?.nome_fantasia || 'Empresa'} <onboarding@resend.dev>`;
+
     // Get user info for authentication
     const { data: { user } } = await supabaseClient.auth.getUser();
     if (!user) {
@@ -184,7 +196,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Send email using Resend with PDF attachment
     const emailPayload: any = {
-      from: `${orcamento.empresas?.nome_fantasia || 'Empresa'} <onboarding@resend.dev>`,
+      from: emailFrom,
       to: [email_destinatario],
       subject: `Orçamento - ${orcamento.empresas?.nome_fantasia || 'Empresa'}`,
       html: emailHtml,
