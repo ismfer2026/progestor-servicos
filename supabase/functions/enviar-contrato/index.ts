@@ -10,8 +10,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-interface EnviarOrcamentoRequest {
-  orcamento_id: string;
+interface EnviarContratoRequest {
+  contrato_id: string;
   email_destinatario: string;
   mensagem_adicional?: string;
 }
@@ -34,24 +34,24 @@ const handler = async (req: Request): Promise<Response> => {
       }
     );
 
-    const { orcamento_id, email_destinatario, mensagem_adicional }: EnviarOrcamentoRequest = await req.json();
+    const { contrato_id, email_destinatario, mensagem_adicional }: EnviarContratoRequest = await req.json();
 
-    // Get orçamento details with cliente and empresa info
-    const { data: orcamento, error: orcamentoError } = await supabaseClient
-      .from('orcamentos')
+    // Get contrato details with cliente and empresa info
+    const { data: contrato, error: contratoError } = await supabaseClient
+      .from('contratos')
       .select(`
         *,
         clientes (nome, email, telefone),
         usuarios (nome, email),
         empresas (nome_fantasia, email_admin)
       `)
-      .eq('id', orcamento_id)
+      .eq('id', contrato_id)
       .single();
 
-    if (orcamentoError || !orcamento) {
-      console.error('Erro ao buscar orçamento:', orcamentoError);
+    if (contratoError || !contrato) {
+      console.error('Erro ao buscar contrato:', contratoError);
       return new Response(
-        JSON.stringify({ error: 'Orçamento não encontrado' }),
+        JSON.stringify({ error: 'Contrato não encontrado' }),
         {
           status: 404,
           headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -63,13 +63,13 @@ const handler = async (req: Request): Promise<Response> => {
     const { data: smtpConfig } = await supabaseClient
       .from('configuracoes')
       .select('valor')
-      .eq('empresa_id', orcamento.empresa_id)
+      .eq('empresa_id', contrato.empresa_id)
       .eq('chave', 'smtp_user')
       .single();
 
     const emailFrom = smtpConfig?.valor 
-      ? `${orcamento.empresas?.nome_fantasia || 'Empresa'} <${smtpConfig.valor}>`
-      : `${orcamento.empresas?.nome_fantasia || 'Empresa'} <onboarding@resend.dev>`;
+      ? `${contrato.empresas?.nome_fantasia || 'Empresa'} <${smtpConfig.valor}>`
+      : `${contrato.empresas?.nome_fantasia || 'Empresa'} <onboarding@resend.dev>`;
 
     // Get user info for authentication
     const { data: { user } } = await supabaseClient.auth.getUser();
@@ -83,12 +83,12 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Generate link to view budget online
+    // Generate link to view contract online
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const projectRef = supabaseUrl.split('//')[1]?.split('.')[0] ?? '';
-    const viewLink = `https://${projectRef}.lovable.app/orcamentos?view=${orcamento_id}`;
+    const viewLink = `https://${projectRef}.lovable.app/contratos?view=${contrato_id}`;
 
-    // Email HTML (with message first, then PDF attachment info)
+    // Email HTML (with message first, then link to view)
     const emailHtml = `
       <!DOCTYPE html>
       <html>
@@ -97,8 +97,8 @@ const handler = async (req: Request): Promise<Response> => {
         </head>
         <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #333; margin: 0;">${orcamento.empresas?.nome_fantasia || 'Empresa'}</h1>
-            <p style="color: #666; margin: 5px 0;">Orçamento #${orcamento_id.slice(0, 8)}</p>
+            <h1 style="color: #333; margin: 0;">${contrato.empresas?.nome_fantasia || 'Empresa'}</h1>
+            <p style="color: #666; margin: 5px 0;">Contrato #${contrato_id.slice(0, 8)}</p>
           </div>
 
           ${mensagem_adicional ? `
@@ -110,15 +110,15 @@ const handler = async (req: Request): Promise<Response> => {
 
           <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
             <p style="margin: 0 0 15px 0; color: #333; font-size: 16px;">
-              📄 Visualize o orçamento completo clicando no botão abaixo:
+              📄 Visualize o contrato completo clicando no botão abaixo:
             </p>
             <a href="${viewLink}" style="display: inline-block; background: #3B82F6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
-              Ver Orçamento
+              Ver Contrato
             </a>
           </div>
 
           <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
-            <p style="color: #666; margin: 0;">Orçamento válido por 30 dias</p>
+            <p style="color: #666; margin: 0;">Por favor, revise o contrato e entre em contato caso tenha alguma dúvida.</p>
           </div>
         </body>
       </html>
@@ -128,18 +128,18 @@ const handler = async (req: Request): Promise<Response> => {
     const emailResponse = await resend.emails.send({
       from: emailFrom,
       to: [email_destinatario],
-      subject: `Orçamento - ${orcamento.empresas?.nome_fantasia || 'Empresa'}`,
+      subject: `Contrato - ${contrato.empresas?.nome_fantasia || 'Empresa'}`,
       html: emailHtml,
     });
 
     console.log("Email sent successfully:", emailResponse);
 
-    // Log the email sending in logs_envio table
+    // Log the email sending (assuming there's a similar logs table for contracts)
     const { error: logError } = await supabaseClient
       .from('logs_envio')
       .insert({
-        orcamento_id: orcamento_id,
-        empresa_id: orcamento.empresa_id,
+        contrato_id: contrato_id,
+        empresa_id: contrato.empresa_id,
         enviado_por: user.id,
         destinatario: email_destinatario,
         tipo_envio: 'email',
@@ -151,23 +151,23 @@ const handler = async (req: Request): Promise<Response> => {
       console.error("Erro ao registrar log:", logError);
     }
 
-    // Update orçamento with send date
+    // Update contrato with send date
     const { error: updateError } = await supabaseClient
-      .from('orcamentos')
+      .from('contratos')
       .update({ 
         data_envio: new Date().toISOString(),
         status: 'Enviado'
       })
-      .eq('id', orcamento_id);
+      .eq('id', contrato_id);
 
     if (updateError) {
-      console.error("Erro ao atualizar orçamento:", updateError);
+      console.error("Erro ao atualizar contrato:", updateError);
     }
 
     return new Response(JSON.stringify({
       success: true,
       email_id: emailResponse.data?.id,
-      message: 'Orçamento enviado com sucesso!'
+      message: 'Contrato enviado com sucesso!'
     }), {
       status: 200,
       headers: {
@@ -177,7 +177,7 @@ const handler = async (req: Request): Promise<Response> => {
     });
 
   } catch (error: any) {
-    console.error("Erro na function enviar-orcamento:", error);
+    console.error("Erro na function enviar-contrato:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {
