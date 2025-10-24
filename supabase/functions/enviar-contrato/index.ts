@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.56.0';
 import { Resend } from "npm:resend@2.0.0";
+import jsPDF from "npm:jspdf@2.5.2";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -60,20 +61,23 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Get SMTP configuration for the company
-    const { data: smtpConfig, error: smtpError } = await supabaseClient
+    const { data: emailConfigData, error: emailError } = await supabaseClient
       .from('configuracoes')
       .select('valor')
       .eq('empresa_id', contrato.empresa_id)
-      .eq('chave', 'smtp_user')
+      .eq('chave', 'email_config')
       .maybeSingle();
 
-    console.log('SMTP Config:', { smtpConfig, smtpError, empresa_id: contrato.empresa_id });
+    console.log('Email Config:', { emailConfigData, emailError, empresa_id: contrato.empresa_id });
 
-    const emailFrom = smtpConfig?.valor 
-      ? `${contrato.empresas?.nome_fantasia || 'Empresa'} <${smtpConfig.valor}>`
+    const emailConfig = emailConfigData?.valor as any;
+    const smtpUser = emailConfig?.smtp_user;
+
+    const emailFrom = smtpUser 
+      ? `${contrato.empresas?.nome_fantasia || 'Empresa'} <${smtpUser}>`
       : `${contrato.empresas?.nome_fantasia || 'Empresa'} <onboarding@resend.dev>`;
 
-    console.log('Email From:', emailFrom);
+    console.log('Email From:', emailFrom, 'SMTP User:', smtpUser);
 
     // Get user info for authentication
     const { data: { user } } = await supabaseClient.auth.getUser();
@@ -87,7 +91,56 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Email HTML (with message first, then contract info)
+    // Generate PDF
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    let yPos = 20;
+
+    // Header
+    doc.setFontSize(20);
+    doc.text(contrato.empresas?.nome_fantasia || 'Empresa', pageWidth / 2, yPos, { align: 'center' });
+    yPos += 10;
+    doc.setFontSize(12);
+    doc.text(`Contrato #${contrato_id.slice(0, 8)}`, pageWidth / 2, yPos, { align: 'center' });
+    yPos += 20;
+
+    // Cliente info
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text('Dados do Cliente', 20, yPos);
+    yPos += 8;
+    doc.setFontSize(11);
+    doc.setFont(undefined, 'normal');
+    doc.text(`Nome: ${contrato.clientes?.nome || 'N/A'}`, 20, yPos);
+    yPos += 6;
+    doc.text(`Email: ${contrato.clientes?.email || 'N/A'}`, 20, yPos);
+    yPos += 6;
+    doc.text(`Telefone: ${contrato.clientes?.telefone || 'N/A'}`, 20, yPos);
+    yPos += 15;
+
+    // Contract info
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text('Informações do Contrato', 20, yPos);
+    yPos += 8;
+    doc.setFontSize(11);
+    doc.setFont(undefined, 'normal');
+    doc.text(`Número: #${contrato_id.slice(0, 8)}`, 20, yPos);
+    yPos += 6;
+    doc.text(`Status: ${contrato.status || 'N/A'}`, 20, yPos);
+    yPos += 6;
+    doc.text(`Valor Total: R$ ${Number(contrato.valor_total || 0).toFixed(2)}`, 20, yPos);
+    yPos += 15;
+
+    // Footer
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.text('Por favor, revise o contrato e entre em contato caso tenha alguma dúvida.', pageWidth / 2, yPos, { align: 'center' });
+
+    // Get PDF as buffer
+    const pdfBuffer = doc.output('arraybuffer');
+
+    // Email HTML (with message first)
     const emailHtml = `
       <!DOCTYPE html>
       <html>
@@ -107,40 +160,10 @@ const handler = async (req: Request): Promise<Response> => {
             </div>
           ` : ''}
 
-          <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-            <h3 style="color: #111827; margin-top: 0; margin-bottom: 15px;">📋 Dados do Cliente</h3>
-            <table style="width: 100%; border-collapse: collapse;">
-              <tr>
-                <td style="padding: 8px 0; color: #6b7280; width: 120px;"><strong>Nome:</strong></td>
-                <td style="padding: 8px 0; color: #111827;">${contrato.clientes?.nome || 'N/A'}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 0; color: #6b7280;"><strong>Email:</strong></td>
-                <td style="padding: 8px 0; color: #111827;">${contrato.clientes?.email || 'N/A'}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 0; color: #6b7280;"><strong>Telefone:</strong></td>
-                <td style="padding: 8px 0; color: #111827;">${contrato.clientes?.telefone || 'N/A'}</td>
-              </tr>
-            </table>
-          </div>
-
-          <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e5e7eb;">
-            <h3 style="color: #111827; margin-top: 0; margin-bottom: 15px;">📄 Informações do Contrato</h3>
-            <table style="width: 100%; border-collapse: collapse;">
-              <tr>
-                <td style="padding: 8px 0; color: #6b7280; width: 120px;"><strong>Número:</strong></td>
-                <td style="padding: 8px 0; color: #111827;">#${contrato_id.slice(0, 8)}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 0; color: #6b7280;"><strong>Status:</strong></td>
-                <td style="padding: 8px 0; color: #111827;">${contrato.status || 'N/A'}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 0; color: #6b7280;"><strong>Valor:</strong></td>
-                <td style="padding: 8px 0; color: #111827; font-weight: 600; font-size: 18px;">R$ ${Number(contrato.valor_total || 0).toFixed(2)}</td>
-              </tr>
-            </table>
+          <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
+            <p style="margin: 0; color: #333; font-size: 16px;">
+              📎 O contrato completo está anexado a este e-mail em formato PDF.
+            </p>
           </div>
 
           <div style="text-align: center; margin-top: 30px; padding: 20px; background: #dbeafe; border-radius: 8px; border-left: 4px solid #3B82F6;">
@@ -150,17 +173,21 @@ const handler = async (req: Request): Promise<Response> => {
       </html>
     `;
 
-    // Send email using Resend
+    // Send email using Resend with PDF attachment
     const emailResponse = await resend.emails.send({
       from: emailFrom,
       to: [email_destinatario],
       subject: `Contrato - ${contrato.empresas?.nome_fantasia || 'Empresa'}`,
       html: emailHtml,
+      attachments: [{
+        filename: `Contrato_${contrato_id.slice(0, 8)}.pdf`,
+        content: new Uint8Array(pdfBuffer),
+      }],
     });
 
     console.log("Email sent successfully:", emailResponse);
 
-    // Log the email sending (assuming there's a similar logs table for contracts)
+    // Log the email sending
     const { error: logError } = await supabaseClient
       .from('logs_envio')
       .insert({

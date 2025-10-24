@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.56.0';
 import { Resend } from "npm:resend@2.0.0";
+import jsPDF from "npm:jspdf@2.5.2";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -60,20 +61,23 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Get SMTP configuration for the company
-    const { data: smtpConfig, error: smtpError } = await supabaseClient
+    const { data: emailConfigData, error: emailError } = await supabaseClient
       .from('configuracoes')
       .select('valor')
       .eq('empresa_id', orcamento.empresa_id)
-      .eq('chave', 'smtp_user')
+      .eq('chave', 'email_config')
       .maybeSingle();
 
-    console.log('SMTP Config:', { smtpConfig, smtpError, empresa_id: orcamento.empresa_id });
+    console.log('Email Config:', { emailConfigData, emailError, empresa_id: orcamento.empresa_id });
 
-    const emailFrom = smtpConfig?.valor 
-      ? `${orcamento.empresas?.nome_fantasia || 'Empresa'} <${smtpConfig.valor}>`
+    const emailConfig = emailConfigData?.valor as any;
+    const smtpUser = emailConfig?.smtp_user;
+
+    const emailFrom = smtpUser 
+      ? `${orcamento.empresas?.nome_fantasia || 'Empresa'} <${smtpUser}>`
       : `${orcamento.empresas?.nome_fantasia || 'Empresa'} <onboarding@resend.dev>`;
 
-    console.log('Email From:', emailFrom);
+    console.log('Email From:', emailFrom, 'SMTP User:', smtpUser);
 
     // Get user info for authentication
     const { data: { user } } = await supabaseClient.auth.getUser();
@@ -87,19 +91,84 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Generate HTML for the services table
-    const servicosHtml = Array.isArray(orcamento.servicos) 
-      ? orcamento.servicos.map((servico: any) => `
-          <tr>
-            <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${servico.nome}</td>
-            <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: center;">${servico.quantidade || 1}</td>
-            <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right;">R$ ${Number(servico.preco_venda || 0).toFixed(2)}</td>
-            <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: 600;">R$ ${(Number(servico.preco_venda || 0) * (servico.quantidade || 1)).toFixed(2)}</td>
-          </tr>
-        `).join('')
-      : '<tr><td colspan="4" style="padding: 12px; text-align: center;">Nenhum serviço encontrado</td></tr>';
+    // Generate PDF
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    let yPos = 20;
 
-    // Email HTML (with message first, then budget details)
+    // Header
+    doc.setFontSize(20);
+    doc.text(orcamento.empresas?.nome_fantasia || 'Empresa', pageWidth / 2, yPos, { align: 'center' });
+    yPos += 10;
+    doc.setFontSize(12);
+    doc.text(`Orçamento #${orcamento_id.slice(0, 8)}`, pageWidth / 2, yPos, { align: 'center' });
+    yPos += 20;
+
+    // Cliente info
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text('Dados do Cliente', 20, yPos);
+    yPos += 8;
+    doc.setFontSize(11);
+    doc.setFont(undefined, 'normal');
+    doc.text(`Nome: ${orcamento.clientes?.nome || 'N/A'}`, 20, yPos);
+    yPos += 6;
+    doc.text(`Email: ${orcamento.clientes?.email || 'N/A'}`, 20, yPos);
+    yPos += 6;
+    doc.text(`Telefone: ${orcamento.clientes?.telefone || 'N/A'}`, 20, yPos);
+    yPos += 15;
+
+    // Services
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text('Serviços', 20, yPos);
+    yPos += 10;
+
+    // Table header
+    doc.setFontSize(10);
+    doc.text('Serviço', 20, yPos);
+    doc.text('Qtd', 100, yPos);
+    doc.text('Valor Unit.', 120, yPos);
+    doc.text('Total', 160, yPos);
+    yPos += 6;
+    doc.line(20, yPos, 190, yPos);
+    yPos += 6;
+
+    // Table rows
+    doc.setFont(undefined, 'normal');
+    if (Array.isArray(orcamento.servicos)) {
+      for (const servico of orcamento.servicos) {
+        if (yPos > 270) {
+          doc.addPage();
+          yPos = 20;
+        }
+        doc.text(servico.nome, 20, yPos);
+        doc.text(String(servico.quantidade || 1), 100, yPos);
+        doc.text(`R$ ${Number(servico.preco_venda || 0).toFixed(2)}`, 120, yPos);
+        doc.text(`R$ ${(Number(servico.preco_venda || 0) * (servico.quantidade || 1)).toFixed(2)}`, 160, yPos);
+        yPos += 6;
+      }
+    }
+
+    yPos += 5;
+    doc.line(20, yPos, 190, yPos);
+    yPos += 8;
+
+    // Total
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text(`Valor Total: R$ ${Number(orcamento.valor_total || 0).toFixed(2)}`, 160, yPos, { align: 'right' });
+    yPos += 15;
+
+    // Footer
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.text('Orçamento válido por 30 dias', pageWidth / 2, yPos, { align: 'center' });
+
+    // Get PDF as buffer
+    const pdfBuffer = doc.output('arraybuffer');
+
+    // Email HTML (with message first)
     const emailHtml = `
       <!DOCTYPE html>
       <html>
@@ -119,42 +188,10 @@ const handler = async (req: Request): Promise<Response> => {
             </div>
           ` : ''}
 
-          <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-            <h3 style="color: #111827; margin-top: 0; margin-bottom: 15px;">📋 Dados do Cliente</h3>
-            <table style="width: 100%; border-collapse: collapse;">
-              <tr>
-                <td style="padding: 8px 0; color: #6b7280; width: 100px;"><strong>Nome:</strong></td>
-                <td style="padding: 8px 0; color: #111827;">${orcamento.clientes?.nome || 'N/A'}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 0; color: #6b7280;"><strong>Email:</strong></td>
-                <td style="padding: 8px 0; color: #111827;">${orcamento.clientes?.email || 'N/A'}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 0; color: #6b7280;"><strong>Telefone:</strong></td>
-                <td style="padding: 8px 0; color: #111827;">${orcamento.clientes?.telefone || 'N/A'}</td>
-              </tr>
-            </table>
-          </div>
-
-          <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e5e7eb;">
-            <h3 style="color: #111827; margin-top: 0; margin-bottom: 15px;">📦 Serviços</h3>
-            <table style="width: 100%; border-collapse: collapse; background: white;">
-              <thead>
-                <tr style="background: #f3f4f6;">
-                  <th style="padding: 12px; text-align: left; color: #374151; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Serviço</th>
-                  <th style="padding: 12px; text-align: center; color: #374151; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Qtd</th>
-                  <th style="padding: 12px; text-align: right; color: #374151; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Valor Unit.</th>
-                  <th style="padding: 12px; text-align: right; color: #374151; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${servicosHtml}
-              </tbody>
-            </table>
-            <div style="margin-top: 20px; padding-top: 15px; border-top: 2px solid #e5e7eb; text-align: right;">
-              <p style="margin: 0; font-size: 20px; color: #111827;"><strong>Valor Total: R$ ${Number(orcamento.valor_total || 0).toFixed(2)}</strong></p>
-            </div>
+          <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
+            <p style="margin: 0; color: #333; font-size: 16px;">
+              📎 O orçamento completo está anexado a este e-mail em formato PDF.
+            </p>
           </div>
 
           <div style="text-align: center; margin-top: 30px; padding: 20px; background: #fef3c7; border-radius: 8px; border-left: 4px solid #f59e0b;">
@@ -164,12 +201,16 @@ const handler = async (req: Request): Promise<Response> => {
       </html>
     `;
 
-    // Send email using Resend
+    // Send email using Resend with PDF attachment
     const emailResponse = await resend.emails.send({
       from: emailFrom,
       to: [email_destinatario],
       subject: `Orçamento - ${orcamento.empresas?.nome_fantasia || 'Empresa'}`,
       html: emailHtml,
+      attachments: [{
+        filename: `Orcamento_${orcamento_id.slice(0, 8)}.pdf`,
+        content: new Uint8Array(pdfBuffer),
+      }],
     });
 
     console.log("Email sent successfully:", emailResponse);
