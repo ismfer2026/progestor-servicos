@@ -60,16 +60,20 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Get SMTP configuration for the company
-    const { data: smtpConfig } = await supabaseClient
+    const { data: smtpConfig, error: smtpError } = await supabaseClient
       .from('configuracoes')
       .select('valor')
       .eq('empresa_id', orcamento.empresa_id)
       .eq('chave', 'smtp_user')
-      .single();
+      .maybeSingle();
+
+    console.log('SMTP Config:', { smtpConfig, smtpError, empresa_id: orcamento.empresa_id });
 
     const emailFrom = smtpConfig?.valor 
       ? `${orcamento.empresas?.nome_fantasia || 'Empresa'} <${smtpConfig.valor}>`
       : `${orcamento.empresas?.nome_fantasia || 'Empresa'} <onboarding@resend.dev>`;
+
+    console.log('Email From:', emailFrom);
 
     // Get user info for authentication
     const { data: { user } } = await supabaseClient.auth.getUser();
@@ -83,12 +87,19 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Generate link to view budget online
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const projectRef = supabaseUrl.split('//')[1]?.split('.')[0] ?? '';
-    const viewLink = `https://${projectRef}.lovable.app/orcamentos?view=${orcamento_id}`;
+    // Generate HTML for the services table
+    const servicosHtml = Array.isArray(orcamento.servicos) 
+      ? orcamento.servicos.map((servico: any) => `
+          <tr>
+            <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${servico.nome}</td>
+            <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: center;">${servico.quantidade || 1}</td>
+            <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right;">R$ ${Number(servico.preco_venda || 0).toFixed(2)}</td>
+            <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: 600;">R$ ${(Number(servico.preco_venda || 0) * (servico.quantidade || 1)).toFixed(2)}</td>
+          </tr>
+        `).join('')
+      : '<tr><td colspan="4" style="padding: 12px; text-align: center;">Nenhum serviço encontrado</td></tr>';
 
-    // Email HTML (with message first, then PDF attachment info)
+    // Email HTML (with message first, then budget details)
     const emailHtml = `
       <!DOCTYPE html>
       <html>
@@ -102,23 +113,52 @@ const handler = async (req: Request): Promise<Response> => {
           </div>
 
           ${mensagem_adicional ? `
-            <div style="background: #e8f4fd; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-              <h3 style="color: #333; margin-top: 0;">Mensagem</h3>
-              <p style="margin-bottom: 0; white-space: pre-wrap;">${mensagem_adicional}</p>
+            <div style="background: #e8f4fd; padding: 20px; border-radius: 8px; margin-bottom: 25px; border-left: 4px solid #3B82F6;">
+              <h3 style="color: #1e40af; margin-top: 0; margin-bottom: 10px;">💬 Mensagem</h3>
+              <p style="margin-bottom: 0; white-space: pre-wrap; color: #374151; line-height: 1.6;">${mensagem_adicional}</p>
             </div>
           ` : ''}
 
-          <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
-            <p style="margin: 0 0 15px 0; color: #333; font-size: 16px;">
-              📄 Visualize o orçamento completo clicando no botão abaixo:
-            </p>
-            <a href="${viewLink}" style="display: inline-block; background: #3B82F6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
-              Ver Orçamento
-            </a>
+          <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h3 style="color: #111827; margin-top: 0; margin-bottom: 15px;">📋 Dados do Cliente</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; width: 100px;"><strong>Nome:</strong></td>
+                <td style="padding: 8px 0; color: #111827;">${orcamento.clientes?.nome || 'N/A'}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280;"><strong>Email:</strong></td>
+                <td style="padding: 8px 0; color: #111827;">${orcamento.clientes?.email || 'N/A'}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280;"><strong>Telefone:</strong></td>
+                <td style="padding: 8px 0; color: #111827;">${orcamento.clientes?.telefone || 'N/A'}</td>
+              </tr>
+            </table>
           </div>
 
-          <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
-            <p style="color: #666; margin: 0;">Orçamento válido por 30 dias</p>
+          <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e5e7eb;">
+            <h3 style="color: #111827; margin-top: 0; margin-bottom: 15px;">📦 Serviços</h3>
+            <table style="width: 100%; border-collapse: collapse; background: white;">
+              <thead>
+                <tr style="background: #f3f4f6;">
+                  <th style="padding: 12px; text-align: left; color: #374151; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Serviço</th>
+                  <th style="padding: 12px; text-align: center; color: #374151; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Qtd</th>
+                  <th style="padding: 12px; text-align: right; color: #374151; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Valor Unit.</th>
+                  <th style="padding: 12px; text-align: right; color: #374151; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${servicosHtml}
+              </tbody>
+            </table>
+            <div style="margin-top: 20px; padding-top: 15px; border-top: 2px solid #e5e7eb; text-align: right;">
+              <p style="margin: 0; font-size: 20px; color: #111827;"><strong>Valor Total: R$ ${Number(orcamento.valor_total || 0).toFixed(2)}</strong></p>
+            </div>
+          </div>
+
+          <div style="text-align: center; margin-top: 30px; padding: 20px; background: #fef3c7; border-radius: 8px; border-left: 4px solid #f59e0b;">
+            <p style="color: #92400e; margin: 0; font-size: 14px;">⏰ Orçamento válido por 30 dias</p>
           </div>
         </body>
       </html>

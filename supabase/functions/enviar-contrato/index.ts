@@ -60,16 +60,20 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Get SMTP configuration for the company
-    const { data: smtpConfig } = await supabaseClient
+    const { data: smtpConfig, error: smtpError } = await supabaseClient
       .from('configuracoes')
       .select('valor')
       .eq('empresa_id', contrato.empresa_id)
       .eq('chave', 'smtp_user')
-      .single();
+      .maybeSingle();
+
+    console.log('SMTP Config:', { smtpConfig, smtpError, empresa_id: contrato.empresa_id });
 
     const emailFrom = smtpConfig?.valor 
       ? `${contrato.empresas?.nome_fantasia || 'Empresa'} <${smtpConfig.valor}>`
       : `${contrato.empresas?.nome_fantasia || 'Empresa'} <onboarding@resend.dev>`;
+
+    console.log('Email From:', emailFrom);
 
     // Get user info for authentication
     const { data: { user } } = await supabaseClient.auth.getUser();
@@ -83,12 +87,7 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Generate link to view contract online
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const projectRef = supabaseUrl.split('//')[1]?.split('.')[0] ?? '';
-    const viewLink = `https://${projectRef}.lovable.app/contratos?view=${contrato_id}`;
-
-    // Email HTML (with message first, then link to view)
+    // Email HTML (with message first, then contract info)
     const emailHtml = `
       <!DOCTYPE html>
       <html>
@@ -102,23 +101,50 @@ const handler = async (req: Request): Promise<Response> => {
           </div>
 
           ${mensagem_adicional ? `
-            <div style="background: #e8f4fd; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-              <h3 style="color: #333; margin-top: 0;">Mensagem</h3>
-              <p style="margin-bottom: 0; white-space: pre-wrap;">${mensagem_adicional}</p>
+            <div style="background: #e8f4fd; padding: 20px; border-radius: 8px; margin-bottom: 25px; border-left: 4px solid #3B82F6;">
+              <h3 style="color: #1e40af; margin-top: 0; margin-bottom: 10px;">💬 Mensagem</h3>
+              <p style="margin-bottom: 0; white-space: pre-wrap; color: #374151; line-height: 1.6;">${mensagem_adicional}</p>
             </div>
           ` : ''}
 
-          <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
-            <p style="margin: 0 0 15px 0; color: #333; font-size: 16px;">
-              📄 Visualize o contrato completo clicando no botão abaixo:
-            </p>
-            <a href="${viewLink}" style="display: inline-block; background: #3B82F6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
-              Ver Contrato
-            </a>
+          <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h3 style="color: #111827; margin-top: 0; margin-bottom: 15px;">📋 Dados do Cliente</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; width: 120px;"><strong>Nome:</strong></td>
+                <td style="padding: 8px 0; color: #111827;">${contrato.clientes?.nome || 'N/A'}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280;"><strong>Email:</strong></td>
+                <td style="padding: 8px 0; color: #111827;">${contrato.clientes?.email || 'N/A'}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280;"><strong>Telefone:</strong></td>
+                <td style="padding: 8px 0; color: #111827;">${contrato.clientes?.telefone || 'N/A'}</td>
+              </tr>
+            </table>
           </div>
 
-          <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
-            <p style="color: #666; margin: 0;">Por favor, revise o contrato e entre em contato caso tenha alguma dúvida.</p>
+          <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e5e7eb;">
+            <h3 style="color: #111827; margin-top: 0; margin-bottom: 15px;">📄 Informações do Contrato</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; width: 120px;"><strong>Número:</strong></td>
+                <td style="padding: 8px 0; color: #111827;">#${contrato_id.slice(0, 8)}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280;"><strong>Status:</strong></td>
+                <td style="padding: 8px 0; color: #111827;">${contrato.status || 'N/A'}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280;"><strong>Valor:</strong></td>
+                <td style="padding: 8px 0; color: #111827; font-weight: 600; font-size: 18px;">R$ ${Number(contrato.valor_total || 0).toFixed(2)}</td>
+              </tr>
+            </table>
+          </div>
+
+          <div style="text-align: center; margin-top: 30px; padding: 20px; background: #dbeafe; border-radius: 8px; border-left: 4px solid #3B82F6;">
+            <p style="color: #1e40af; margin: 0; font-size: 14px;">📝 Por favor, revise o contrato e entre em contato caso tenha alguma dúvida.</p>
           </div>
         </body>
       </html>
