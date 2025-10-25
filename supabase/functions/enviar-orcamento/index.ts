@@ -237,7 +237,7 @@ const handler = async (req: Request): Promise<Response> => {
       html: emailHtml,
       attachments: [{
         filename: `Orcamento_${orcamento_id.slice(0, 8)}.pdf`,
-        content: Buffer.from(pdfBuffer),
+        content: new Uint8Array(pdfBuffer),
       }],
     });
 
