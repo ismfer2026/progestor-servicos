@@ -71,9 +71,9 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('Email Config:', { emailConfigData, emailError, empresa_id: contrato.empresa_id });
 
     const emailConfig = emailConfigData?.valor as any;
-    const smtpUser = emailConfig?.smtp_user;
+    const smtpUser = emailConfig?.smtpUser;
 
-    const emailFrom = smtpUser 
+    const emailFrom = smtpUser
       ? `${contrato.empresas?.nome_fantasia || 'Empresa'} <${smtpUser}>`
       : `${contrato.empresas?.nome_fantasia || 'Empresa'} <onboarding@resend.dev>`;
 
