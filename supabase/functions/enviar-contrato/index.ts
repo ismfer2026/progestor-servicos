@@ -1,9 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.56.0';
-import { Resend } from "npm:resend@2.0.0";
 import { jsPDF } from "npm:jspdf@2.5.2";
-
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+import nodemailer from "npm:nodemailer@6.9.7";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -71,13 +69,23 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('Email Config:', { emailConfigData, emailError, empresa_id: contrato.empresa_id });
 
     const emailConfig = emailConfigData?.valor as any;
-    const smtpUser = emailConfig?.smtpUser;
+    
+    if (!emailConfig || !emailConfig.smtpHost || !emailConfig.smtpUser) {
+      return new Response(
+        JSON.stringify({ error: 'Configuração de e-mail não encontrada. Configure em ADM > Configurações.' }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
 
-    const emailFrom = smtpUser
-      ? `${contrato.empresas?.nome_fantasia || 'Empresa'} <${smtpUser}>`
-      : `${contrato.empresas?.nome_fantasia || 'Empresa'} <onboarding@resend.dev>`;
-
-    console.log('Email From:', emailFrom, 'SMTP User:', smtpUser);
+    console.log('Email Config:', { 
+      host: emailConfig.smtpHost, 
+      port: emailConfig.smtpPort, 
+      user: emailConfig.smtpUser,
+      security: emailConfig.smtpSecurity 
+    });
 
     // Get user info for authentication
     const { data: { user } } = await supabaseClient.auth.getUser();
@@ -173,15 +181,35 @@ const handler = async (req: Request): Promise<Response> => {
       </html>
     `;
 
-    // Send email using Resend with PDF attachment
-    const emailResponse = await resend.emails.send({
-      from: emailFrom,
-      to: [email_destinatario],
+    // Configure Nodemailer transporter
+    const transportConfig: any = {
+      host: emailConfig.smtpHost,
+      port: parseInt(emailConfig.smtpPort),
+      secure: emailConfig.smtpSecurity === 'ssl',
+      auth: {
+        user: emailConfig.smtpUser,
+        pass: emailConfig.smtpPass,
+      },
+    };
+
+    if (emailConfig.smtpSecurity === 'tls') {
+      transportConfig.requireTLS = true;
+      transportConfig.tls = {
+        rejectUnauthorized: false
+      };
+    }
+
+    const transporter = nodemailer.createTransport(transportConfig);
+
+    // Send email using Nodemailer with PDF attachment
+    const emailResponse = await transporter.sendMail({
+      from: `${contrato.empresas?.nome_fantasia || 'Empresa'} <${emailConfig.smtpUser}>`,
+      to: email_destinatario,
       subject: `Contrato - ${contrato.empresas?.nome_fantasia || 'Empresa'}`,
       html: emailHtml,
       attachments: [{
         filename: `Contrato_${contrato_id.slice(0, 8)}.pdf`,
-        content: new Uint8Array(pdfBuffer),
+        content: Buffer.from(pdfBuffer),
       }],
     });
 
@@ -196,8 +224,8 @@ const handler = async (req: Request): Promise<Response> => {
         enviado_por: user.id,
         destinatario: email_destinatario,
         tipo_envio: 'email',
-        status: emailResponse.error ? 'erro' : 'enviado',
-        mensagem_erro: emailResponse.error?.message || null
+        status: 'enviado',
+        mensagem_erro: null
       });
 
     if (logError) {
@@ -219,7 +247,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     return new Response(JSON.stringify({
       success: true,
-      email_id: emailResponse.data?.id,
+      email_id: emailResponse.messageId,
       message: 'Contrato enviado com sucesso!'
     }), {
       status: 200,
