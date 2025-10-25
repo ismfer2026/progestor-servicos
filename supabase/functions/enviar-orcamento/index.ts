@@ -215,6 +215,18 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Email sent successfully:", emailResponse);
 
+    // Check for errors in email sending
+    if (emailResponse.error) {
+      console.error("Erro ao enviar email:", emailResponse.error);
+      throw new Error(emailResponse.error.message || 'Erro ao enviar email');
+    }
+
+    // Check for errors in email sending
+    if (emailResponse.error) {
+      console.error("Erro ao enviar email:", emailResponse.error);
+      throw new Error(emailResponse.error.message || 'Erro ao enviar email');
+    }
+
     // Log the email sending in logs_envio table
     const { error: logError } = await supabaseClient
       .from('logs_envio')
@@ -224,8 +236,8 @@ const handler = async (req: Request): Promise<Response> => {
         enviado_por: user.id,
         destinatario: email_destinatario,
         tipo_envio: 'email',
-        status: emailResponse.error ? 'erro' : 'enviado',
-        mensagem_erro: emailResponse.error?.message || null
+        status: 'enviado',
+        mensagem_erro: null
       });
 
     if (logError) {
