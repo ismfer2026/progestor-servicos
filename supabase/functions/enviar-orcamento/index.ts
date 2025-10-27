@@ -142,7 +142,7 @@ const handler = async (req: Request): Promise<Response> => {
     doc.text('Orçamento válido por 30 dias', pageWidth / 2, yPos, { align: 'center' });
 
     const pdfBuffer = new Uint8Array(doc.output('arraybuffer'));
-    console.log('Tamanho do PDF gerado:', pdfBuffer.byteLength);
+    console.log(`PDF gerado: tamanho ${pdfBuffer.byteLength} bytes`);
 
     // Salva PDF no Storage
     const storagePath = `${orcamento.empresa_id}/${orcamento_id}.pdf`;
@@ -158,6 +158,8 @@ const handler = async (req: Request): Promise<Response> => {
       console.error('Erro ao salvar PDF no Storage:', storageError);
       throw new Error(`Erro ao salvar PDF: ${storageError.message}`);
     }
+
+    console.log(`PDF salvo em: ${storagePath}`);
 
     // Salva referência na tabela orcamentos_pdf
     const { error: pdfRecordError } = await supabaseClient
@@ -211,7 +213,7 @@ const handler = async (req: Request): Promise<Response> => {
       }],
     });
 
-    console.log("Email enviado:", emailResponse.messageId);
+    console.log(`E-mail enviado: ${emailResponse.messageId}`);
 
     // Log de envio
     await supabaseClient
