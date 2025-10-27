@@ -14,27 +14,15 @@ Deno.serve(async (req) => {
   try {
     console.log('Webhook received - Canceling subscription');
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
-    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    });
-
-    const body = await req.json();
-    console.log('Webhook data received:', JSON.stringify(body, null, 2));
-
-    // Verificar token de segurança específico para cancelamento
-    const verificationToken = req.headers.get('x-verification-token') || req.headers.get('authorization');
+    // Verificar token de segurança via query parameter
+    const url = new URL(req.url);
+    const tokenFromQuery = url.searchParams.get('token');
     const expectedToken = Deno.env.get('WEBHOOK_CANCELAMENTO_TOKEN');
     
-    console.log('Verification token received:', verificationToken);
+    console.log('Token received from query:', tokenFromQuery);
     console.log('Expected token:', expectedToken);
     
-    if (!verificationToken || verificationToken.replace('Bearer ', '') !== expectedToken) {
+    if (!tokenFromQuery || tokenFromQuery !== expectedToken) {
       console.error('Invalid verification token');
       return new Response(
         JSON.stringify({ 
@@ -47,6 +35,19 @@ Deno.serve(async (req) => {
         }
       );
     }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
+
+    const body = await req.json();
+    console.log('Webhook data received:', JSON.stringify(body, null, 2));
 
     // Extrair dados do webhook da Kiwify
     const email = body.Customer?.email;
