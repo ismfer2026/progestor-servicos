@@ -216,12 +216,13 @@ const handler = async (req: Request): Promise<Response> => {
     console.log(`E-mail enviado: ${emailResponse.messageId}`);
 
     // Log de envio
+    const { data: { user } } = await supabaseClient.auth.getUser();
     await supabaseClient
       .from('logs_envio')
       .insert({
         orcamento_id,
         empresa_id: orcamento.empresa_id,
-        enviado_por: supabaseClient.auth.user()?.id,
+        enviado_por: user?.id,
         destinatario: email_destinatario,
         tipo_envio: 'email',
         status: 'enviado',
