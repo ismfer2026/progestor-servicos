@@ -14,6 +14,24 @@ Deno.serve(async (req) => {
   try {
     console.log('Webhook received - Creating new user');
 
+    // Verificar token de segurança
+    const verificationToken = req.headers.get('x-verification-token') || req.headers.get('authorization');
+    const expectedToken = Deno.env.get('WEBHOOK_VERIFICATION_TOKEN');
+    
+    if (!verificationToken || verificationToken.replace('Bearer ', '') !== expectedToken) {
+      console.error('Invalid verification token');
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Token de verificação inválido' 
+        }),
+        { 
+          status: 401, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
@@ -27,7 +45,40 @@ Deno.serve(async (req) => {
     const body = await req.json();
     console.log('Webhook data received:', JSON.stringify(body, null, 2));
 
-    const { email, documento, nome, plano } = body;
+    // Extrair dados do webhook da Kiwify
+    const email = body.Customer?.email;
+    const documento = body.Customer?.cnpj || body.Customer?.cpf;
+    const nome = body.Customer?.full_name || body.Customer?.first_name;
+    
+    // Mapear plano baseado no valor da comissão ou nome do plano
+    let plano = 'Essencial'; // Plano padrão
+    const chargeAmount = body.Commissions?.charge_amount || 0;
+    
+    // Mapear pelo valor (em centavos): Essencial R$99,90 = 9990, Estratégico R$249,90 = 24990, Performance R$449,90 = 44990
+    if (chargeAmount >= 44000) {
+      plano = 'Performance';
+    } else if (chargeAmount >= 24000) {
+      plano = 'Estratégico';
+    } else if (chargeAmount >= 9000) {
+      plano = 'Essencial';
+    }
+    
+    // Verificar se é uma assinatura aprovada
+    const isApproved = body.webhook_event_type === 'order_approved' && body.order_status === 'paid';
+    
+    if (!isApproved) {
+      console.log('Webhook event is not an approved order, skipping user creation');
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'Evento não é uma ordem aprovada, usuário não criado' 
+        }),
+        { 
+          status: 200, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
 
     if (!email || !documento) {
       console.error('Missing required fields: email or documento');
@@ -80,7 +131,7 @@ Deno.serve(async (req) => {
       .insert({
         nome_fantasia: nome || 'Empresa Padrão',
         email_admin: email,
-        plano: plano || 'Gratuito',
+        plano: plano,
         status_pagamento: 'ativo'
       })
       .select()
