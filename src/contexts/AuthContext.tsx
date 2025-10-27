@@ -23,6 +23,7 @@ interface AuthContextType {
   isLoading: boolean;
   trialDaysLeft: number | null;
   isTrialActive: boolean;
+  paymentStatus: 'ativo' | 'pendente' | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,6 +34,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(5);
   const [isTrialActive, setIsTrialActive] = useState(true);
+  const [paymentStatus, setPaymentStatus] = useState<'ativo' | 'pendente' | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -47,7 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             try {
               const { data: userData, error } = await supabase
                 .from('usuarios')
-                .select('id, nome, email, funcao, permissao, empresa_id, ativo')
+                .select('id, nome, email, funcao, permissao, empresa_id, ativo, empresas(status_pagamento, acesso_vitalicio, data_criacao)')
                 .eq('id', session.user.id)
                 .single();
 
@@ -71,6 +73,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   empresa_id: userData.empresa_id || '',
                   avatar_url: undefined
                 });
+
+                // Verificar status de pagamento
+                if (userData.empresas) {
+                  const empresa = Array.isArray(userData.empresas) ? userData.empresas[0] : userData.empresas;
+                  
+                  if (empresa.acesso_vitalicio) {
+                    setPaymentStatus('ativo');
+                    setTrialDaysLeft(null);
+                    setIsTrialActive(false);
+                  } else {
+                    setPaymentStatus(empresa.status_pagamento);
+                    
+                    // Calcular dias de trial
+                    if (empresa.data_criacao) {
+                      const dataCriacao = new Date(empresa.data_criacao);
+                      const hoje = new Date();
+                      const diffTime = hoje.getTime() - dataCriacao.getTime();
+                      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                      const diasRestantes = Math.max(0, 15 - diffDays);
+                      setTrialDaysLeft(diasRestantes);
+                      setIsTrialActive(diasRestantes > 0);
+                    }
+                  }
+                }
               }
             } catch (error) {
               console.error('Erro inesperado ao buscar usuário:', error);
@@ -201,7 +227,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       logout,
       isLoading,
       trialDaysLeft,
-      isTrialActive
+      isTrialActive,
+      paymentStatus
     }}>
       {children}
     </AuthContext.Provider>

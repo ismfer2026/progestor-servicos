@@ -272,6 +272,7 @@ export type Database = {
       }
       empresas: {
         Row: {
+          acesso_vitalicio: boolean | null
           cnpj: string | null
           data_criacao: string | null
           data_proximo_pagamento: string | null
@@ -282,8 +283,11 @@ export type Database = {
           nome_fantasia: string
           plano: string | null
           status_pagamento: string | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
         }
         Insert: {
+          acesso_vitalicio?: boolean | null
           cnpj?: string | null
           data_criacao?: string | null
           data_proximo_pagamento?: string | null
@@ -294,8 +298,11 @@ export type Database = {
           nome_fantasia: string
           plano?: string | null
           status_pagamento?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
         }
         Update: {
+          acesso_vitalicio?: boolean | null
           cnpj?: string | null
           data_criacao?: string | null
           data_proximo_pagamento?: string | null
@@ -306,6 +313,8 @@ export type Database = {
           nome_fantasia?: string
           plano?: string | null
           status_pagamento?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
         }
         Relationships: []
       }
