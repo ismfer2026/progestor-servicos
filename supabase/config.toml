@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.criar-usuario-webhook]
 verify_jwt = false
+
+[functions.cancelar-assinatura-webhook]
+verify_jwt = false
