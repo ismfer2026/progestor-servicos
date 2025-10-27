@@ -61,7 +61,7 @@ export default function Landing() {
       price: 'R$ 249,90',
       period: '/mês',
       description: 'Para empresas que querem escalar',
-      priceId: 'https://pay.kiwify.com.br/agoKfIS',
+      priceId: 'https://pay.kiwify.com.br/hmXqePV',
       features: [
         'Tudo do Essencial',
         'Agenda integrada',
@@ -77,7 +77,7 @@ export default function Landing() {
       price: 'R$ 449,90',
       period: '/mês',
       description: 'Solução completa para alta performance',
-      priceId: 'https://pay.kiwify.com.br/hmXqePV',
+      priceId: 'https://pay.kiwify.com.br/agoKfIS',
       features: [
         'Tudo do Estratégico',
         'Geração de contratos com marca própria',
