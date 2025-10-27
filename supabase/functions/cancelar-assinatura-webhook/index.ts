@@ -14,9 +14,9 @@ Deno.serve(async (req) => {
   try {
     console.log('Webhook received - Canceling subscription');
 
-    // Verificar token de segurança
+    // Verificar token de segurança específico para cancelamento
     const verificationToken = req.headers.get('x-verification-token') || req.headers.get('authorization');
-    const expectedToken = Deno.env.get('WEBHOOK_VERIFICATION_TOKEN');
+    const expectedToken = Deno.env.get('WEBHOOK_CANCELAMENTO_TOKEN');
     
     if (!verificationToken || verificationToken.replace('Bearer ', '') !== expectedToken) {
       console.error('Invalid verification token');
