@@ -24,7 +24,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { useAuth } from '@/contexts/AuthContext';
 
 const navigation = [
-  { name: 'Tela Principal', href: '/', icon: Home },
+  { name: 'Tela Principal', href: '/dashboard', icon: Home },
   { name: 'Orçamentos', href: '/orcamentos', icon: FileText },
   { name: 'Serviços/Produtos', href: '/servicos', icon: Wrench },
   { name: 'Funil de Vendas', href: '/funil', icon: TrendingUp },
@@ -46,8 +46,8 @@ export function Sidebar() {
   const isAdmin = user?.role === 'admin' || user?.id === user?.empresa_id;
 
   const isActive = (path: string) => {
-    if (path === '/') {
-      return location.pathname === '/';
+    if (path === '/dashboard') {
+      return location.pathname === '/' || location.pathname === '/dashboard';
     }
     return location.pathname.startsWith(path);
   };
