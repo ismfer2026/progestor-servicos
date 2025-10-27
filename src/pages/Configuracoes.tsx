@@ -774,7 +774,7 @@ export default function Configuracoes() {
         <CardContent className="space-y-4">
           <div>
             <Label htmlFor="nomeEmpresa">Nome da Empresa</Label>
-            <Input id="nomeEmpresa" defaultValue="ProGestor Ltda" />
+            <Input id="nomeEmpresa" defaultValue="Synca Gestão Ltda" />
           </div>
           <div>
             <Label htmlFor="cnpj">CNPJ</Label>
@@ -786,7 +786,7 @@ export default function Configuracoes() {
           </div>
           <div>
             <Label htmlFor="email">E-mail</Label>
-            <Input id="email" type="email" defaultValue="contato@progestor.com" />
+            <Input id="email" type="email" defaultValue="contato@syncagestao.com" />
           </div>
           <div>
             <Label htmlFor="endereco">Endereço</Label>

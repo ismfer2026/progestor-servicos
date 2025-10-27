@@ -92,8 +92,8 @@ export function PDFViewer({ orcamento, onClose }: PDFViewerProps) {
                   P
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900">ProGestor Serviços Inc.</h1>
-                  <p className="text-sm text-gray-600">contato@progestor.com</p>
+                  <h1 className="text-2xl font-bold text-gray-900">Synca Gestão Serviços Inc.</h1>
+                  <p className="text-sm text-gray-600">contato@syncagestao.com</p>
                   <p className="text-sm text-gray-600">(11) 98765-4321</p>
                 </div>
               </div>

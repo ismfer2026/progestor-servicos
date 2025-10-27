@@ -65,7 +65,7 @@ export function Sidebar() {
           </div>
           {!collapsed && (
             <div className="animate-fade-in">
-              <h1 className="text-xl font-bold text-sidebar-foreground">ProGestor</h1>
+              <h1 className="text-xl font-bold text-sidebar-foreground">Synca Gestão</h1>
               <p className="text-xs text-muted-foreground">Gestão Completa</p>
             </div>
           )}
