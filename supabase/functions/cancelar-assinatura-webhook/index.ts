@@ -114,8 +114,7 @@ Deno.serve(async (req) => {
     const { error: updateError } = await supabase
       .from('empresas')
       .update({
-        status_pagamento: 'cancelado',
-        plano: 'Gratuito'
+        status_pagamento: 'cancelado'
       })
       .eq('id', empresaData.id);
 
