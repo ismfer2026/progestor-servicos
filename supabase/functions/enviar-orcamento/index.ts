@@ -21,6 +21,8 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    console.log('=== Iniciando função enviar-orcamento ===');
+    
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -32,6 +34,7 @@ const handler = async (req: Request): Promise<Response> => {
     );
 
     const { orcamento_id, email_destinatario, mensagem_adicional }: EnviarOrcamentoRequest = await req.json();
+    console.log('Dados recebidos:', { orcamento_id, email_destinatario, mensagem_adicional });
 
     // Busca o orçamento e dados do cliente e empresa
     const { data: orcamento, error: orcamentoError } = await supabaseClient
@@ -46,11 +49,14 @@ const handler = async (req: Request): Promise<Response> => {
       .single();
 
     if (orcamentoError || !orcamento) {
+      console.error('Erro ao buscar orçamento:', orcamentoError);
       return new Response(
-        JSON.stringify({ error: 'Orçamento não encontrado' }),
+        JSON.stringify({ error: 'Orçamento não encontrado', details: orcamentoError?.message }),
         { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
+    
+    console.log('Orçamento encontrado:', orcamento.id);
 
     // Busca configuração de e-mail da empresa
     const { data: emailConfigData } = await supabaseClient
@@ -61,9 +67,15 @@ const handler = async (req: Request): Promise<Response> => {
       .maybeSingle();
 
     const emailConfig = emailConfigData?.valor as any;
+    console.log('Configuração de e-mail:', { 
+      found: !!emailConfig, 
+      hasHost: !!emailConfig?.smtpHost, 
+      hasUser: !!emailConfig?.smtpUser 
+    });
+    
     if (!emailConfig || !emailConfig.smtpHost || !emailConfig.smtpUser) {
       return new Response(
-        JSON.stringify({ error: 'Configuração de e-mail não encontrada.' }),
+        JSON.stringify({ error: 'Configuração de e-mail não encontrada. Configure o SMTP em Configurações > E-mail.' }),
         { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }

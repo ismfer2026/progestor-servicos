@@ -163,7 +163,7 @@ export function Orcamentos() {
     if (!orcamentoSelecionado) return;
 
     try {
-      const { error } = await supabase.functions.invoke('enviar-orcamento', {
+      const { data, error } = await supabase.functions.invoke('enviar-orcamento', {
         body: {
           orcamento_id: orcamentoSelecionado.id,
           email_destinatario: orcamentoSelecionado.clientes?.email,
@@ -171,13 +171,23 @@ export function Orcamentos() {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Erro ao enviar email:", error);
+        throw error;
+      }
+      
+      if (data?.error) {
+        console.error("Erro da edge function:", data.error);
+        toast.error(data.error);
+        return;
+      }
+
       toast.success("Orçamento enviado por email com sucesso!");
       setDialogEnvio(false);
       fetchOrcamentos();
     } catch (error: any) {
       console.error("Erro ao enviar email:", error);
-      toast.error("Erro ao enviar orçamento");
+      toast.error(error.message || "Erro ao enviar orçamento");
     }
   };
 
