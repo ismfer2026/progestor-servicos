@@ -73,11 +73,7 @@ const App = () => (
               />
               <Route 
                 path="/login" 
-                element={
-                  <PublicRoute>
-                    <Login />
-                  </PublicRoute>
-                } 
+                element={<Login />} 
               />
               <Route 
                 path="/dashboard" 
