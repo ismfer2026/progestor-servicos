@@ -45,7 +45,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { isLoading } = useAuth();
+  const { user, isLoading } = useAuth();
   
   if (isLoading) {
     return (
@@ -55,7 +55,7 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
     );
   }
   
-  return <>{children}</>;
+  return user ? <Navigate to="/dashboard" /> : <>{children}</>;
 }
 
 const App = () => (
