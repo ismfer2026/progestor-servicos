@@ -202,6 +202,8 @@ export type Database = {
           data_inicio: string | null
           empresa_id: string | null
           id: string
+          modelo_id: string | null
+          modelo_url: string | null
           numero_contrato: string | null
           observacoes: string | null
           orcamento_id: string | null
@@ -217,6 +219,8 @@ export type Database = {
           data_inicio?: string | null
           empresa_id?: string | null
           id?: string
+          modelo_id?: string | null
+          modelo_url?: string | null
           numero_contrato?: string | null
           observacoes?: string | null
           orcamento_id?: string | null
@@ -232,6 +236,8 @@ export type Database = {
           data_inicio?: string | null
           empresa_id?: string | null
           id?: string
+          modelo_id?: string | null
+          modelo_url?: string | null
           numero_contrato?: string | null
           observacoes?: string | null
           orcamento_id?: string | null
@@ -1302,6 +1308,35 @@ export type Database = {
           },
         ]
       }
+      orcamentos_pdf: {
+        Row: {
+          created_at: string | null
+          id: string
+          orcamento_id: string
+          storage_path: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          orcamento_id: string
+          storage_path: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          orcamento_id?: string
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orcamentos_pdf_orcamento_id_fkey"
+            columns: ["orcamento_id"]
+            isOneToOne: false
+            referencedRelation: "orcamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       servico_itens: {
         Row: {
           created_at: string | null
@@ -1672,18 +1707,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      count_active_users: {
-        Args: { _empresa_id: string }
-        Returns: number
-      }
+      count_active_users: { Args: { _empresa_id: string }; Returns: number }
       criar_etapas_padrao_funil: {
         Args: { p_empresa_id: string }
         Returns: undefined
       }
-      get_user_empresa_id: {
-        Args: { _user_id: string }
-        Returns: string
-      }
+      get_user_empresa_id: { Args: { _user_id: string }; Returns: string }
       get_user_modules: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["modulo_acesso"][]
@@ -1702,10 +1731,7 @@ export type Database = {
         }
         Returns: boolean
       }
-      is_conta_principal: {
-        Args: { _user_id: string }
-        Returns: boolean
-      }
+      is_conta_principal: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       app_role:

@@ -147,6 +147,35 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Get PDF as buffer
     const pdfBuffer = doc.output('arraybuffer');
+    const pdfUint8Array = new Uint8Array(pdfBuffer);
+
+    // Save PDF to Supabase Storage
+    const storagePath = `${contrato.empresa_id}/${contrato_id}.pdf`;
+    const { error: storageError } = await supabaseClient
+      .storage
+      .from('orcamentos-pdf')
+      .upload(storagePath, pdfUint8Array, {
+        contentType: 'application/pdf',
+        upsert: true
+      });
+
+    if (storageError) {
+      console.error('Erro ao salvar PDF no Storage:', storageError);
+      throw new Error(`Erro ao salvar PDF: ${storageError.message}`);
+    }
+
+    // Download PDF from Storage to send via email
+    const { data: pdfData, error: downloadError } = await supabaseClient
+      .storage
+      .from('orcamentos-pdf')
+      .download(storagePath);
+
+    if (downloadError || !pdfData) {
+      console.error('Erro ao baixar PDF do Storage:', downloadError);
+      throw new Error('Erro ao baixar PDF para envio');
+    }
+
+    const pdfBlobBuffer = await pdfData.arrayBuffer();
 
     // Email HTML (with message first)
     const emailHtml = `
@@ -209,7 +238,7 @@ const handler = async (req: Request): Promise<Response> => {
       html: emailHtml,
       attachments: [{
         filename: `Contrato_${contrato_id.slice(0, 8)}.pdf`,
-        content: new Uint8Array(pdfBuffer),
+        content: new Uint8Array(pdfBlobBuffer),
       }],
     });
 
