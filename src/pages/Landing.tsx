@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { Link } from 'react-router-dom';
 import { 
   CheckCircle2, 
   Users, 
@@ -23,8 +22,6 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 
 export default function Landing() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { user } = useAuth();
-  const navigate = useNavigate();
 
   const benefits = [
     { icon: Users, text: 'CRM para não perder vendas' },
@@ -164,15 +161,9 @@ export default function Landing() {
             <a href="#faq" className="text-sm font-medium hover:text-primary transition-colors">
               FAQ
             </a>
-            {user ? (
-              <Button variant="outline" size="sm" onClick={() => navigate('/dashboard')}>
-                Ir para o Sistema
-              </Button>
-            ) : (
-              <Link to="/login">
-                <Button variant="outline" size="sm">Login</Button>
-              </Link>
-            )}
+            <Link to="/login">
+              <Button variant="outline" size="sm">Login</Button>
+            </Link>
             <Button size="sm" onClick={handleWhatsApp}>Fale Conosco</Button>
           </nav>
 
@@ -198,15 +189,9 @@ export default function Landing() {
               <a href="#faq" className="text-sm font-medium hover:text-primary transition-colors">
                 FAQ
               </a>
-              {user ? (
-                <Button variant="outline" size="sm" className="w-full" onClick={() => navigate('/dashboard')}>
-                  Ir para o Sistema
-                </Button>
-              ) : (
-                <Link to="/login">
-                  <Button variant="outline" size="sm" className="w-full">Login</Button>
-                </Link>
-              )}
+              <Link to="/login">
+                <Button variant="outline" size="sm" className="w-full">Login</Button>
+              </Link>
               <Button size="sm" onClick={handleWhatsApp} className="w-full">Fale Conosco</Button>
             </nav>
           </div>
