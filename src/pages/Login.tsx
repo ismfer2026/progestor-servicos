@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, ArrowLeft, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Login() {
@@ -158,12 +159,17 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-light to-background p-4">
       <div className="w-full max-w-md space-y-6">
+        <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary mb-4">
+          <ArrowLeft className="h-4 w-4" />
+          Voltar para página inicial
+        </Link>
+
         {/* Logo */}
         <div className="text-center">
           <div className="w-16 h-16 mx-auto rounded-2xl gradient-primary flex items-center justify-center shadow-primary">
-            <span className="text-white font-bold text-2xl">P</span>
+            <span className="text-white font-bold text-2xl">S</span>
           </div>
-          <h1 className="mt-4 text-3xl font-bold">ProGestor</h1>
+          <h1 className="mt-4 text-3xl font-bold">Synca Gestão</h1>
           <p className="text-muted-foreground">Sistema de Gestão Completa</p>
         </div>
 
@@ -176,6 +182,18 @@ export default function Login() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            <Alert className="mb-6 border-primary/50 bg-primary/5">
+              <Info className="h-4 w-4 text-primary" />
+              <AlertDescription className="text-sm">
+                <strong className="block mb-2">Primeiro acesso?</strong>
+                <ul className="space-y-1 text-xs text-muted-foreground">
+                  <li>• <strong>Login:</strong> e-mail cadastrado na assinatura</li>
+                  <li>• <strong>Senha inicial:</strong> seu CPF ou CNPJ (apenas números)</li>
+                  <li>• Você será solicitado a trocar a senha no primeiro login</li>
+                </ul>
+              </AlertDescription>
+            </Alert>
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">E-mail</Label>
@@ -220,6 +238,9 @@ export default function Login() {
                     )}
                   </Button>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Primeiro acesso? Use seu CPF/CNPJ como senha
+                </p>
               </div>
 
               <Button 

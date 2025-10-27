@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { Layout } from "@/components/layout/Layout";
 import Dashboard from "./pages/Dashboard";
+import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import { Orcamentos } from "@/pages/Orcamentos";
@@ -54,7 +55,7 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
     );
   }
   
-  return user ? <Navigate to="/" /> : <>{children}</>;
+  return user ? <Navigate to="/dashboard" /> : <>{children}</>;
 }
 
 const App = () => (
@@ -67,6 +68,10 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route 
+                path="/" 
+                element={<Landing />} 
+              />
+              <Route 
                 path="/login" 
                 element={
                   <PublicRoute>
@@ -75,7 +80,7 @@ const App = () => (
                 } 
               />
               <Route 
-                path="/" 
+                path="/dashboard" 
                 element={
                   <ProtectedRoute>
                     <Dashboard />
