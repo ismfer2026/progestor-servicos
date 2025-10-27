@@ -45,7 +45,7 @@ export default function Landing() {
       price: 'R$ 99,90',
       period: '/mês',
       description: 'Ideal para começar a organizar suas vendas',
-      priceId: 'price_1SMvCvLzS21dPBnvhCoydvXh',
+      priceId: 'https://pay.kiwify.com.br/Mc7Lzvn',
       features: [
         'CRM + criação de orçamentos',
         'Envio por e-mail',
@@ -61,7 +61,7 @@ export default function Landing() {
       price: 'R$ 249,90',
       period: '/mês',
       description: 'Para empresas que querem escalar',
-      priceId: 'price_1SMvMvLzS21dPBnvzXM4DCyf',
+      priceId: 'https://pay.kiwify.com.br/agoKfIS',
       features: [
         'Tudo do Essencial',
         'Agenda integrada',
@@ -77,7 +77,7 @@ export default function Landing() {
       price: 'R$ 449,90',
       period: '/mês',
       description: 'Solução completa para alta performance',
-      priceId: 'price_1SMvOWLzS21dPBnvMyspWY6B',
+      priceId: 'https://pay.kiwify.com.br/hmXqePV',
       features: [
         'Tudo do Estratégico',
         'Geração de contratos com marca própria',
@@ -131,9 +131,8 @@ export default function Landing() {
     }
   ];
 
-  const handleCheckout = (priceId: string) => {
-    // Redireciona para o Stripe Checkout
-    window.open(`https://buy.stripe.com/test_${priceId}`, '_blank');
+  const handleCheckout = (url: string) => {
+    window.open(url, '_blank');
   };
 
   const handleWhatsApp = () => {
