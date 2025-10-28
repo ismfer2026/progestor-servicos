@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { createClient } from '@supabase/supabase-js';
 
 interface PDFViewerProps {
   orcamento: any;
@@ -31,7 +32,43 @@ export function PDFViewer({ orcamento, onClose }: PDFViewerProps) {
     const imgY = 0;
 
     pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
-    pdf.save(`orcamento-${orcamento.id.slice(0, 8)}.pdf`);
+
+    // Converte PDF para Blob
+    const pdfBlob = pdf.output('blob');
+
+    // Cria cliente Supabase
+    const supabase = createClient(
+      import.meta.env.VITE_SUPABASE_URL,
+      import.meta.env.VITE_SUPABASE_ANON_KEY
+    );
+
+    const filePath = `${orcamento.empresa_id}/${orcamento.id}.pdf`;
+
+    // Verifica se já existe PDF
+    const { data: existingFiles } = await supabase.storage
+      .from('orcamentos-pdf')
+      .list(`${orcamento.empresa_id}/`);
+
+    const fileExists = existingFiles?.some(f => f.name === `${orcamento.id}.pdf`);
+
+    let proceed = true;
+    if (fileExists) {
+      proceed = confirm('Já existe um PDF para este orçamento. Deseja substituí-lo?');
+    }
+
+    if (!proceed) return;
+
+    // Faz upload
+    const { error } = await supabase.storage
+      .from('orcamentos-pdf')
+      .upload(filePath, pdfBlob, { contentType: 'application/pdf', upsert: true });
+
+    if (error) {
+      alert('Erro ao salvar PDF no Supabase: ' + error.message);
+      return;
+    }
+
+    alert('PDF salvo no Supabase com sucesso!');
   };
 
   const formatCurrency = (value: number) => {
@@ -70,7 +107,7 @@ export function PDFViewer({ orcamento, onClose }: PDFViewerProps) {
               onClick={generatePDF}
               className="px-4 py-2 bg-gray-900 text-white rounded hover:bg-gray-800 transition-colors font-medium"
             >
-              Baixar PDF
+              Salvar PDF no Supabase
             </button>
             <button
               onClick={onClose}
@@ -83,147 +120,142 @@ export function PDFViewer({ orcamento, onClose }: PDFViewerProps) {
 
         <div className="overflow-y-auto flex-1">
           <div ref={contentRef} className="p-12 bg-white">
-          {/* Header */}
-          <div className="flex justify-between items-start mb-8 pb-6">
-            {/* Company Info */}
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-12 h-12 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-xl">
-                  P
+            {/* Header */}
+            <div className="flex justify-between items-start mb-8 pb-6">
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-12 h-12 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-xl">
+                    P
+                  </div>
+                  <div>
+                    <h1 className="text-2xl font-bold text-gray-900">Synca Gestão Serviços Inc.</h1>
+                    <p className="text-sm text-gray-600">contato@syncagestao.com</p>
+                    <p className="text-sm text-gray-600">(11) 98765-4321</p>
+                  </div>
                 </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Synca Gestão Serviços Inc.</h1>
-                  <p className="text-sm text-gray-600">contato@syncagestao.com</p>
-                  <p className="text-sm text-gray-600">(11) 98765-4321</p>
+              </div>
+              <div className="text-right">
+                <h2 className="text-3xl font-bold text-gray-400 mb-2">ORÇAMENTO</h2>
+                <p className="text-sm text-gray-600">
+                  # ORC-DRAFT-{orcamento.id.slice(0, 6).toUpperCase()}
+                </p>
+                <p className="text-sm text-gray-600">
+                  Data: {formatDate(orcamento.criado_em || new Date().toISOString())}
+                </p>
+              </div>
+            </div>
+
+            {/* Client and Service Details */}
+            <div className="grid grid-cols-2 gap-8 mb-8">
+              <div>
+                <h3 className="text-sm font-bold text-gray-900 mb-3 uppercase">Cliente</h3>
+                <div className="space-y-1 text-sm">
+                  <p className="font-bold text-gray-900">{orcamento.clientes?.nome || 'N/A'}</p>
+                  <p className="text-blue-600">{orcamento.clientes?.email || 'N/A'}</p>
+                  <p className="text-gray-600">{orcamento.clientes?.telefone || 'N/A'}</p>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-bold text-gray-900 mb-3 uppercase">Detalhes do Serviço</h3>
+                <div className="space-y-1 text-sm text-gray-600">
+                  {orcamento.data_servico && (
+                    <p><span className="font-medium">Data:</span> {formatDate(orcamento.data_servico)}</p>
+                  )}
+                  {(orcamento.horario_inicio || orcamento.horario_fim) && (
+                    <p>
+                      <span className="font-medium">Horário:</span> {formatTime(orcamento.horario_inicio)} às {formatTime(orcamento.horario_fim)}
+                    </p>
+                  )}
+                  {orcamento.local_servico && (
+                    <p><span className="font-medium">Local:</span> {orcamento.local_servico}</p>
+                  )}
                 </div>
               </div>
             </div>
 
-            {/* Budget Number */}
-            <div className="text-right">
-              <h2 className="text-3xl font-bold text-gray-400 mb-2">ORÇAMENTO</h2>
-              <p className="text-sm text-gray-600">
-                # ORC-DRAFT-{orcamento.id.slice(0, 6).toUpperCase()}
-              </p>
-              <p className="text-sm text-gray-600">
-                Data: {formatDate(orcamento.criado_em || new Date().toISOString())}
-              </p>
-            </div>
-          </div>
-
-          {/* Client and Service Details */}
-          <div className="grid grid-cols-2 gap-8 mb-8">
-            {/* Client */}
-            <div>
-              <h3 className="text-sm font-bold text-gray-900 mb-3 uppercase">Cliente</h3>
-              <div className="space-y-1 text-sm">
-                <p className="font-bold text-gray-900">{orcamento.clientes?.nome || 'N/A'}</p>
-                <p className="text-blue-600">{orcamento.clientes?.email || 'N/A'}</p>
-                <p className="text-gray-600">{orcamento.clientes?.telefone || 'N/A'}</p>
-              </div>
-            </div>
-
-            {/* Service Details */}
-            <div>
-              <h3 className="text-sm font-bold text-gray-900 mb-3 uppercase">Detalhes do Serviço</h3>
-              <div className="space-y-1 text-sm text-gray-600">
-                {orcamento.data_servico && (
-                  <p><span className="font-medium">Data:</span> {formatDate(orcamento.data_servico)}</p>
-                )}
-                {(orcamento.horario_inicio || orcamento.horario_fim) && (
-                  <p>
-                    <span className="font-medium">Horário:</span> {formatTime(orcamento.horario_inicio)} às {formatTime(orcamento.horario_fim)}
-                  </p>
-                )}
-                {orcamento.local_servico && (
-                  <p><span className="font-medium">Local:</span> {orcamento.local_servico}</p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Items Table */}
-          <div className="mb-8">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gray-100 border-b-2 border-gray-200">
-                  <th className="text-left py-3 px-4 text-sm font-bold text-gray-700 uppercase">Item</th>
-                  <th className="text-center py-3 px-4 text-sm font-bold text-gray-700 uppercase">Qtd.</th>
-                  <th className="text-right py-3 px-4 text-sm font-bold text-gray-700 uppercase">Preço Unitário</th>
-                  <th className="text-right py-3 px-4 text-sm font-bold text-gray-700 uppercase">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Array.isArray(orcamento.servicos) && orcamento.servicos.map((servico: any, index: number) => (
-                  <tr key={index} className="border-b border-gray-200">
-                    <td className="py-4 px-4">
-                      <div className="flex items-start gap-3">
-                        {servico.imagem_url && (
-                          <img 
-                            src={servico.imagem_url} 
-                            alt={servico.nome}
-                            className="w-12 h-12 object-cover rounded"
-                          />
-                        )}
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-900">{servico.nome}</p>
-                          {servico.descricao && (
-                            <p className="text-sm text-gray-500 mt-1">{servico.descricao}</p>
-                          )}
-                          {servico.desconto > 0 && (
-                            <p className="text-sm text-green-600 mt-1">
-                              Desconto: {servico.tipo_desconto === 'percentual' 
-                                ? `${servico.desconto}%` 
-                                : formatCurrency(servico.desconto)}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-4 px-4 text-center text-gray-900">{servico.quantidade || 1}</td>
-                    <td className="py-4 px-4 text-right text-gray-900">{formatCurrency(servico.preco_unitario || 0)}</td>
-                    <td className="py-4 px-4 text-right font-medium text-gray-900">{formatCurrency(servico.preco_total || 0)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Totals */}
-          <div className="flex justify-end mb-8">
-            <div className="w-80">
-              <div className="flex justify-between py-2 text-sm text-gray-600 border-t border-gray-200">
-                <span>Subtotal</span>
-                <span>{formatCurrency(subtotal)}</span>
-              </div>
-              <div className="flex justify-between py-3 text-lg font-bold text-gray-900 border-t-2 border-gray-900">
-                <span>Total</span>
-                <span>{formatCurrency(orcamento.valor_total || 0)}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Observations */}
-          {orcamento.observacoes && (
+            {/* Items Table */}
             <div className="mb-8">
-              <h3 className="text-sm font-bold text-gray-900 mb-2 uppercase">Observações</h3>
-              <p className="text-sm text-gray-600 whitespace-pre-wrap">{orcamento.observacoes}</p>
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-gray-100 border-b-2 border-gray-200">
+                    <th className="text-left py-3 px-4 text-sm font-bold text-gray-700 uppercase">Item</th>
+                    <th className="text-center py-3 px-4 text-sm font-bold text-gray-700 uppercase">Qtd.</th>
+                    <th className="text-right py-3 px-4 text-sm font-bold text-gray-700 uppercase">Preço Unitário</th>
+                    <th className="text-right py-3 px-4 text-sm font-bold text-gray-700 uppercase">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Array.isArray(orcamento.servicos) && orcamento.servicos.map((servico: any, index: number) => (
+                    <tr key={index} className="border-b border-gray-200">
+                      <td className="py-4 px-4">
+                        <div className="flex items-start gap-3">
+                          {servico.imagem_url && (
+                            <img 
+                              src={servico.imagem_url} 
+                              alt={servico.nome}
+                              className="w-12 h-12 object-cover rounded"
+                            />
+                          )}
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-900">{servico.nome}</p>
+                            {servico.descricao && (
+                              <p className="text-sm text-gray-500 mt-1">{servico.descricao}</p>
+                            )}
+                            {servico.desconto > 0 && (
+                              <p className="text-sm text-green-600 mt-1">
+                                Desconto: {servico.tipo_desconto === 'percentual' 
+                                  ? `${servico.desconto}%` 
+                                  : formatCurrency(servico.desconto)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 text-center text-gray-900">{servico.quantidade || 1}</td>
+                      <td className="py-4 px-4 text-right text-gray-900">{formatCurrency(servico.preco_unitario || 0)}</td>
+                      <td className="py-4 px-4 text-right font-medium text-gray-900">{formatCurrency(servico.preco_total || 0)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
 
-          {/* Validity */}
-          <div className="text-sm text-gray-600 border-t border-gray-200 pt-4">
-            {orcamento.data_validade ? (
-              <p>Este orçamento é válido até: <span className="font-medium">{formatDate(orcamento.data_validade)}</span></p>
-            ) : (
-              <p>Este orçamento é válido por 30 dias a partir da data de emissão.</p>
+            {/* Totals */}
+            <div className="flex justify-end mb-8">
+              <div className="w-80">
+                <div className="flex justify-between py-2 text-sm text-gray-600 border-t border-gray-200">
+                  <span>Subtotal</span>
+                  <span>{formatCurrency(subtotal)}</span>
+                </div>
+                <div className="flex justify-between py-3 text-lg font-bold text-gray-900 border-t-2 border-gray-900">
+                  <span>Total</span>
+                  <span>{formatCurrency(orcamento.valor_total || 0)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Observations */}
+            {orcamento.observacoes && (
+              <div className="mb-8">
+                <h3 className="text-sm font-bold text-gray-900 mb-2 uppercase">Observações</h3>
+                <p className="text-sm text-gray-600 whitespace-pre-wrap">{orcamento.observacoes}</p>
+              </div>
             )}
-          </div>
 
-          {/* Footer */}
-          <div className="mt-12 text-center text-sm text-gray-400">
-            <p>Obrigado pela sua preferência!</p>
-          </div>
+            {/* Validity */}
+            <div className="text-sm text-gray-600 border-t border-gray-200 pt-4">
+              {orcamento.data_validade ? (
+                <p>Este orçamento é válido até: <span className="font-medium">{formatDate(orcamento.data_validade)}</span></p>
+              ) : (
+                <p>Este orçamento é válido por 30 dias a partir da data de emissão.</p>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="mt-12 text-center text-sm text-gray-400">
+              <p>Obrigado pela sua preferência!</p>
+            </div>
           </div>
         </div>
       </div>
