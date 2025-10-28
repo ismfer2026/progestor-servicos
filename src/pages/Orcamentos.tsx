@@ -164,6 +164,7 @@ export function Orcamentos() {
     if (!orcamentoSelecionado || enviandoEmail) return;
 
     setEnviandoEmail(true);
+    
     try {
       const { data, error } = await supabase.functions.invoke('enviar-orcamento', {
         body: {
@@ -175,25 +176,24 @@ export function Orcamentos() {
 
       if (error) {
         console.error("Erro ao enviar email:", error);
-        throw error;
+        toast.error("Erro ao enviar orçamento: " + (error.message || "Erro desconhecido"));
+        return;
       }
       
       if (data?.error) {
         console.error("Erro da edge function:", data.error);
         toast.error(data.error);
-        setDialogEnvio(false);
         return;
       }
 
       toast.success("Orçamento enviado por email com sucesso!");
-      setDialogEnvio(false);
-      fetchOrcamentos();
+      await fetchOrcamentos();
     } catch (error: any) {
       console.error("Erro ao enviar email:", error);
-      toast.error(error.message || "Erro ao enviar orçamento");
-      setDialogEnvio(false);
+      toast.error("Erro ao enviar orçamento: " + (error.message || "Erro desconhecido"));
     } finally {
       setEnviandoEmail(false);
+      setDialogEnvio(false);
     }
   };
 
