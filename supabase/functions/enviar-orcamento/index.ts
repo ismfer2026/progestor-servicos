@@ -36,14 +36,11 @@ const handler = async (req: Request): Promise<Response> => {
     const { orcamento_id, email_destinatario, mensagem_adicional }: EnviarOrcamentoRequest = await req.json();
     console.log('Dados recebidos:', { orcamento_id, email_destinatario, mensagem_adicional });
 
-    // Busca o orçamento e dados do cliente e empresa
+    // Busca o orçamento
+    console.log('Buscando orçamento...');
     const { data: orcamento, error: orcamentoError } = await supabaseClient
       .from('orcamentos')
-      .select(`
-        *,
-        clientes (nome, email, telefone),
-        empresas (nome_fantasia, email_admin)
-      `)
+      .select('*')
       .eq('id', orcamento_id)
       .single();
 
@@ -53,6 +50,30 @@ const handler = async (req: Request): Promise<Response> => {
         JSON.stringify({ error: 'Orçamento não encontrado', details: orcamentoError?.message }),
         { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
+    }
+
+    console.log('Orçamento encontrado, buscando cliente...');
+    // Busca dados do cliente
+    const { data: cliente, error: clienteError } = await supabaseClient
+      .from('clientes')
+      .select('nome, email, telefone')
+      .eq('id', orcamento.cliente_id)
+      .single();
+
+    if (clienteError) {
+      console.error('Erro ao buscar cliente:', clienteError);
+    }
+
+    console.log('Buscando empresa...');
+    // Busca dados da empresa
+    const { data: empresa, error: empresaError } = await supabaseClient
+      .from('empresas')
+      .select('nome_fantasia, email_admin')
+      .eq('id', orcamento.empresa_id)
+      .single();
+
+    if (empresaError) {
+      console.error('Erro ao buscar empresa:', empresaError);
     }
     
     console.log('Orçamento encontrado:', orcamento.id);
@@ -86,7 +107,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Header
     doc.setFontSize(20);
-    doc.text(orcamento.empresas?.nome_fantasia || 'Empresa', pageWidth / 2, yPos, { align: 'center' });
+    doc.text(empresa?.nome_fantasia || 'Empresa', pageWidth / 2, yPos, { align: 'center' });
     yPos += 10;
     doc.setFontSize(12);
     doc.text(`Orçamento #${orcamento_id.slice(0, 8)}`, pageWidth / 2, yPos, { align: 'center' });
@@ -99,11 +120,11 @@ const handler = async (req: Request): Promise<Response> => {
     yPos += 8;
     doc.setFontSize(11);
     doc.setFont(undefined, 'normal');
-    doc.text(`Nome: ${orcamento.clientes?.nome || 'N/A'}`, 20, yPos);
+    doc.text(`Nome: ${cliente?.nome || 'N/A'}`, 20, yPos);
     yPos += 6;
-    doc.text(`Email: ${orcamento.clientes?.email || 'N/A'}`, 20, yPos);
+    doc.text(`Email: ${cliente?.email || 'N/A'}`, 20, yPos);
     yPos += 6;
-    doc.text(`Telefone: ${orcamento.clientes?.telefone || 'N/A'}`, 20, yPos);
+    doc.text(`Telefone: ${cliente?.telefone || 'N/A'}`, 20, yPos);
     yPos += 15;
 
     // Serviços
@@ -195,7 +216,7 @@ const handler = async (req: Request): Promise<Response> => {
     // HTML do e-mail
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; max-width:600px; margin:0 auto; padding:20px;">
-        <h1>${orcamento.empresas?.nome_fantasia || 'Empresa'}</h1>
+        <h1>${empresa?.nome_fantasia || 'Empresa'}</h1>
         <p>Orçamento #${orcamento_id.slice(0, 8)}</p>
         ${mensagem_adicional ? `<p>${mensagem_adicional}</p>` : ''}
         <p>O orçamento completo está anexado a este e-mail em PDF.</p>
@@ -221,10 +242,11 @@ const handler = async (req: Request): Promise<Response> => {
     const transporter = nodemailer.createTransport(transportConfig);
 
     // Envia e-mail com PDF
+    console.log('Enviando e-mail...');
     const emailResponse = await transporter.sendMail({
-      from: `${orcamento.empresas?.nome_fantasia || 'Empresa'} <${emailConfig.smtpUser}>`,
+      from: `${empresa?.nome_fantasia || 'Empresa'} <${emailConfig.smtpUser}>`,
       to: email_destinatario,
-      subject: `Orçamento - ${orcamento.empresas?.nome_fantasia || 'Empresa'}`,
+      subject: `Orçamento - ${empresa?.nome_fantasia || 'Empresa'}`,
       html: emailHtml,
       attachments: [{
         filename: `Orcamento_${orcamento_id.slice(0, 8)}.pdf`,
