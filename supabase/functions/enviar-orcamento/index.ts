@@ -201,16 +201,20 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log(`PDF salvo em: ${storagePath}`);
 
-    // Salva referência na tabela orcamentos_pdf
-    const { error: pdfRecordError } = await supabaseClient
-      .from('orcamentos_pdf')
-      .upsert({
-        orcamento_id,
-        storage_path: storagePath
-      }, { onConflict: 'orcamento_id' });
+    // Salva referência na tabela orcamentos_pdf (se a tabela existir)
+    try {
+      const { error: pdfRecordError } = await supabaseClient
+        .from('orcamentos_pdf')
+        .insert({
+          orcamento_id,
+          storage_path: storagePath
+        });
 
-    if (pdfRecordError) {
-      console.error('Erro ao registrar PDF:', pdfRecordError);
+      if (pdfRecordError) {
+        console.log('Info: Tabela orcamentos_pdf não disponível ou erro ao registrar:', pdfRecordError.message);
+      }
+    } catch (err) {
+      console.log('Info: Não foi possível registrar na tabela orcamentos_pdf');
     }
 
     // HTML do e-mail

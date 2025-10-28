@@ -59,6 +59,7 @@ export function Orcamentos() {
   const [showWhatsApp, setShowWhatsApp] = useState(false);
   const [orcamentoSelecionado, setOrcamentoSelecionado] = useState<Orcamento | null>(null);
   const [mensagemEnvio, setMensagemEnvio] = useState("");
+  const [enviandoEmail, setEnviandoEmail] = useState(false);
   
   // PDF Viewer
   const [mostrarPDF, setMostrarPDF] = useState(false);
@@ -160,8 +161,9 @@ export function Orcamentos() {
   };
 
   const handleEnviarEmail = async () => {
-    if (!orcamentoSelecionado) return;
+    if (!orcamentoSelecionado || enviandoEmail) return;
 
+    setEnviandoEmail(true);
     try {
       const { data, error } = await supabase.functions.invoke('enviar-orcamento', {
         body: {
@@ -179,6 +181,7 @@ export function Orcamentos() {
       if (data?.error) {
         console.error("Erro da edge function:", data.error);
         toast.error(data.error);
+        setDialogEnvio(false);
         return;
       }
 
@@ -188,6 +191,9 @@ export function Orcamentos() {
     } catch (error: any) {
       console.error("Erro ao enviar email:", error);
       toast.error(error.message || "Erro ao enviar orçamento");
+      setDialogEnvio(false);
+    } finally {
+      setEnviandoEmail(false);
     }
   };
 
@@ -442,13 +448,31 @@ export function Orcamentos() {
               Como deseja enviar para {orcamentoSelecionado?.clientes?.nome}?
             </p>
             <div className="flex flex-col gap-2">
-              <Button onClick={handleEnviarWhatsAppDialog} className="gap-2">
+              <Button 
+                onClick={handleEnviarWhatsAppDialog} 
+                className="gap-2"
+                disabled={enviandoEmail}
+              >
                 <Send className="h-4 w-4" />
                 Enviar via WhatsApp
               </Button>
-              <Button onClick={handleEnviarEmail} variant="outline" className="gap-2">
-                <Send className="h-4 w-4" />
-                Enviar via E-mail
+              <Button 
+                onClick={handleEnviarEmail} 
+                variant="outline" 
+                className="gap-2"
+                disabled={enviandoEmail}
+              >
+                {enviandoEmail ? (
+                  <>
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                    Enviando...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4" />
+                    Enviar via E-mail
+                  </>
+                )}
               </Button>
               <Button 
                 onClick={() => {
@@ -457,6 +481,7 @@ export function Orcamentos() {
                 }} 
                 variant="outline"
                 className="gap-2"
+                disabled={enviandoEmail}
               >
                 <Send className="h-4 w-4" />
                 Enviar Ambos
