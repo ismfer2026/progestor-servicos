@@ -42,8 +42,7 @@ const handler = async (req: Request): Promise<Response> => {
       .select(`
         *,
         clientes (nome, email, telefone),
-        empresas (nome_fantasia, email_admin),
-        servicos (*)
+        empresas (nome_fantasia, email_admin)
       `)
       .eq('id', orcamento_id)
       .single();
@@ -124,18 +123,26 @@ const handler = async (req: Request): Promise<Response> => {
     yPos += 6;
 
     doc.setFont(undefined, 'normal');
-    if (Array.isArray(orcamento.servicos)) {
-      for (const servico of orcamento.servicos) {
+    // Se os serviços estão em campo JSON
+    const servicos = orcamento.servicos ? 
+      (typeof orcamento.servicos === 'string' ? JSON.parse(orcamento.servicos) : orcamento.servicos) : 
+      [];
+    
+    if (Array.isArray(servicos) && servicos.length > 0) {
+      for (const servico of servicos) {
         if (yPos > 270) {
           doc.addPage();
           yPos = 20;
         }
-        doc.text(servico.nome, 20, yPos);
+        doc.text(servico.nome || servico.descricao || 'Serviço', 20, yPos);
         doc.text(String(servico.quantidade || 1), 100, yPos);
-        doc.text(`R$ ${Number(servico.preco_venda || 0).toFixed(2)}`, 120, yPos);
-        doc.text(`R$ ${(Number(servico.preco_venda || 0) * (servico.quantidade || 1)).toFixed(2)}`, 160, yPos);
+        doc.text(`R$ ${Number(servico.preco_venda || servico.valor || 0).toFixed(2)}`, 120, yPos);
+        doc.text(`R$ ${(Number(servico.preco_venda || servico.valor || 0) * (servico.quantidade || 1)).toFixed(2)}`, 160, yPos);
         yPos += 6;
       }
+    } else {
+      doc.text('Nenhum serviço informado', 20, yPos);
+      yPos += 6;
     }
 
     yPos += 5;
