@@ -128,6 +128,22 @@ export default function Configuracoes() {
   const [gerarLinkConvite, setGerarLinkConvite] = useState(false);
   const [linkConvite, setLinkConvite] = useState('');
   
+  // Estados para informações da empresa
+  const [empresaInfo, setEmpresaInfo] = useState({
+    nome_fantasia: '',
+    razao_social: '',
+    cnpj: '',
+    telefone: '',
+    email_admin: '',
+    endereco: '',
+    cidade: '',
+    estado: '',
+    cep: '',
+    website: '',
+    logo_url: ''
+  });
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  
   // Estados para gerenciamento de planos
   const [planos, setPlanos] = useState<PlanoConfig[]>([]);
   const [showPlanoDialog, setShowPlanoDialog] = useState(false);
@@ -149,8 +165,124 @@ export default function Configuracoes() {
       loadColaboradores();
     } else if (activeTab === 'categorias') {
       loadCategorias();
+    } else if (activeTab === 'empresa') {
+      loadEmpresaInfo();
     }
   }, [activeTab]);
+
+  const loadEmpresaInfo = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('empresas')
+        .select('*')
+        .eq('id', user.empresa_id)
+        .single();
+
+      if (error) throw error;
+      if (data) {
+        setEmpresaInfo({
+          nome_fantasia: data.nome_fantasia || '',
+          razao_social: data.razao_social || '',
+          cnpj: data.cnpj || '',
+          telefone: data.telefone || '',
+          email_admin: data.email_admin || '',
+          endereco: data.endereco || '',
+          cidade: data.cidade || '',
+          estado: data.estado || '',
+          cep: data.cep || '',
+          website: data.website || '',
+          logo_url: data.logo_url || ''
+        });
+      }
+    } catch (error) {
+      console.error('Error loading empresa info:', error);
+      toast.error('Erro ao carregar informações da empresa');
+    }
+  };
+
+  const handleSaveEmpresaInfo = async () => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('empresas')
+        .update({
+          nome_fantasia: empresaInfo.nome_fantasia,
+          razao_social: empresaInfo.razao_social,
+          cnpj: empresaInfo.cnpj,
+          telefone: empresaInfo.telefone,
+          email_admin: empresaInfo.email_admin,
+          endereco: empresaInfo.endereco,
+          cidade: empresaInfo.cidade,
+          estado: empresaInfo.estado,
+          cep: empresaInfo.cep,
+          website: empresaInfo.website,
+          logo_url: empresaInfo.logo_url
+        })
+        .eq('id', user.empresa_id);
+
+      if (error) throw error;
+      toast.success('Informações da empresa salvas com sucesso!');
+    } catch (error) {
+      console.error('Error saving empresa info:', error);
+      toast.error('Erro ao salvar informações da empresa');
+    }
+  };
+
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    // Validar tipo de arquivo
+    if (!file.type.startsWith('image/')) {
+      toast.error('Por favor, selecione um arquivo de imagem');
+      return;
+    }
+
+    // Validar tamanho (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('A imagem deve ter no máximo 2MB');
+      return;
+    }
+
+    try {
+      setUploadingLogo(true);
+
+      // Upload para storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.empresa_id}/logo.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('servico-imagens')
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Obter URL pública
+      const { data: { publicUrl } } = supabase.storage
+        .from('servico-imagens')
+        .getPublicUrl(fileName);
+
+      // Atualizar estado e salvar no banco
+      setEmpresaInfo(prev => ({ ...prev, logo_url: publicUrl }));
+      
+      const { error: updateError } = await supabase
+        .from('empresas')
+        .update({ logo_url: publicUrl })
+        .eq('id', user.empresa_id);
+
+      if (updateError) throw updateError;
+
+      toast.success('Logo atualizado com sucesso!');
+    } catch (error) {
+      console.error('Error uploading logo:', error);
+      toast.error('Erro ao fazer upload do logo');
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
 
   const loadColaboradores = async () => {
     if (!user) return;
@@ -773,103 +905,134 @@ export default function Configuracoes() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <Label htmlFor="nomeEmpresa">Nome da Empresa</Label>
-            <Input id="nomeEmpresa" defaultValue="Synca Gestão Ltda" />
+            <Label htmlFor="nomeFantasia">Nome Fantasia</Label>
+            <Input 
+              id="nomeFantasia" 
+              value={empresaInfo.nome_fantasia}
+              onChange={(e) => setEmpresaInfo(prev => ({ ...prev, nome_fantasia: e.target.value }))}
+              placeholder="Nome da sua empresa"
+            />
+          </div>
+          <div>
+            <Label htmlFor="razaoSocial">Razão Social</Label>
+            <Input 
+              id="razaoSocial" 
+              value={empresaInfo.razao_social}
+              onChange={(e) => setEmpresaInfo(prev => ({ ...prev, razao_social: e.target.value }))}
+              placeholder="Razão social da empresa"
+            />
           </div>
           <div>
             <Label htmlFor="cnpj">CNPJ</Label>
-            <Input id="cnpj" placeholder="00.000.000/0001-00" />
+            <Input 
+              id="cnpj" 
+              value={empresaInfo.cnpj}
+              onChange={(e) => setEmpresaInfo(prev => ({ ...prev, cnpj: e.target.value }))}
+              placeholder="00.000.000/0001-00"
+            />
           </div>
           <div>
             <Label htmlFor="telefone">Telefone</Label>
-            <Input id="telefone" placeholder="(11) 99999-9999" />
+            <Input 
+              id="telefone" 
+              value={empresaInfo.telefone}
+              onChange={(e) => setEmpresaInfo(prev => ({ ...prev, telefone: e.target.value }))}
+              placeholder="(11) 99999-9999"
+            />
           </div>
           <div>
             <Label htmlFor="email">E-mail</Label>
-            <Input id="email" type="email" defaultValue="contato@syncagestao.com" />
+            <Input 
+              id="email" 
+              type="email" 
+              value={empresaInfo.email_admin}
+              onChange={(e) => setEmpresaInfo(prev => ({ ...prev, email_admin: e.target.value }))}
+              placeholder="contato@empresa.com"
+            />
+          </div>
+          <div>
+            <Label htmlFor="website">Website</Label>
+            <Input 
+              id="website" 
+              value={empresaInfo.website}
+              onChange={(e) => setEmpresaInfo(prev => ({ ...prev, website: e.target.value }))}
+              placeholder="https://www.empresa.com"
+            />
           </div>
           <div>
             <Label htmlFor="endereco">Endereço</Label>
-            <Textarea id="endereco" placeholder="Rua, número, bairro, cidade, estado" />
+            <Input 
+              id="endereco" 
+              value={empresaInfo.endereco}
+              onChange={(e) => setEmpresaInfo(prev => ({ ...prev, endereco: e.target.value }))}
+              placeholder="Rua, número, bairro"
+            />
           </div>
-          <Button>Salvar Alterações</Button>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="cidade">Cidade</Label>
+              <Input 
+                id="cidade" 
+                value={empresaInfo.cidade}
+                onChange={(e) => setEmpresaInfo(prev => ({ ...prev, cidade: e.target.value }))}
+                placeholder="São Paulo"
+              />
+            </div>
+            <div>
+              <Label htmlFor="estado">Estado</Label>
+              <Input 
+                id="estado" 
+                value={empresaInfo.estado}
+                onChange={(e) => setEmpresaInfo(prev => ({ ...prev, estado: e.target.value }))}
+                placeholder="SP"
+                maxLength={2}
+              />
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="cep">CEP</Label>
+            <Input 
+              id="cep" 
+              value={empresaInfo.cep}
+              onChange={(e) => setEmpresaInfo(prev => ({ ...prev, cep: e.target.value }))}
+              placeholder="00000-000"
+            />
+          </div>
+          <Button onClick={handleSaveEmpresaInfo}>Salvar Informações</Button>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Logo e Identidade Visual</CardTitle>
+          <CardTitle>Logo da Empresa</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="text-center">
-            <div className="w-24 h-24 mx-auto mb-4 bg-gradient-to-br from-primary to-primary-dark rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-2xl">P</span>
+            <div className="w-32 h-32 mx-auto mb-4 border-2 border-dashed border-border rounded-lg flex items-center justify-center overflow-hidden bg-muted">
+              {empresaInfo.logo_url ? (
+                <img src={empresaInfo.logo_url} alt="Logo da empresa" className="w-full h-full object-contain" />
+              ) : (
+                <Building className="h-12 w-12 text-muted-foreground" />
+              )}
             </div>
-            <Button variant="outline">Alterar Logo</Button>
-          </div>
-          <div>
-            <Label htmlFor="corPrimaria">Cor Primária</Label>
-            <div className="flex items-center space-x-2">
-              <Input id="corPrimaria" defaultValue="#3B82F6" className="w-20" />
-              <div className="w-8 h-8 bg-primary rounded border"></div>
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="corSecundaria">Cor Secundária</Label>
-            <div className="flex items-center space-x-2">
-              <Input id="corSecundaria" defaultValue="#10B981" className="w-20" />
-              <div className="w-8 h-8 bg-green-500 rounded border"></div>
-            </div>
-          </div>
-          <Button>Salvar Cores</Button>
-        </CardContent>
-      </Card>
-
-      <Card className="md:col-span-2">
-        <CardHeader>
-          <CardTitle>Configurações Regionais</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="moeda">Moeda</Label>
-              <Select defaultValue="BRL">
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="BRL">Real Brasileiro (R$)</SelectItem>
-                  <SelectItem value="USD">Dólar Americano ($)</SelectItem>
-                  <SelectItem value="EUR">Euro (€)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="timezone">Fuso Horário</Label>
-              <Select defaultValue="America/Sao_Paulo">
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="America/Sao_Paulo">Brasília (GMT-3)</SelectItem>
-                  <SelectItem value="America/New_York">Nova York (GMT-5)</SelectItem>
-                  <SelectItem value="Europe/London">Londres (GMT+0)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="idioma">Idioma</Label>
-              <Select defaultValue="pt-BR">
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pt-BR">Português (Brasil)</SelectItem>
-                  <SelectItem value="en-US">English (US)</SelectItem>
-                  <SelectItem value="es-ES">Español</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <Input
+              id="logo-upload"
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleLogoUpload}
+              disabled={uploadingLogo}
+            />
+            <Button 
+              variant="outline" 
+              onClick={() => document.getElementById('logo-upload')?.click()}
+              disabled={uploadingLogo}
+            >
+              {uploadingLogo ? 'Enviando...' : 'Alterar Logo'}
+            </Button>
+            <p className="text-xs text-muted-foreground mt-2">
+              Formato: PNG, JPG (máx. 2MB)
+            </p>
           </div>
         </CardContent>
       </Card>

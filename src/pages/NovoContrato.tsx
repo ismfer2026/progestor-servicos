@@ -174,6 +174,7 @@ ${parcelas.map(p => `Parcela ${p.numero}: R$ ${p.valor.toFixed(2)} - Vencimento:
       `.trim();
 
       const contratoData = {
+        empresa_id: user.empresa_id, // Para buscar dados da empresa
         cliente_nome: cliente?.nome || '',
         cliente_documento: cliente?.documento || cliente?.cpf_cnpj || '',
         cliente_email: cliente?.email || '',

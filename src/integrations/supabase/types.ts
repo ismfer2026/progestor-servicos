@@ -273,48 +273,72 @@ export type Database = {
       empresas: {
         Row: {
           acesso_vitalicio: boolean | null
+          cep: string | null
+          cidade: string | null
           cnpj: string | null
           data_criacao: string | null
           data_proximo_pagamento: string | null
           data_ultimo_pagamento: string | null
           email_admin: string
+          endereco: string | null
+          estado: string | null
           id: string
           limite_usuarios: number | null
+          logo_url: string | null
           nome_fantasia: string
           plano: string | null
+          razao_social: string | null
           status_pagamento: string | null
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
+          telefone: string | null
+          website: string | null
         }
         Insert: {
           acesso_vitalicio?: boolean | null
+          cep?: string | null
+          cidade?: string | null
           cnpj?: string | null
           data_criacao?: string | null
           data_proximo_pagamento?: string | null
           data_ultimo_pagamento?: string | null
           email_admin: string
+          endereco?: string | null
+          estado?: string | null
           id?: string
           limite_usuarios?: number | null
+          logo_url?: string | null
           nome_fantasia: string
           plano?: string | null
+          razao_social?: string | null
           status_pagamento?: string | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
+          telefone?: string | null
+          website?: string | null
         }
         Update: {
           acesso_vitalicio?: boolean | null
+          cep?: string | null
+          cidade?: string | null
           cnpj?: string | null
           data_criacao?: string | null
           data_proximo_pagamento?: string | null
           data_ultimo_pagamento?: string | null
           email_admin?: string
+          endereco?: string | null
+          estado?: string | null
           id?: string
           limite_usuarios?: number | null
+          logo_url?: string | null
           nome_fantasia?: string
           plano?: string | null
+          razao_social?: string | null
           status_pagamento?: string | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
+          telefone?: string | null
+          website?: string | null
         }
         Relationships: []
       }

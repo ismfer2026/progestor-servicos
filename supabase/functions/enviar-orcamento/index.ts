@@ -68,7 +68,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Busca dados da empresa
     const { data: empresa, error: empresaError } = await supabaseClient
       .from('empresas')
-      .select('nome_fantasia, email_admin')
+      .select('nome_fantasia, razao_social, email_admin, telefone, endereco, cidade, estado, cep, website, logo_url, cnpj')
       .eq('id', orcamento.empresa_id)
       .single();
 
@@ -105,13 +105,61 @@ const handler = async (req: Request): Promise<Response> => {
     const pageWidth = doc.internal.pageSize.getWidth();
     let yPos = 20;
 
-    // Header
-    doc.setFontSize(20);
+    // Logo (se existir)
+    if (empresa?.logo_url) {
+      try {
+        const logoResponse = await fetch(empresa.logo_url);
+        const logoBlob = await logoResponse.blob();
+        const logoBase64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(logoBlob);
+        });
+        doc.addImage(logoBase64, 'PNG', 15, yPos, 30, 30);
+        yPos += 35;
+      } catch (error) {
+        console.error('Erro ao adicionar logo:', error);
+      }
+    }
+
+    // Header - Informações da Empresa
+    doc.setFontSize(16);
+    doc.setFont(undefined, 'bold');
     doc.text(empresa?.nome_fantasia || 'Empresa', pageWidth / 2, yPos, { align: 'center' });
+    yPos += 6;
+    
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    if (empresa?.razao_social) {
+      doc.text(empresa.razao_social, pageWidth / 2, yPos, { align: 'center' });
+      yPos += 5;
+    }
+    if (empresa?.cnpj) {
+      doc.text(`CNPJ: ${empresa.cnpj}`, pageWidth / 2, yPos, { align: 'center' });
+      yPos += 5;
+    }
+    if (empresa?.endereco || empresa?.cidade) {
+      const endereco = [empresa?.endereco, empresa?.cidade, empresa?.estado].filter(Boolean).join(', ');
+      doc.text(endereco, pageWidth / 2, yPos, { align: 'center' });
+      yPos += 5;
+    }
+    if (empresa?.telefone) {
+      doc.text(`Tel: ${empresa.telefone}`, pageWidth / 2, yPos, { align: 'center' });
+      yPos += 5;
+    }
+    if (empresa?.email_admin) {
+      doc.text(empresa.email_admin, pageWidth / 2, yPos, { align: 'center' });
+      yPos += 5;
+    }
+    
+    yPos += 5;
+    doc.line(20, yPos, 190, yPos);
     yPos += 10;
-    doc.setFontSize(12);
-    doc.text(`Orçamento #${orcamento_id.slice(0, 8)}`, pageWidth / 2, yPos, { align: 'center' });
-    yPos += 20;
+
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text(`ORÇAMENTO #${orcamento_id.slice(0, 8).toUpperCase()}`, pageWidth / 2, yPos, { align: 'center' });
+    yPos += 15;
 
     // Dados do cliente
     doc.setFontSize(14);

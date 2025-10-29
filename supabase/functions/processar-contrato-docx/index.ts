@@ -29,6 +29,17 @@ serve(async (req) => {
     console.log('Processing contract with modelo:', modeloId);
     console.log('Contract data:', contratoData);
 
+    // Buscar informações da empresa
+    const { data: empresa, error: empresaError } = await supabaseClient
+      .from('empresas')
+      .select('nome_fantasia, razao_social, cnpj, telefone, email_admin, endereco, cidade, estado, cep, website, logo_url')
+      .eq('id', contratoData.empresa_id)
+      .single();
+
+    if (empresaError) {
+      console.error('Erro ao buscar empresa:', empresaError);
+    }
+
     // Buscar o modelo
     const { data: modelo, error: modeloError } = await supabaseClient
       .from('modelos')
@@ -79,23 +90,38 @@ serve(async (req) => {
 
     // Preparar dados para substituição
     const templateData = {
+      // Dados do cliente
       cliente_nome: contratoData.cliente_nome || '',
       cliente_documento: contratoData.cliente_documento || '',
       cliente_email: contratoData.cliente_email || '',
       cliente_telefone: contratoData.cliente_telefone || '',
       cliente_endereco: contratoData.cliente_endereco || '',
+      // Dados do evento/serviço
       data_evento: contratoData.data_evento || '',
       horario_inicio: contratoData.horario_inicio || '',
       horario_fim: contratoData.horario_fim || '',
       local_servico: contratoData.local_servico || '',
       servicos: contratoData.servicos || '',
+      // Dados financeiros
       valor_total: contratoData.valor_total || '',
       valor_extenso: contratoData.valor_extenso || '',
+      forma_pagamento: contratoData.forma_pagamento || '',
+      // Dados do contrato
       numero_contrato: contratoData.numero_contrato || '',
       data_contrato: contratoData.data_contrato || '',
       observacoes: contratoData.observacoes || '',
       assinatura_empresa: contratoData.assinatura_empresa || '',
-      forma_pagamento: contratoData.forma_pagamento || '',
+      // Dados da empresa
+      empresa_nome: empresa?.nome_fantasia || '',
+      empresa_razao_social: empresa?.razao_social || '',
+      empresa_cnpj: empresa?.cnpj || '',
+      empresa_telefone: empresa?.telefone || '',
+      empresa_email: empresa?.email_admin || '',
+      empresa_endereco: empresa?.endereco || '',
+      empresa_cidade: empresa?.cidade || '',
+      empresa_estado: empresa?.estado || '',
+      empresa_cep: empresa?.cep || '',
+      empresa_website: empresa?.website || '',
     };
 
     // Substituir variáveis
