@@ -7,10 +7,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { FileText, Send, Eye, MoreVertical, Plus, Search, DollarSign, CheckCircle2, FileCheck } from "lucide-react";
+import { FileText, Send, Eye, MoreVertical, Plus, Search, DollarSign, CheckCircle2, FileCheck, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
@@ -60,6 +61,10 @@ export function Orcamentos() {
   const [orcamentoSelecionado, setOrcamentoSelecionado] = useState<Orcamento | null>(null);
   const [mensagemEnvio, setMensagemEnvio] = useState("");
   const [enviandoEmail, setEnviandoEmail] = useState(false);
+  
+  // Dialog de exclusão
+  const [dialogExcluir, setDialogExcluir] = useState(false);
+  const [orcamentoExcluir, setOrcamentoExcluir] = useState<Orcamento | null>(null);
   
   // PDF Viewer
   const [mostrarPDF, setMostrarPDF] = useState(false);
@@ -194,6 +199,32 @@ export function Orcamentos() {
     } finally {
       setEnviandoEmail(false);
       setDialogEnvio(false);
+    }
+  };
+
+  const handleAbrirExcluir = (orcamento: Orcamento) => {
+    setOrcamentoExcluir(orcamento);
+    setDialogExcluir(true);
+  };
+
+  const handleExcluir = async () => {
+    if (!orcamentoExcluir) return;
+
+    try {
+      const { error } = await supabase
+        .from("orcamentos")
+        .delete()
+        .eq("id", orcamentoExcluir.id);
+
+      if (error) throw error;
+
+      toast.success("Orçamento excluído com sucesso!");
+      setDialogExcluir(false);
+      setOrcamentoExcluir(null);
+      fetchOrcamentos();
+    } catch (error) {
+      console.error("Erro ao excluir orçamento:", error);
+      toast.error("Erro ao excluir orçamento");
     }
   };
 
@@ -412,6 +443,13 @@ export function Orcamentos() {
                               <DropdownMenuItem onClick={() => handleGerarContrato(orcamento)}>
                                 <FileCheck className="h-4 w-4 mr-2" />
                                 Gerar Contrato
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => handleAbrirExcluir(orcamento)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Excluir
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
