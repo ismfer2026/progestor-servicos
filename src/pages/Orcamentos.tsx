@@ -550,6 +550,29 @@ export function Orcamentos() {
         contextId={orcamentoSelecionado?.id}
         onSent={handleWhatsAppSent}
       />
+
+      {/* AlertDialog de Exclusão */}
+      <AlertDialog open={dialogExcluir} onOpenChange={setDialogExcluir}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja excluir o orçamento <strong>{orcamentoExcluir ? getNumeroOrcamento(orcamentoExcluir.id) : ''}</strong>?
+              <br /><br />
+              Esta ação não pode ser desfeita e todos os dados do orçamento serão permanentemente removidos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleExcluir}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
