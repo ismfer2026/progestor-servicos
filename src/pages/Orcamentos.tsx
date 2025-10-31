@@ -182,21 +182,26 @@ export function Orcamentos() {
       if (error) {
         console.error("Erro ao enviar email:", error);
         toast.error("Erro ao enviar orçamento: " + (error.message || "Erro desconhecido"));
+        setEnviandoEmail(false);
+        setDialogEnvio(false);
         return;
       }
       
       if (data?.error) {
         console.error("Erro da edge function:", data.error);
         toast.error(data.error);
+        setEnviandoEmail(false);
+        setDialogEnvio(false);
         return;
       }
 
       toast.success("Orçamento enviado por email com sucesso!");
       await fetchOrcamentos();
+      setEnviandoEmail(false);
+      setDialogEnvio(false);
     } catch (error: any) {
       console.error("Erro ao enviar email:", error);
       toast.error("Erro ao enviar orçamento: " + (error.message || "Erro desconhecido"));
-    } finally {
       setEnviandoEmail(false);
       setDialogEnvio(false);
     }
