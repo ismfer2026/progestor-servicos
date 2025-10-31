@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect } from 'react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
 
 interface PDFViewerProps {
   orcamento: any;
@@ -28,19 +28,16 @@ export function PDFViewer({ orcamento, onClose }: PDFViewerProps) {
 
   useEffect(() => {
     const fetchEmpresaInfo = async () => {
-      const supabase = createClient(
-        import.meta.env.VITE_SUPABASE_URL,
-        import.meta.env.VITE_SUPABASE_ANON_KEY
-      );
-
       const { data, error } = await supabase
         .from('empresas')
         .select('*')
         .eq('id', orcamento.empresa_id)
-        .single();
+        .maybeSingle();
 
       if (!error && data) {
         setEmpresaInfo(data);
+      } else if (error) {
+        console.error('Erro ao buscar info da empresa:', error);
       }
     };
 
@@ -73,12 +70,6 @@ export function PDFViewer({ orcamento, onClose }: PDFViewerProps) {
 
     // Converte PDF para Blob
     const pdfBlob = pdf.output('blob');
-
-    // Cria cliente Supabase
-    const supabase = createClient(
-      import.meta.env.VITE_SUPABASE_URL,
-      import.meta.env.VITE_SUPABASE_ANON_KEY
-    );
 
     const filePath = `${orcamento.empresa_id}/${orcamento.id}.pdf`;
 
