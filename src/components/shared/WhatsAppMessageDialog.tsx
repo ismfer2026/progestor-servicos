@@ -28,7 +28,6 @@ export function WhatsAppMessageDialog({
   const { formatPhoneNumber } = useWhatsAppConfig();
   const [mensagem, setMensagem] = useState(defaultMessage);
   const [loading, setLoading] = useState(false);
-  const [whatsappLink, setWhatsappLink] = useState<string | null>(null); // novo estado
 
   const handleEnviar = () => {
     if (!mensagem.trim()) {
@@ -46,11 +45,19 @@ export function WhatsAppMessageDialog({
     const encodedMessage = encodeURIComponent(mensagem);
     const whatsappUrl = `https://wa.me/${phoneFormatted}?text=${encodedMessage}`;
 
-    // Armazena o link para exibir no diálogo
-    setWhatsappLink(whatsappUrl);
+    // Abrir WhatsApp em nova aba
+    window.open(whatsappUrl, '_blank');
+
+    // Chamar callback se existir
+    if (onSent) {
+      onSent();
+    }
 
     // Limpar campos e fechar diálogo
     setMensagem("");
+    onOpenChange(false);
+    
+    toast.success("Abrindo WhatsApp...");
   };
 
   // Atualizar mensagem quando defaultMessage mudar
@@ -84,31 +91,13 @@ export function WhatsAppMessageDialog({
               className="resize-none"
             />
           </div>
-          <div className="flex flex-col space-y-2">
-            <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
-                Cancelar
-              </Button>
-              <Button onClick={handleEnviar} disabled={loading || !recipientPhone}>
-                {loading ? "Enviando..." : "Enviar"}
-              </Button>
-            </div>
-
-            {/* Exibe link clicável quando whatsappLink existir */}
-            {whatsappLink && (
-              <div className="mt-2 p-2 bg-gray-100 rounded">
-                <p className="text-sm">Clique no link abaixo para abrir o WhatsApp:</p>
-                <a
-                  href={whatsappLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 underline"
-                  onClick={() => setWhatsappLink(null)} // limpa link após clique
-                >
-                  Abrir WhatsApp
-                </a>
-              </div>
-            )}
+          <div className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+              Cancelar
+            </Button>
+            <Button onClick={handleEnviar} disabled={loading || !recipientPhone}>
+              {loading ? "Enviando..." : "Enviar"}
+            </Button>
           </div>
         </div>
       </DialogContent>

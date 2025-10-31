@@ -202,6 +202,13 @@ export function Orcamentos() {
     }
   };
 
+  const handleEnviarAmbos = async () => {
+    // Primeiro envia o email
+    await handleEnviarEmail();
+    // Depois abre o diálogo do WhatsApp
+    handleEnviarWhatsAppDialog();
+  };
+
   const handleAbrirExcluir = (orcamento: Orcamento) => {
     setOrcamentoExcluir(orcamento);
     setDialogExcluir(true);
@@ -513,10 +520,7 @@ export function Orcamentos() {
                 )}
               </Button>
               <Button 
-                onClick={() => {
-                  handleEnviarWhatsAppDialog();
-                  handleEnviarEmail();
-                }} 
+                onClick={handleEnviarAmbos} 
                 variant="outline"
                 className="gap-2"
                 disabled={enviandoEmail}
