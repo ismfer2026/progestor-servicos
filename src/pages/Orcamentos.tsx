@@ -82,6 +82,23 @@ export function Orcamentos() {
     setOrcamentoExcluir(null);
     setOrcamentoPDF(null);
     setMensagemEnvio("");
+    
+    // Força a remoção de overlays do DOM
+    setTimeout(() => {
+      const overlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0');
+      overlays.forEach(overlay => {
+        if (overlay.parentElement) {
+          overlay.parentElement.removeChild(overlay);
+        }
+      });
+      
+      // Remove qualquer bloqueio do body
+      document.body.style.overflow = '';
+      document.body.style.pointerEvents = '';
+      
+      console.log('Overlays removidos e body resetado');
+    }, 50);
+    
     console.log('Todos os diálogos limpos');
   };
 
@@ -200,9 +217,7 @@ export function Orcamentos() {
       if (error) {
         console.error("Erro ao enviar email:", error);
         toast.error("Erro ao enviar orçamento: " + (error.message || "Erro desconhecido"));
-        setTimeout(() => {
-          limparTodosDialogos();
-        }, 100);
+        limparTodosDialogos();
         console.log('Dialog fechado após erro');
         return;
       }
@@ -210,9 +225,7 @@ export function Orcamentos() {
       if (data?.error) {
         console.error("Erro da edge function:", data.error);
         toast.error(data.error);
-        setTimeout(() => {
-          limparTodosDialogos();
-        }, 100);
+        limparTodosDialogos();
         console.log('Dialog fechado após erro da função');
         return;
       }
@@ -220,19 +233,16 @@ export function Orcamentos() {
       toast.success("Orçamento enviado por email com sucesso!");
       await fetchOrcamentos();
       
-      // Usar setTimeout para garantir que o diálogo feche após todas as atualizações
-      setTimeout(() => {
-        limparTodosDialogos();
-      }, 100);
+      // Limpar imediatamente
+      limparTodosDialogos();
       
       console.log('Dialog fechado após sucesso');
     } catch (error: any) {
       console.error("Erro ao enviar email:", error);
       toast.error("Erro ao enviar orçamento: " + (error.message || "Erro desconhecido"));
       
-      setTimeout(() => {
-        limparTodosDialogos();
-      }, 100);
+      // Limpar imediatamente
+      limparTodosDialogos();
       
       console.log('Dialog fechado após exceção');
     }
