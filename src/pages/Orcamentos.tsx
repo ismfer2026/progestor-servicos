@@ -180,38 +180,52 @@ export function Orcamentos() {
   };
 
   const handleEnviarWhatsAppDialog = () => {
+    // Fecha o diálogo de envio IMEDIATAMENTE
     setDialogEnvio(false);
-    setShowWhatsApp(true);
+    
+    // Abre o WhatsApp em seguida
+    setTimeout(() => {
+      setShowWhatsApp(true);
+    }, 100);
   };
 
   const handleWhatsAppSent = async () => {
     if (!orcamentoSelecionado) return;
 
-    try {
-      // Registrar log de envio
-      await supabase.from('logs_envio').insert({
-        orcamento_id: orcamentoSelecionado.id,
-        empresa_id: user!.empresa_id,
-        enviado_por: user!.id,
-        destinatario: orcamentoSelecionado.clientes?.telefone || '',
-        tipo_envio: 'whatsapp',
-        status: 'enviado',
-      });
+    // Salva dados antes de limpar
+    const orcamentoId = orcamentoSelecionado.id;
+    const telefone = orcamentoSelecionado.clientes?.telefone || '';
+    
+    // Fecha WhatsApp imediatamente
+    setShowWhatsApp(false);
+    setOrcamentoSelecionado(null);
+    setMensagemEnvio("");
+    
+    toast.info("Registrando envio...");
 
-      // Atualizar status do orçamento
-      await supabase
-        .from('orcamentos')
-        .update({ 
-          status: 'Enviado',
-          data_envio: new Date().toISOString()
-        })
-        .eq('id', orcamentoSelecionado.id);
+    // Registra em background
+    setTimeout(async () => {
+      try {
+        await supabase.from('logs_envio').insert({
+          orcamento_id: orcamentoId,
+          empresa_id: user!.empresa_id,
+          enviado_por: user!.id,
+          destinatario: telefone,
+          tipo_envio: 'whatsapp',
+          status: 'enviado'
+        });
 
-      toast.success("Orçamento enviado via WhatsApp!");
-      fetchOrcamentos();
-    } catch (error) {
-      console.error('Erro ao registrar envio:', error);
-    }
+        await supabase
+          .from('orcamentos')
+          .update({ status: 'Enviado', data_envio: new Date().toISOString() })
+          .eq('id', orcamentoId);
+
+        toast.success("WhatsApp enviado!");
+        fetchOrcamentos();
+      } catch (error) {
+        console.error('Erro ao registrar envio:', error);
+      }
+    }, 100);
   };
 
   const handleEnviarEmail = async () => {
@@ -276,22 +290,33 @@ export function Orcamentos() {
   const handleExcluir = async () => {
     if (!orcamentoExcluir) return;
 
-    try {
-      const { error } = await supabase
-        .from("orcamentos")
-        .delete()
-        .eq("id", orcamentoExcluir.id);
+    // Salva o ID antes de limpar
+    const orcamentoId = orcamentoExcluir.id;
+    
+    // Fecha o diálogo IMEDIATAMENTE
+    setDialogExcluir(false);
+    setOrcamentoExcluir(null);
+    
+    // Mostra toast de processando
+    toast.info("Excluindo orçamento...");
+    
+    // Executa em background
+    setTimeout(async () => {
+      try {
+        const { error } = await supabase
+          .from("orcamentos")
+          .delete()
+          .eq("id", orcamentoId);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      toast.success("Orçamento excluído com sucesso!");
-      setDialogExcluir(false);
-      setOrcamentoExcluir(null);
-      fetchOrcamentos();
-    } catch (error) {
-      console.error("Erro ao excluir orçamento:", error);
-      toast.error("Erro ao excluir orçamento");
-    }
+        toast.success("Orçamento excluído com sucesso!");
+        fetchOrcamentos();
+      } catch (error) {
+        console.error("Erro ao excluir orçamento:", error);
+        toast.error("Erro ao excluir orçamento");
+      }
+    }, 100);
   };
 
   const handleGerarContrato = (orcamento: Orcamento) => {
