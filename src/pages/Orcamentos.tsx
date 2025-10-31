@@ -70,6 +70,21 @@ export function Orcamentos() {
   const [mostrarPDF, setMostrarPDF] = useState(false);
   const [orcamentoPDF, setOrcamentoPDF] = useState<Orcamento | null>(null);
 
+  // Função para limpar todos os estados de diálogos
+  const limparTodosDialogos = () => {
+    console.log('Limpando todos os diálogos...');
+    setDialogEnvio(false);
+    setShowWhatsApp(false);
+    setDialogExcluir(false);
+    setMostrarPDF(false);
+    setEnviandoEmail(false);
+    setOrcamentoSelecionado(null);
+    setOrcamentoExcluir(null);
+    setOrcamentoPDF(null);
+    setMensagemEnvio("");
+    console.log('Todos os diálogos limpos');
+  };
+
   useEffect(() => {
     fetchOrcamentos();
   }, [filtroStatus]);
@@ -185,8 +200,9 @@ export function Orcamentos() {
       if (error) {
         console.error("Erro ao enviar email:", error);
         toast.error("Erro ao enviar orçamento: " + (error.message || "Erro desconhecido"));
-        setEnviandoEmail(false);
-        setDialogEnvio(false);
+        setTimeout(() => {
+          limparTodosDialogos();
+        }, 100);
         console.log('Dialog fechado após erro');
         return;
       }
@@ -194,22 +210,30 @@ export function Orcamentos() {
       if (data?.error) {
         console.error("Erro da edge function:", data.error);
         toast.error(data.error);
-        setEnviandoEmail(false);
-        setDialogEnvio(false);
+        setTimeout(() => {
+          limparTodosDialogos();
+        }, 100);
         console.log('Dialog fechado após erro da função');
         return;
       }
 
       toast.success("Orçamento enviado por email com sucesso!");
       await fetchOrcamentos();
-      setEnviandoEmail(false);
-      setDialogEnvio(false);
+      
+      // Usar setTimeout para garantir que o diálogo feche após todas as atualizações
+      setTimeout(() => {
+        limparTodosDialogos();
+      }, 100);
+      
       console.log('Dialog fechado após sucesso');
     } catch (error: any) {
       console.error("Erro ao enviar email:", error);
       toast.error("Erro ao enviar orçamento: " + (error.message || "Erro desconhecido"));
-      setEnviandoEmail(false);
-      setDialogEnvio(false);
+      
+      setTimeout(() => {
+        limparTodosDialogos();
+      }, 100);
+      
       console.log('Dialog fechado após exceção');
     }
   };
