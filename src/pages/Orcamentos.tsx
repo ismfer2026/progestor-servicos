@@ -218,54 +218,47 @@ export function Orcamentos() {
     if (!orcamentoSelecionado) return;
 
     console.log('Iniciando envio de email...');
-    setEnviandoEmail(true);
     
-    // Fecha o diálogo imediatamente
+    // Salva os dados antes de limpar
+    const orcamentoId = orcamentoSelecionado.id;
+    const emailDestinatario = orcamentoSelecionado.clientes?.email;
+    const mensagemAdicional = mensagemEnvio;
+    
+    // Limpa TUDO imediatamente - libera a interface
+    setEnviandoEmail(false);
     setDialogEnvio(false);
+    setOrcamentoSelecionado(null);
+    setMensagemEnvio("");
     
-    // Cria uma Promise com timeout
-    const envioPromise = supabase.functions.invoke('enviar-orcamento', {
-      body: {
-        orcamento_id: orcamentoSelecionado.id,
-        email_destinatario: orcamentoSelecionado.clientes?.email,
-        mensagem_adicional: mensagemEnvio,
-      }
-    });
+    // Mostra toast de "processando"
+    toast.info("Enviando orçamento...");
     
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Timeout')), 10000)
-    );
-    
-    try {
-      const { data, error } = await Promise.race([envioPromise, timeoutPromise]) as any;
+    // Envia em background - não aguarda
+    setTimeout(async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('enviar-orcamento', {
+          body: {
+            orcamento_id: orcamentoId,
+            email_destinatario: emailDestinatario,
+            mensagem_adicional: mensagemAdicional,
+          }
+        });
 
-      console.log('Resposta do envio:', { data, error });
-
-      if (error) {
+        if (error) {
+          console.error("Erro ao enviar email:", error);
+          toast.error("Erro ao enviar orçamento: " + (error.message || "Erro desconhecido"));
+        } else if (data?.error) {
+          console.error("Erro da edge function:", data.error);
+          toast.error(data.error);
+        } else {
+          toast.success("Orçamento enviado por email com sucesso!");
+          fetchOrcamentos();
+        }
+      } catch (error: any) {
         console.error("Erro ao enviar email:", error);
-        toast.error("Erro ao enviar orçamento: " + (error.message || "Erro desconhecido"));
-      } else if (data?.error) {
-        console.error("Erro da edge function:", data.error);
-        toast.error(data.error);
-      } else {
-        toast.success("Orçamento enviado por email com sucesso!");
-        await fetchOrcamentos();
+        toast.error("Erro ao enviar orçamento");
       }
-    } catch (error: any) {
-      if (error.message === 'Timeout') {
-        toast.error("O envio está demorando. Verifique se foi enviado na lista.");
-      } else {
-        console.error("Erro ao enviar email:", error);
-        toast.error("Erro ao enviar orçamento: " + (error.message || "Erro desconhecido"));
-      }
-    } finally {
-      // SEMPRE limpa os estados
-      console.log('Limpando estados finalmente...');
-      setEnviandoEmail(false);
-      setOrcamentoSelecionado(null);
-      setMensagemEnvio("");
-      console.log('Estados limpos');
-    }
+    }, 100);
   };
 
   const handleEnviarAmbos = async () => {
