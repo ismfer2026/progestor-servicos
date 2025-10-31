@@ -106,6 +106,23 @@ export function Orcamentos() {
     fetchOrcamentos();
   }, [filtroStatus]);
 
+  // Monitora e força limpeza se necessário
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (enviandoEmail) {
+        console.log('Ainda enviando email...');
+      }
+      
+      // Se o diálogo de envio está fechado mas enviandoEmail ainda está true, corrigir
+      if (!dialogEnvio && enviandoEmail) {
+        console.log('Estado inconsistente detectado, corrigindo...');
+        setEnviandoEmail(false);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [enviandoEmail, dialogEnvio]);
+
   const fetchOrcamentos = async () => {
     try {
       let query = supabase
@@ -311,6 +328,22 @@ export function Orcamentos() {
 
   return (
     <div className="space-y-6 p-6">
+      {/* Botão de Emergência */}
+      {(enviandoEmail || dialogEnvio) && (
+        <div className="fixed top-4 right-4 z-[9999] bg-red-500 text-white p-4 rounded-lg shadow-lg">
+          <Button 
+            onClick={() => {
+              console.log('BOTÃO DE EMERGÊNCIA CLICADO');
+              limparTodosDialogos();
+              window.location.reload();
+            }}
+            className="bg-white text-red-500 hover:bg-gray-100"
+          >
+            🚨 EMERGÊNCIA: Desbloquear
+          </Button>
+        </div>
+      )}
+
       {/* Cabeçalho */}
       <div className="flex items-center justify-between">
         <div>
