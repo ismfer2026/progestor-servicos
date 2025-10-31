@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { createClient } from '@supabase/supabase-js';
@@ -8,8 +8,46 @@ interface PDFViewerProps {
   onClose: () => void;
 }
 
+interface EmpresaInfo {
+  nome_fantasia: string;
+  razao_social: string;
+  cnpj: string;
+  telefone: string;
+  email_admin: string;
+  endereco: string;
+  cidade: string;
+  estado: string;
+  cep: string;
+  website: string;
+  logo_url: string;
+}
+
 export function PDFViewer({ orcamento, onClose }: PDFViewerProps) {
   const contentRef = useRef<HTMLDivElement>(null);
+  const [empresaInfo, setEmpresaInfo] = useState<EmpresaInfo | null>(null);
+
+  useEffect(() => {
+    const fetchEmpresaInfo = async () => {
+      const supabase = createClient(
+        import.meta.env.VITE_SUPABASE_URL,
+        import.meta.env.VITE_SUPABASE_ANON_KEY
+      );
+
+      const { data, error } = await supabase
+        .from('empresas')
+        .select('*')
+        .eq('id', orcamento.empresa_id)
+        .single();
+
+      if (!error && data) {
+        setEmpresaInfo(data);
+      }
+    };
+
+    if (orcamento.empresa_id) {
+      fetchEmpresaInfo();
+    }
+  }, [orcamento.empresa_id]);
 
   const generatePDF = async () => {
     if (!contentRef.current) return;
@@ -124,13 +162,35 @@ export function PDFViewer({ orcamento, onClose }: PDFViewerProps) {
             <div className="flex justify-between items-start mb-8 pb-6">
               <div>
                 <div className="flex items-center gap-3 mb-2">
-                  <div className="w-12 h-12 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-xl">
-                    P
-                  </div>
+                  {empresaInfo?.logo_url ? (
+                    <img 
+                      src={empresaInfo.logo_url} 
+                      alt="Logo da Empresa" 
+                      className="w-16 h-16 object-contain"
+                      crossOrigin="anonymous"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-xl">
+                      {empresaInfo?.nome_fantasia?.charAt(0) || 'E'}
+                    </div>
+                  )}
                   <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Synca Gestão Serviços Inc.</h1>
-                    <p className="text-sm text-gray-600">contato@syncagestao.com</p>
-                    <p className="text-sm text-gray-600">(11) 98765-4321</p>
+                    <h1 className="text-2xl font-bold text-gray-900">
+                      {empresaInfo?.nome_fantasia || 'Empresa'}
+                    </h1>
+                    {empresaInfo?.razao_social && (
+                      <p className="text-xs text-gray-500">{empresaInfo.razao_social}</p>
+                    )}
+                    <p className="text-sm text-gray-600">{empresaInfo?.email_admin || ''}</p>
+                    <p className="text-sm text-gray-600">{empresaInfo?.telefone || ''}</p>
+                    {empresaInfo?.endereco && (
+                      <p className="text-xs text-gray-500">
+                        {empresaInfo.endereco}
+                        {empresaInfo.cidade && `, ${empresaInfo.cidade}`}
+                        {empresaInfo.estado && `-${empresaInfo.estado}`}
+                        {empresaInfo.cep && ` - ${empresaInfo.cep}`}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
