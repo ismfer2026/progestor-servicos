@@ -68,36 +68,9 @@ export function PDFViewer({ orcamento, onClose }: PDFViewerProps) {
 
     pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
 
-    // Converte PDF para Blob
-    const pdfBlob = pdf.output('blob');
-
-    const filePath = `${orcamento.empresa_id}/${orcamento.id}.pdf`;
-
-    // Verifica se já existe PDF
-    const { data: existingFiles } = await supabase.storage
-      .from('orcamentos-pdf')
-      .list(`${orcamento.empresa_id}/`);
-
-    const fileExists = existingFiles?.some(f => f.name === `${orcamento.id}.pdf`);
-
-    let proceed = true;
-    if (fileExists) {
-      proceed = confirm('Já existe um PDF para este orçamento. Deseja substituí-lo?');
-    }
-
-    if (!proceed) return;
-
-    // Faz upload
-    const { error } = await supabase.storage
-      .from('orcamentos-pdf')
-      .upload(filePath, pdfBlob, { contentType: 'application/pdf', upsert: true });
-
-    if (error) {
-      alert('Erro ao salvar PDF no Supabase: ' + error.message);
-      return;
-    }
-
-    alert('PDF salvo no Supabase com sucesso!');
+    // Faz o download do PDF
+    const nomeArquivo = `orcamento-${orcamento.id.slice(0, 6).toUpperCase()}.pdf`;
+    pdf.save(nomeArquivo);
   };
 
   const formatCurrency = (value: number) => {
@@ -136,7 +109,7 @@ export function PDFViewer({ orcamento, onClose }: PDFViewerProps) {
               onClick={generatePDF}
               className="px-4 py-2 bg-gray-900 text-white rounded hover:bg-gray-800 transition-colors font-medium"
             >
-              Salvar PDF no Supabase
+              Baixar em PDF
             </button>
             <button
               onClick={onClose}
