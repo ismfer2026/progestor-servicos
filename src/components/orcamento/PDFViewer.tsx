@@ -130,7 +130,7 @@ export function PDFViewer({ orcamento, onClose }: PDFViewerProps) {
                     <img 
                       src={empresaInfo.logo_url} 
                       alt="Logo da Empresa" 
-                      className="w-[150px] h-[150px] object-contain"
+                      style={{ width: '150px', height: '150px', objectFit: 'contain' }}
                       crossOrigin="anonymous"
                     />
                   ) : (
