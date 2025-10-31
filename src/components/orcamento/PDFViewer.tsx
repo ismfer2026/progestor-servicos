@@ -157,7 +157,7 @@ export function PDFViewer({ orcamento, onClose }: PDFViewerProps) {
                     <img 
                       src={empresaInfo.logo_url} 
                       alt="Logo da Empresa" 
-                      className="w-24 h-24 object-contain"
+                      className="w-[150px] h-[150px] object-contain"
                       crossOrigin="anonymous"
                     />
                   ) : (
