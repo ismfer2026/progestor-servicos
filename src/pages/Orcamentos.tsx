@@ -168,6 +168,7 @@ export function Orcamentos() {
   const handleEnviarEmail = async () => {
     if (!orcamentoSelecionado || enviandoEmail) return;
 
+    console.log('Iniciando envio de email...');
     setEnviandoEmail(true);
     
     try {
@@ -179,11 +180,14 @@ export function Orcamentos() {
         }
       });
 
+      console.log('Resposta do envio:', { data, error });
+
       if (error) {
         console.error("Erro ao enviar email:", error);
         toast.error("Erro ao enviar orçamento: " + (error.message || "Erro desconhecido"));
         setEnviandoEmail(false);
         setDialogEnvio(false);
+        console.log('Dialog fechado após erro');
         return;
       }
       
@@ -192,6 +196,7 @@ export function Orcamentos() {
         toast.error(data.error);
         setEnviandoEmail(false);
         setDialogEnvio(false);
+        console.log('Dialog fechado após erro da função');
         return;
       }
 
@@ -199,11 +204,13 @@ export function Orcamentos() {
       await fetchOrcamentos();
       setEnviandoEmail(false);
       setDialogEnvio(false);
+      console.log('Dialog fechado após sucesso');
     } catch (error: any) {
       console.error("Erro ao enviar email:", error);
       toast.error("Erro ao enviar orçamento: " + (error.message || "Erro desconhecido"));
       setEnviandoEmail(false);
       setDialogEnvio(false);
+      console.log('Dialog fechado após exceção');
     }
   };
 
@@ -477,8 +484,20 @@ export function Orcamentos() {
       </Card>
 
       {/* Dialog de Envio */}
-      <Dialog open={dialogEnvio} onOpenChange={setDialogEnvio}>
-        <DialogContent className="max-w-md">
+      <Dialog 
+        open={dialogEnvio} 
+        onOpenChange={(open) => {
+          console.log('Dialog onOpenChange:', open);
+          if (!enviandoEmail) {
+            setDialogEnvio(open);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md" onInteractOutside={(e) => {
+          if (enviandoEmail) {
+            e.preventDefault();
+          }
+        }}>
           <DialogHeader>
             <DialogTitle>Enviar Orçamento</DialogTitle>
           </DialogHeader>
