@@ -215,53 +215,56 @@ export function Orcamentos() {
   };
 
   const handleEnviarEmail = async () => {
-    if (!orcamentoSelecionado || enviandoEmail) return;
+    if (!orcamentoSelecionado) return;
 
     console.log('Iniciando envio de email...');
     setEnviandoEmail(true);
     
+    // Fecha o diálogo imediatamente
+    setDialogEnvio(false);
+    
+    // Cria uma Promise com timeout
+    const envioPromise = supabase.functions.invoke('enviar-orcamento', {
+      body: {
+        orcamento_id: orcamentoSelecionado.id,
+        email_destinatario: orcamentoSelecionado.clientes?.email,
+        mensagem_adicional: mensagemEnvio,
+      }
+    });
+    
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Timeout')), 10000)
+    );
+    
     try {
-      const { data, error } = await supabase.functions.invoke('enviar-orcamento', {
-        body: {
-          orcamento_id: orcamentoSelecionado.id,
-          email_destinatario: orcamentoSelecionado.clientes?.email,
-          mensagem_adicional: mensagemEnvio,
-        }
-      });
+      const { data, error } = await Promise.race([envioPromise, timeoutPromise]) as any;
 
       console.log('Resposta do envio:', { data, error });
 
       if (error) {
         console.error("Erro ao enviar email:", error);
         toast.error("Erro ao enviar orçamento: " + (error.message || "Erro desconhecido"));
-        limparTodosDialogos();
-        console.log('Dialog fechado após erro');
-        return;
-      }
-      
-      if (data?.error) {
+      } else if (data?.error) {
         console.error("Erro da edge function:", data.error);
         toast.error(data.error);
-        limparTodosDialogos();
-        console.log('Dialog fechado após erro da função');
-        return;
+      } else {
+        toast.success("Orçamento enviado por email com sucesso!");
+        await fetchOrcamentos();
       }
-
-      toast.success("Orçamento enviado por email com sucesso!");
-      await fetchOrcamentos();
-      
-      // Limpar imediatamente
-      limparTodosDialogos();
-      
-      console.log('Dialog fechado após sucesso');
     } catch (error: any) {
-      console.error("Erro ao enviar email:", error);
-      toast.error("Erro ao enviar orçamento: " + (error.message || "Erro desconhecido"));
-      
-      // Limpar imediatamente
-      limparTodosDialogos();
-      
-      console.log('Dialog fechado após exceção');
+      if (error.message === 'Timeout') {
+        toast.error("O envio está demorando. Verifique se foi enviado na lista.");
+      } else {
+        console.error("Erro ao enviar email:", error);
+        toast.error("Erro ao enviar orçamento: " + (error.message || "Erro desconhecido"));
+      }
+    } finally {
+      // SEMPRE limpa os estados
+      console.log('Limpando estados finalmente...');
+      setEnviandoEmail(false);
+      setOrcamentoSelecionado(null);
+      setMensagemEnvio("");
+      console.log('Estados limpos');
     }
   };
 
