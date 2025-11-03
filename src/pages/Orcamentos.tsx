@@ -70,58 +70,34 @@ export function Orcamentos() {
   const [mostrarPDF, setMostrarPDF] = useState(false);
   const [orcamentoPDF, setOrcamentoPDF] = useState<Orcamento | null>(null);
 
-  // Função para limpar todos os estados de diálogos
-  const limparTodosDialogos = () => {
-    console.log('Limpando todos os diálogos...');
-    setDialogEnvio(false);
-    setShowWhatsApp(false);
-    setDialogExcluir(false);
-    setMostrarPDF(false);
-    setEnviandoEmail(false);
-    setOrcamentoSelecionado(null);
-    setOrcamentoExcluir(null);
-    setOrcamentoPDF(null);
-    setMensagemEnvio("");
-    
-    // Força a remoção de overlays do DOM
-    setTimeout(() => {
-      const overlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0');
-      overlays.forEach(overlay => {
-        if (overlay.parentElement) {
-          overlay.parentElement.removeChild(overlay);
-        }
-      });
-      
-      // Remove qualquer bloqueio do body
-      document.body.style.overflow = '';
-      document.body.style.pointerEvents = '';
-      
-      console.log('Overlays removidos e body resetado');
-    }, 50);
-    
-    console.log('Todos os diálogos limpos');
-  };
-
   useEffect(() => {
     fetchOrcamentos();
   }, [filtroStatus]);
 
-  // Monitora e força limpeza se necessário
+  // Monitora e remove overlays órfãos que podem travar a interface
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (enviandoEmail) {
-        console.log('Ainda enviando email...');
-      }
+    const limparOverlays = () => {
+      // Remove todos os overlays e restaura o body
+      const overlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
+      overlays.forEach(overlay => {
+        const parent = overlay.parentElement;
+        if (parent && !dialogEnvio && !dialogExcluir && !mostrarPDF && !showWhatsApp) {
+          parent.removeChild(overlay);
+        }
+      });
       
-      // Se o diálogo de envio está fechado mas enviandoEmail ainda está true, corrigir
-      if (!dialogEnvio && enviandoEmail) {
-        console.log('Estado inconsistente detectado, corrigindo...');
-        setEnviandoEmail(false);
+      // Restaura o body apenas se todos os dialogs estiverem fechados
+      if (!dialogEnvio && !dialogExcluir && !mostrarPDF && !showWhatsApp) {
+        document.body.style.overflow = '';
+        document.body.style.pointerEvents = '';
       }
-    }, 1000);
+    };
 
-    return () => clearInterval(interval);
-  }, [enviandoEmail, dialogEnvio]);
+    // Executa a limpeza
+    const timer = setTimeout(limparOverlays, 100);
+    
+    return () => clearTimeout(timer);
+  }, [dialogEnvio, dialogExcluir, mostrarPDF, showWhatsApp]);
 
   const fetchOrcamentos = async () => {
     try {
@@ -349,22 +325,6 @@ export function Orcamentos() {
 
   return (
     <div className="space-y-6 p-6">
-      {/* Botão de Emergência */}
-      {(enviandoEmail || dialogEnvio) && (
-        <div className="fixed top-4 right-4 z-[9999] bg-red-500 text-white p-4 rounded-lg shadow-lg">
-          <Button 
-            onClick={() => {
-              console.log('BOTÃO DE EMERGÊNCIA CLICADO');
-              limparTodosDialogos();
-              window.location.reload();
-            }}
-            className="bg-white text-red-500 hover:bg-gray-100"
-          >
-            🚨 EMERGÊNCIA: Desbloquear
-          </Button>
-        </div>
-      )}
-
       {/* Cabeçalho */}
       <div className="flex items-center justify-between">
         <div>
@@ -574,18 +534,9 @@ export function Orcamentos() {
       {/* Dialog de Envio */}
       <Dialog 
         open={dialogEnvio} 
-        onOpenChange={(open) => {
-          console.log('Dialog onOpenChange:', open);
-          if (!enviandoEmail) {
-            setDialogEnvio(open);
-          }
-        }}
+        onOpenChange={setDialogEnvio}
       >
-        <DialogContent className="max-w-md" onInteractOutside={(e) => {
-          if (enviandoEmail) {
-            e.preventDefault();
-          }
-        }}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Enviar Orçamento</DialogTitle>
           </DialogHeader>
