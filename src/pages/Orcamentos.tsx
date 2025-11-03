@@ -7,7 +7,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -73,31 +72,6 @@ export function Orcamentos() {
   useEffect(() => {
     fetchOrcamentos();
   }, [filtroStatus]);
-
-  // Monitora e remove overlays órfãos que podem travar a interface
-  useEffect(() => {
-    const limparOverlays = () => {
-      // Remove todos os overlays e restaura o body
-      const overlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay]');
-      overlays.forEach(overlay => {
-        const parent = overlay.parentElement;
-        if (parent && !dialogEnvio && !dialogExcluir && !mostrarPDF && !showWhatsApp) {
-          parent.removeChild(overlay);
-        }
-      });
-      
-      // Restaura o body apenas se todos os dialogs estiverem fechados
-      if (!dialogEnvio && !dialogExcluir && !mostrarPDF && !showWhatsApp) {
-        document.body.style.overflow = '';
-        document.body.style.pointerEvents = '';
-      }
-    };
-
-    // Executa a limpeza
-    const timer = setTimeout(limparOverlays, 100);
-    
-    return () => clearTimeout(timer);
-  }, [dialogEnvio, dialogExcluir, mostrarPDF, showWhatsApp]);
 
   const fetchOrcamentos = async () => {
     try {
@@ -266,33 +240,24 @@ export function Orcamentos() {
   const handleExcluir = async () => {
     if (!orcamentoExcluir) return;
 
-    // Salva o ID antes de limpar
-    const orcamentoId = orcamentoExcluir.id;
-    
-    // Fecha o diálogo IMEDIATAMENTE
-    setDialogExcluir(false);
-    setOrcamentoExcluir(null);
-    
-    // Mostra toast de processando
-    toast.info("Excluindo orçamento...");
-    
-    // Executa em background
-    setTimeout(async () => {
-      try {
-        const { error } = await supabase
-          .from("orcamentos")
-          .delete()
-          .eq("id", orcamentoId);
+    try {
+      const { error } = await supabase
+        .from("orcamentos")
+        .delete()
+        .eq("id", orcamentoExcluir.id);
 
-        if (error) throw error;
+      if (error) throw error;
 
-        toast.success("Orçamento excluído com sucesso!");
-        fetchOrcamentos();
-      } catch (error) {
-        console.error("Erro ao excluir orçamento:", error);
-        toast.error("Erro ao excluir orçamento");
-      }
-    }, 100);
+      toast.success("Orçamento excluído com sucesso!");
+      setDialogExcluir(false);
+      setOrcamentoExcluir(null);
+      fetchOrcamentos();
+    } catch (error) {
+      console.error("Erro ao excluir orçamento:", error);
+      toast.error("Erro ao excluir orçamento");
+      setDialogExcluir(false);
+      setOrcamentoExcluir(null);
+    }
   };
 
   const handleGerarContrato = (orcamento: Orcamento) => {
@@ -618,28 +583,32 @@ export function Orcamentos() {
         onSent={handleWhatsAppSent}
       />
 
-      {/* AlertDialog de Exclusão */}
-      <AlertDialog open={dialogExcluir} onOpenChange={setDialogExcluir}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
-            <AlertDialogDescription>
+      {/* Dialog de Exclusão */}
+      <Dialog open={dialogExcluir} onOpenChange={setDialogExcluir}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar Exclusão</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
               Deseja excluir o orçamento <strong>{orcamentoExcluir ? getNumeroOrcamento(orcamentoExcluir.id) : ''}</strong>?
               <br /><br />
               Esta ação não pode ser desfeita e todos os dados do orçamento serão permanentemente removidos.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleExcluir}
-              className="bg-destructive hover:bg-destructive/90"
-            >
-              Excluir
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </p>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setDialogExcluir(false)}>
+                Cancelar
+              </Button>
+              <Button 
+                variant="destructive" 
+                onClick={handleExcluir}
+              >
+                Excluir
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
