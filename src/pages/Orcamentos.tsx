@@ -61,9 +61,8 @@ export function Orcamentos() {
   const [mensagemEnvio, setMensagemEnvio] = useState("");
   const [enviandoEmail, setEnviandoEmail] = useState(false);
   
-  // Dialog de exclusão
-  const [dialogExcluir, setDialogExcluir] = useState(false);
-  const [orcamentoExcluir, setOrcamentoExcluir] = useState<Orcamento | null>(null);
+  // Confirmação inline de exclusão
+  const [orcamentoExcluir, setOrcamentoExcluir] = useState<string | null>(null);
   
   // PDF Viewer
   const [mostrarPDF, setMostrarPDF] = useState(false);
@@ -232,32 +231,31 @@ export function Orcamentos() {
     handleEnviarWhatsAppDialog();
   };
 
-  const handleAbrirExcluir = (orcamento: Orcamento) => {
-    setOrcamentoExcluir(orcamento);
-    setDialogExcluir(true);
+  const handleAbrirExcluir = (orcamentoId: string) => {
+    setOrcamentoExcluir(orcamentoId);
   };
 
-  const handleExcluir = async () => {
-    if (!orcamentoExcluir) return;
-
+  const handleExcluir = async (id: string) => {
     try {
       const { error } = await supabase
         .from("orcamentos")
         .delete()
-        .eq("id", orcamentoExcluir.id);
+        .eq("id", id);
 
       if (error) throw error;
 
-      toast.success("Orçamento excluído com sucesso!");
-      setDialogExcluir(false);
+      toast.success("Orçamento excluído!");
       setOrcamentoExcluir(null);
       fetchOrcamentos();
     } catch (error) {
       console.error("Erro ao excluir orçamento:", error);
       toast.error("Erro ao excluir orçamento");
-      setDialogExcluir(false);
       setOrcamentoExcluir(null);
     }
+  };
+
+  const handleCancelarExclusao = () => {
+    setOrcamentoExcluir(null);
   };
 
   const handleGerarContrato = (orcamento: Orcamento) => {
@@ -421,8 +419,10 @@ export function Orcamentos() {
                 ) : (
                   orcamentosFiltrados.map((orcamento) => {
                     const statusInfo = statusMap[orcamento.status as keyof typeof statusMap] || statusMap["Aguardando"];
+                    const isExcluindo = orcamentoExcluir === orcamento.id;
+                    
                     return (
-                      <TableRow key={orcamento.id}>
+                      <TableRow key={orcamento.id} className={isExcluindo ? "bg-destructive/10" : ""}>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <FileText className="h-4 w-4 text-primary" />
@@ -453,38 +453,58 @@ export function Orcamentos() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => handleEditar(orcamento.id)}>
-                                <FileText className="h-4 w-4 mr-2" />
-                                Editar
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleVisualizar(orcamento.id)}>
-                                <Eye className="h-4 w-4 mr-2" />
-                                Visualizar
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleAbrirEnvio(orcamento)}>
-                                <Send className="h-4 w-4 mr-2" />
-                                Enviar
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleGerarContrato(orcamento)}>
-                                <FileCheck className="h-4 w-4 mr-2" />
-                                Gerar Contrato
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                onClick={() => handleAbrirExcluir(orcamento)}
-                                className="text-destructive focus:text-destructive"
+                          {isExcluindo ? (
+                            <div className="flex items-center gap-2 justify-end">
+                              <span className="text-sm text-destructive font-medium">Confirmar exclusão?</span>
+                              <Button 
+                                size="sm" 
+                                variant="destructive" 
+                                onClick={() => handleExcluir(orcamento.id)}
                               >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Excluir
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                                Sim
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                onClick={handleCancelarExclusao}
+                              >
+                                Não
+                              </Button>
+                            </div>
+                          ) : (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleEditar(orcamento.id)}>
+                                  <FileText className="h-4 w-4 mr-2" />
+                                  Editar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleVisualizar(orcamento.id)}>
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  Visualizar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleAbrirEnvio(orcamento)}>
+                                  <Send className="h-4 w-4 mr-2" />
+                                  Enviar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleGerarContrato(orcamento)}>
+                                  <FileCheck className="h-4 w-4 mr-2" />
+                                  Gerar Contrato
+                                </DropdownMenuItem>
+                                <DropdownMenuItem 
+                                  onClick={() => handleAbrirExcluir(orcamento.id)}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Excluir
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
                         </TableCell>
                       </TableRow>
                     );
@@ -583,32 +603,6 @@ export function Orcamentos() {
         onSent={handleWhatsAppSent}
       />
 
-      {/* Dialog de Exclusão */}
-      <Dialog open={dialogExcluir} onOpenChange={setDialogExcluir}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirmar Exclusão</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Deseja excluir o orçamento <strong>{orcamentoExcluir ? getNumeroOrcamento(orcamentoExcluir.id) : ''}</strong>?
-              <br /><br />
-              Esta ação não pode ser desfeita e todos os dados do orçamento serão permanentemente removidos.
-            </p>
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setDialogExcluir(false)}>
-                Cancelar
-              </Button>
-              <Button 
-                variant="destructive" 
-                onClick={handleExcluir}
-              >
-                Excluir
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
