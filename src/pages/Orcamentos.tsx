@@ -106,7 +106,6 @@ export function Orcamentos() {
     const telefone = orcamentoEnviar.clientes?.telefone;
     if (!telefone) {
       toast.error("Cliente sem telefone cadastrado");
-      setOrcamentoEnviar(null);
       return;
     }
     
@@ -116,7 +115,6 @@ export function Orcamentos() {
     window.open(url, '_blank');
     
     const orcId = orcamentoEnviar.id;
-    setOrcamentoEnviar(null);
     
     // Registra envio
     setTimeout(async () => {
@@ -148,7 +146,6 @@ export function Orcamentos() {
     
     if (!orcamentoEnviar.clientes?.email) {
       toast.error("Cliente sem email cadastrado");
-      setOrcamentoEnviar(null);
       return;
     }
     
@@ -157,8 +154,6 @@ export function Orcamentos() {
     const orcId = orcamentoEnviar.id;
     const clienteEmail = orcamentoEnviar.clientes.email;
     const clienteNome = orcamentoEnviar.clientes.nome;
-    
-    setOrcamentoEnviar(null);
     
     try {
       const { data, error } = await supabase.functions.invoke('enviar-orcamento', {
@@ -215,8 +210,6 @@ export function Orcamentos() {
         console.error("Erro ao enviar:", error);
       }
     }
-    
-    setOrcamentoEnviar(null);
     
     // Registra envio
     setTimeout(async () => {
@@ -473,37 +466,6 @@ export function Orcamentos() {
                                 Não
                               </Button>
                             </div>
-                          ) : isEnviando ? (
-                            <div className="flex items-center gap-2 justify-end">
-                              <span className="text-sm font-medium">Enviar por:</span>
-                              <Button 
-                                size="sm" 
-                                onClick={handleEnviarWhatsApp}
-                              >
-                                WhatsApp
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="secondary"
-                                onClick={handleEnviarEmail}
-                              >
-                                Email
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                onClick={handleEnviarAmbos}
-                              >
-                                Ambos
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="ghost" 
-                                onClick={() => setOrcamentoEnviar(null)}
-                              >
-                                ✕
-                              </Button>
-                            </div>
                           ) : (
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -548,6 +510,71 @@ export function Orcamentos() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Dialog de Envio - Modal Centralizado */}
+      <Dialog open={!!orcamentoEnviar} onOpenChange={(open) => {
+        if (!open) {
+          setOrcamentoEnviar(null);
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Enviar Orçamento</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Como deseja enviar o orçamento para {orcamentoEnviar?.clientes?.nome}?
+            </p>
+            
+            <div className="flex flex-col gap-3">
+              <Button 
+                onClick={() => {
+                  handleEnviarWhatsApp();
+                  setOrcamentoEnviar(null);
+                }}
+                className="w-full"
+                disabled={!orcamentoEnviar?.clientes?.telefone}
+              >
+                <Send className="h-4 w-4 mr-2" />
+                Enviar por WhatsApp
+              </Button>
+              
+              <Button 
+                onClick={() => {
+                  handleEnviarEmail();
+                  setOrcamentoEnviar(null);
+                }}
+                variant="secondary"
+                className="w-full"
+                disabled={!orcamentoEnviar?.clientes?.email}
+              >
+                <Send className="h-4 w-4 mr-2" />
+                Enviar por Email
+              </Button>
+              
+              <Button 
+                onClick={() => {
+                  handleEnviarAmbos();
+                  setOrcamentoEnviar(null);
+                }}
+                variant="outline"
+                className="w-full"
+                disabled={!orcamentoEnviar?.clientes?.telefone || !orcamentoEnviar?.clientes?.email}
+              >
+                <Send className="h-4 w-4 mr-2" />
+                Enviar WhatsApp e Email
+              </Button>
+            </div>
+            
+            {(!orcamentoEnviar?.clientes?.telefone || !orcamentoEnviar?.clientes?.email) && (
+              <p className="text-xs text-amber-600 mt-2">
+                ⚠️ Algumas opções estão desabilitadas porque o cliente não possui todos os contatos cadastrados.
+              </p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
