@@ -57,7 +57,6 @@ export function Orcamentos() {
   // Estados simplificados
   const [orcamentoExcluir, setOrcamentoExcluir] = useState<string | null>(null);
   const [orcamentoEnviar, setOrcamentoEnviar] = useState<Orcamento | null>(null);
-  const [dialogEnvio, setDialogEnvio] = useState(false);
 
   useEffect(() => {
     fetchOrcamentos();
@@ -99,7 +98,6 @@ export function Orcamentos() {
 
   const handleAbrirEnvio = (orcamento: Orcamento) => {
     setOrcamentoEnviar(orcamento);
-    setDialogEnvio(true);
   };
 
   const handleEnviarWhatsApp = async () => {
@@ -108,6 +106,7 @@ export function Orcamentos() {
     const telefone = orcamentoEnviar.clientes?.telefone;
     if (!telefone) {
       toast.error("Cliente sem telefone cadastrado");
+      setOrcamentoEnviar(null);
       return;
     }
     
@@ -116,11 +115,14 @@ export function Orcamentos() {
     
     window.open(url, '_blank');
     
+    const orcId = orcamentoEnviar.id;
+    setOrcamentoEnviar(null);
+    
     // Registra envio
     setTimeout(async () => {
       try {
         await supabase.from('logs_envio').insert({
-          orcamento_id: orcamentoEnviar.id,
+          orcamento_id: orcId,
           empresa_id: user!.empresa_id,
           enviado_por: user!.id,
           destinatario: telefone,
@@ -131,7 +133,7 @@ export function Orcamentos() {
         await supabase
           .from('orcamentos')
           .update({ status: 'Enviado', data_envio: new Date().toISOString() })
-          .eq('id', orcamentoEnviar.id);
+          .eq('id', orcId);
 
         toast.success("WhatsApp aberto!");
         fetchOrcamentos();
@@ -139,8 +141,6 @@ export function Orcamentos() {
         console.error('Erro ao registrar envio:', error);
       }
     }, 500);
-    
-    setDialogEnvio(false);
   };
 
   const handleEnviarEmail = async () => {
@@ -148,17 +148,24 @@ export function Orcamentos() {
     
     if (!orcamentoEnviar.clientes?.email) {
       toast.error("Cliente sem email cadastrado");
+      setOrcamentoEnviar(null);
       return;
     }
     
     toast.info("Enviando orçamento...");
     
+    const orcId = orcamentoEnviar.id;
+    const clienteEmail = orcamentoEnviar.clientes.email;
+    const clienteNome = orcamentoEnviar.clientes.nome;
+    
+    setOrcamentoEnviar(null);
+    
     try {
       const { data, error } = await supabase.functions.invoke('enviar-orcamento', {
         body: {
-          orcamento_id: orcamentoEnviar.id,
-          email_destinatario: orcamentoEnviar.clientes.email,
-          mensagem_adicional: `Olá ${orcamentoEnviar.clientes.nome}! Segue o orçamento solicitado.`,
+          orcamento_id: orcId,
+          email_destinatario: clienteEmail,
+          mensagem_adicional: `Olá ${clienteNome}! Segue o orçamento solicitado.`,
         }
       });
 
@@ -176,15 +183,53 @@ export function Orcamentos() {
       console.error("Erro ao enviar email:", error);
       toast.error("Erro ao enviar orçamento");
     }
-    
-    setDialogEnvio(false);
   };
 
   const handleEnviarAmbos = async () => {
     if (!orcamentoEnviar) return;
     
-    await handleEnviarWhatsApp();
-    await handleEnviarEmail();
+    const orcamento = orcamentoEnviar;
+    
+    // WhatsApp
+    const telefone = orcamento.clientes?.telefone;
+    if (telefone) {
+      const mensagem = `Olá ${orcamento.clientes?.nome}! Segue o orçamento solicitado.\n\nOrçamento #${orcamento.id.slice(0, 8)}\nValor Total: ${formatCurrency(orcamento.valor_total || 0)}`;
+      const url = `https://wa.me/${telefone.replace(/\D/g, '')}?text=${encodeURIComponent(mensagem)}`;
+      window.open(url, '_blank');
+    }
+    
+    // Email
+    if (orcamento.clientes?.email) {
+      toast.info("Enviando orçamento...");
+      
+      try {
+        await supabase.functions.invoke('enviar-orcamento', {
+          body: {
+            orcamento_id: orcamento.id,
+            email_destinatario: orcamento.clientes.email,
+            mensagem_adicional: `Olá ${orcamento.clientes.nome}! Segue o orçamento solicitado.`,
+          }
+        });
+        toast.success("Orçamento enviado!");
+      } catch (error) {
+        console.error("Erro ao enviar:", error);
+      }
+    }
+    
+    setOrcamentoEnviar(null);
+    
+    // Registra envio
+    setTimeout(async () => {
+      try {
+        await supabase
+          .from('orcamentos')
+          .update({ status: 'Enviado', data_envio: new Date().toISOString() })
+          .eq('id', orcamento.id);
+        fetchOrcamentos();
+      } catch (error) {
+        console.error('Erro ao registrar envio:', error);
+      }
+    }, 500);
   };
 
   const handleAbrirExcluir = (orcamentoId: string) => {
@@ -376,9 +421,10 @@ export function Orcamentos() {
                   orcamentosFiltrados.map((orcamento) => {
                     const statusInfo = statusMap[orcamento.status as keyof typeof statusMap] || statusMap["Aguardando"];
                     const isExcluindo = orcamentoExcluir === orcamento.id;
+                    const isEnviando = orcamentoEnviar?.id === orcamento.id;
                     
                     return (
-                      <TableRow key={orcamento.id} className={isExcluindo ? "bg-destructive/10" : ""}>
+                      <TableRow key={orcamento.id} className={isExcluindo ? "bg-destructive/10" : isEnviando ? "bg-primary/10" : ""}>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <FileText className="h-4 w-4 text-primary" />
@@ -427,6 +473,37 @@ export function Orcamentos() {
                                 Não
                               </Button>
                             </div>
+                          ) : isEnviando ? (
+                            <div className="flex items-center gap-2 justify-end">
+                              <span className="text-sm font-medium">Enviar por:</span>
+                              <Button 
+                                size="sm" 
+                                onClick={handleEnviarWhatsApp}
+                              >
+                                WhatsApp
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="secondary"
+                                onClick={handleEnviarEmail}
+                              >
+                                Email
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={handleEnviarAmbos}
+                              >
+                                Ambos
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                onClick={() => setOrcamentoEnviar(null)}
+                              >
+                                ✕
+                              </Button>
+                            </div>
                           ) : (
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -471,45 +548,6 @@ export function Orcamentos() {
           </div>
         </CardContent>
       </Card>
-
-      {/* Modal de Envio */}
-      <Dialog open={dialogEnvio} onOpenChange={setDialogEnvio}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Enviar Orçamento</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Como deseja enviar o orçamento para {orcamentoEnviar?.clientes?.nome}?
-            </p>
-            <div className="flex flex-col gap-3">
-              <Button 
-                onClick={handleEnviarWhatsApp}
-                className="w-full gap-2"
-              >
-                <Send className="h-4 w-4" />
-                WhatsApp
-              </Button>
-              <Button 
-                onClick={handleEnviarEmail}
-                variant="secondary"
-                className="w-full gap-2"
-              >
-                <Send className="h-4 w-4" />
-                Email
-              </Button>
-              <Button 
-                onClick={handleEnviarAmbos}
-                variant="outline"
-                className="w-full gap-2"
-              >
-                <Send className="h-4 w-4" />
-                WhatsApp e Email
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
