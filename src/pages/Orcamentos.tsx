@@ -109,14 +109,15 @@ export function Orcamentos() {
       return;
     }
     
+    // Salva dados antes de limpar o estado
     const mensagem = `Olá ${orcamentoEnviar.clientes?.nome}! Segue o orçamento solicitado.\n\nOrçamento #${orcamentoEnviar.id.slice(0, 8)}\nValor Total: ${formatCurrency(orcamentoEnviar.valor_total || 0)}`;
     const url = `https://wa.me/${telefone.replace(/\D/g, '')}?text=${encodeURIComponent(mensagem)}`;
-    
-    window.open(url, '_blank');
-    
     const orcId = orcamentoEnviar.id;
     
-    // Registra envio
+    // Abre WhatsApp
+    window.open(url, '_blank');
+    
+    // Registra envio em background
     setTimeout(async () => {
       try {
         await supabase.from('logs_envio').insert({
@@ -149,66 +150,76 @@ export function Orcamentos() {
       return;
     }
     
-    toast.info("Enviando orçamento...");
-    
+    // Salva dados antes de limpar o estado
     const orcId = orcamentoEnviar.id;
     const clienteEmail = orcamentoEnviar.clientes.email;
     const clienteNome = orcamentoEnviar.clientes.nome;
     
-    try {
-      const { data, error } = await supabase.functions.invoke('enviar-orcamento', {
-        body: {
-          orcamento_id: orcId,
-          email_destinatario: clienteEmail,
-          mensagem_adicional: `Olá ${clienteNome}! Segue o orçamento solicitado.`,
-        }
-      });
+    toast.info("Enviando orçamento...");
+    
+    // Executa em background
+    setTimeout(async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('enviar-orcamento', {
+          body: {
+            orcamento_id: orcId,
+            email_destinatario: clienteEmail,
+            mensagem_adicional: `Olá ${clienteNome}! Segue o orçamento solicitado.`,
+          }
+        });
 
-      if (error) {
+        if (error) {
+          console.error("Erro ao enviar email:", error);
+          toast.error("Erro ao enviar orçamento");
+        } else if (data?.error) {
+          console.error("Erro da edge function:", data.error);
+          toast.error(data.error);
+        } else {
+          toast.success("Orçamento enviado por email!");
+          fetchOrcamentos();
+        }
+      } catch (error: any) {
         console.error("Erro ao enviar email:", error);
         toast.error("Erro ao enviar orçamento");
-      } else if (data?.error) {
-        console.error("Erro da edge function:", data.error);
-        toast.error(data.error);
-      } else {
-        toast.success("Orçamento enviado por email!");
-        fetchOrcamentos();
       }
-    } catch (error: any) {
-      console.error("Erro ao enviar email:", error);
-      toast.error("Erro ao enviar orçamento");
-    }
+    }, 100);
   };
 
   const handleEnviarAmbos = async () => {
     if (!orcamentoEnviar) return;
     
-    const orcamento = orcamentoEnviar;
+    // Salva dados antes de limpar o estado
+    const orcId = orcamentoEnviar.id;
+    const telefone = orcamentoEnviar.clientes?.telefone;
+    const clienteEmail = orcamentoEnviar.clientes?.email;
+    const clienteNome = orcamentoEnviar.clientes?.nome;
+    const valorTotal = orcamentoEnviar.valor_total || 0;
     
     // WhatsApp
-    const telefone = orcamento.clientes?.telefone;
     if (telefone) {
-      const mensagem = `Olá ${orcamento.clientes?.nome}! Segue o orçamento solicitado.\n\nOrçamento #${orcamento.id.slice(0, 8)}\nValor Total: ${formatCurrency(orcamento.valor_total || 0)}`;
+      const mensagem = `Olá ${clienteNome}! Segue o orçamento solicitado.\n\nOrçamento #${orcId.slice(0, 8)}\nValor Total: ${formatCurrency(valorTotal)}`;
       const url = `https://wa.me/${telefone.replace(/\D/g, '')}?text=${encodeURIComponent(mensagem)}`;
       window.open(url, '_blank');
     }
     
-    // Email
-    if (orcamento.clientes?.email) {
+    // Email em background
+    if (clienteEmail) {
       toast.info("Enviando orçamento...");
       
-      try {
-        await supabase.functions.invoke('enviar-orcamento', {
-          body: {
-            orcamento_id: orcamento.id,
-            email_destinatario: orcamento.clientes.email,
-            mensagem_adicional: `Olá ${orcamento.clientes.nome}! Segue o orçamento solicitado.`,
-          }
-        });
-        toast.success("Orçamento enviado!");
-      } catch (error) {
-        console.error("Erro ao enviar:", error);
-      }
+      setTimeout(async () => {
+        try {
+          await supabase.functions.invoke('enviar-orcamento', {
+            body: {
+              orcamento_id: orcId,
+              email_destinatario: clienteEmail,
+              mensagem_adicional: `Olá ${clienteNome}! Segue o orçamento solicitado.`,
+            }
+          });
+          toast.success("Orçamento enviado!");
+        } catch (error) {
+          console.error("Erro ao enviar:", error);
+        }
+      }, 100);
     }
     
     // Registra envio
@@ -217,7 +228,7 @@ export function Orcamentos() {
         await supabase
           .from('orcamentos')
           .update({ status: 'Enviado', data_envio: new Date().toISOString() })
-          .eq('id', orcamento.id);
+          .eq('id', orcId);
         fetchOrcamentos();
       } catch (error) {
         console.error('Erro ao registrar envio:', error);
@@ -530,8 +541,8 @@ export function Orcamentos() {
             <div className="flex flex-col gap-3">
               <Button 
                 onClick={() => {
-                  handleEnviarWhatsApp();
                   setOrcamentoEnviar(null);
+                  setTimeout(() => handleEnviarWhatsApp(), 50);
                 }}
                 className="w-full"
                 disabled={!orcamentoEnviar?.clientes?.telefone}
@@ -542,8 +553,8 @@ export function Orcamentos() {
               
               <Button 
                 onClick={() => {
-                  handleEnviarEmail();
                   setOrcamentoEnviar(null);
+                  setTimeout(() => handleEnviarEmail(), 50);
                 }}
                 variant="secondary"
                 className="w-full"
@@ -555,8 +566,8 @@ export function Orcamentos() {
               
               <Button 
                 onClick={() => {
-                  handleEnviarAmbos();
                   setOrcamentoEnviar(null);
+                  setTimeout(() => handleEnviarAmbos(), 50);
                 }}
                 variant="outline"
                 className="w-full"
