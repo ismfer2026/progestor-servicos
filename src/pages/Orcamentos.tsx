@@ -109,37 +109,31 @@ export function Orcamentos() {
       return;
     }
     
-    // Salva dados antes de limpar o estado
     const mensagem = `Olá ${orcamentoEnviar.clientes?.nome}! Segue o orçamento solicitado.\n\nOrçamento #${orcamentoEnviar.id.slice(0, 8)}\nValor Total: ${formatCurrency(orcamentoEnviar.valor_total || 0)}`;
     const url = `https://wa.me/${telefone.replace(/\D/g, '')}?text=${encodeURIComponent(mensagem)}`;
-    const orcId = orcamentoEnviar.id;
     
-    // Abre WhatsApp
     window.open(url, '_blank');
     
-    // Registra envio em background
-    setTimeout(async () => {
-      try {
-        await supabase.from('logs_envio').insert({
-          orcamento_id: orcId,
-          empresa_id: user!.empresa_id,
-          enviado_por: user!.id,
-          destinatario: telefone,
-          tipo_envio: 'whatsapp',
-          status: 'enviado'
-        });
+    try {
+      await supabase.from('logs_envio').insert({
+        orcamento_id: orcamentoEnviar.id,
+        empresa_id: user!.empresa_id,
+        enviado_por: user!.id,
+        destinatario: telefone,
+        tipo_envio: 'whatsapp',
+        status: 'enviado'
+      });
 
-        await supabase
-          .from('orcamentos')
-          .update({ status: 'Enviado', data_envio: new Date().toISOString() })
-          .eq('id', orcId);
+      await supabase
+        .from('orcamentos')
+        .update({ status: 'Enviado', data_envio: new Date().toISOString() })
+        .eq('id', orcamentoEnviar.id);
 
-        toast.success("WhatsApp aberto!");
-        fetchOrcamentos();
-      } catch (error) {
-        console.error('Erro ao registrar envio:', error);
-      }
-    }, 500);
+      toast.success("WhatsApp aberto!");
+      fetchOrcamentos();
+    } catch (error) {
+      console.error('Erro ao registrar envio:', error);
+    }
   };
 
   const handleEnviarEmail = async () => {
@@ -150,90 +144,74 @@ export function Orcamentos() {
       return;
     }
     
-    // Salva dados antes de limpar o estado
-    const orcId = orcamentoEnviar.id;
-    const clienteEmail = orcamentoEnviar.clientes.email;
-    const clienteNome = orcamentoEnviar.clientes.nome;
-    
     toast.info("Enviando orçamento...");
     
-    // Executa em background
-    setTimeout(async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke('enviar-orcamento', {
-          body: {
-            orcamento_id: orcId,
-            email_destinatario: clienteEmail,
-            mensagem_adicional: `Olá ${clienteNome}! Segue o orçamento solicitado.`,
-          }
-        });
-
-        if (error) {
-          console.error("Erro ao enviar email:", error);
-          toast.error("Erro ao enviar orçamento");
-        } else if (data?.error) {
-          console.error("Erro da edge function:", data.error);
-          toast.error(data.error);
-        } else {
-          toast.success("Orçamento enviado por email!");
-          fetchOrcamentos();
+    try {
+      const { data, error } = await supabase.functions.invoke('enviar-orcamento', {
+        body: {
+          orcamento_id: orcamentoEnviar.id,
+          email_destinatario: orcamentoEnviar.clientes.email,
+          mensagem_adicional: `Olá ${orcamentoEnviar.clientes.nome}! Segue o orçamento solicitado.`,
         }
-      } catch (error: any) {
+      });
+
+      if (error) {
         console.error("Erro ao enviar email:", error);
         toast.error("Erro ao enviar orçamento");
+      } else if (data?.error) {
+        console.error("Erro da edge function:", data.error);
+        toast.error(data.error);
+      } else {
+        toast.success("Orçamento enviado por email!");
+        fetchOrcamentos();
       }
-    }, 100);
+    } catch (error: any) {
+      console.error("Erro ao enviar email:", error);
+      toast.error("Erro ao enviar orçamento");
+    }
   };
 
   const handleEnviarAmbos = async () => {
     if (!orcamentoEnviar) return;
     
-    // Salva dados antes de limpar o estado
-    const orcId = orcamentoEnviar.id;
     const telefone = orcamentoEnviar.clientes?.telefone;
     const clienteEmail = orcamentoEnviar.clientes?.email;
-    const clienteNome = orcamentoEnviar.clientes?.nome;
-    const valorTotal = orcamentoEnviar.valor_total || 0;
     
     // WhatsApp
     if (telefone) {
-      const mensagem = `Olá ${clienteNome}! Segue o orçamento solicitado.\n\nOrçamento #${orcId.slice(0, 8)}\nValor Total: ${formatCurrency(valorTotal)}`;
+      const mensagem = `Olá ${orcamentoEnviar.clientes?.nome}! Segue o orçamento solicitado.\n\nOrçamento #${orcamentoEnviar.id.slice(0, 8)}\nValor Total: ${formatCurrency(orcamentoEnviar.valor_total || 0)}`;
       const url = `https://wa.me/${telefone.replace(/\D/g, '')}?text=${encodeURIComponent(mensagem)}`;
       window.open(url, '_blank');
     }
     
-    // Email em background
+    // Email
     if (clienteEmail) {
       toast.info("Enviando orçamento...");
       
-      setTimeout(async () => {
-        try {
-          await supabase.functions.invoke('enviar-orcamento', {
-            body: {
-              orcamento_id: orcId,
-              email_destinatario: clienteEmail,
-              mensagem_adicional: `Olá ${clienteNome}! Segue o orçamento solicitado.`,
-            }
-          });
-          toast.success("Orçamento enviado!");
-        } catch (error) {
-          console.error("Erro ao enviar:", error);
-        }
-      }, 100);
+      try {
+        await supabase.functions.invoke('enviar-orcamento', {
+          body: {
+            orcamento_id: orcamentoEnviar.id,
+            email_destinatario: clienteEmail,
+            mensagem_adicional: `Olá ${orcamentoEnviar.clientes?.nome}! Segue o orçamento solicitado.`,
+          }
+        });
+        toast.success("Orçamento enviado!");
+      } catch (error) {
+        console.error("Erro ao enviar:", error);
+      }
     }
     
     // Registra envio
-    setTimeout(async () => {
-      try {
-        await supabase
-          .from('orcamentos')
-          .update({ status: 'Enviado', data_envio: new Date().toISOString() })
-          .eq('id', orcId);
-        fetchOrcamentos();
-      } catch (error) {
-        console.error('Erro ao registrar envio:', error);
-      }
-    }, 500);
+    try {
+      await supabase
+        .from('orcamentos')
+        .update({ status: 'Enviado', data_envio: new Date().toISOString() })
+        .eq('id', orcamentoEnviar.id);
+      fetchOrcamentos();
+    } catch (error) {
+      console.error('Erro ao registrar envio:', error);
+    }
   };
 
   const handleAbrirExcluir = (orcamentoId: string) => {
@@ -540,9 +518,9 @@ export function Orcamentos() {
             
             <div className="flex flex-col gap-3">
               <Button 
-                onClick={() => {
+                onClick={async () => {
+                  await handleEnviarWhatsApp();
                   setOrcamentoEnviar(null);
-                  setTimeout(() => handleEnviarWhatsApp(), 50);
                 }}
                 className="w-full"
                 disabled={!orcamentoEnviar?.clientes?.telefone}
@@ -552,9 +530,9 @@ export function Orcamentos() {
               </Button>
               
               <Button 
-                onClick={() => {
+                onClick={async () => {
+                  await handleEnviarEmail();
                   setOrcamentoEnviar(null);
-                  setTimeout(() => handleEnviarEmail(), 50);
                 }}
                 variant="secondary"
                 className="w-full"
@@ -565,9 +543,9 @@ export function Orcamentos() {
               </Button>
               
               <Button 
-                onClick={() => {
+                onClick={async () => {
+                  await handleEnviarAmbos();
                   setOrcamentoEnviar(null);
-                  setTimeout(() => handleEnviarAmbos(), 50);
                 }}
                 variant="outline"
                 className="w-full"
