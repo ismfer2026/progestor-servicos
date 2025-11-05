@@ -493,7 +493,16 @@ export function Orcamentos() {
       </Card>
 
       {/* Dialog de Envio - Modal Centralizado */}
-      <Dialog open={!!orcamentoEnviar} onOpenChange={(open) => !open && setOrcamentoEnviar(null)}>
+      <Dialog 
+        open={!!orcamentoEnviar} 
+        onOpenChange={(open) => {
+          if (!open) {
+            setOrcamentoEnviar(null);
+            // Atualização imperceptível da lista
+            setTimeout(() => fetchOrcamentos(), 50);
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Enviar Orçamento</DialogTitle>
