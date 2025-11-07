@@ -48,7 +48,10 @@ export function EnviarOrcamentoDialog({
   };
 
   const handleEnviarWhatsApp = () => {
-    if (!orcamento) return;
+    if (!orcamento) {
+      onOpenChange(false);
+      return;
+    }
 
     const telefone = orcamento.clientes?.telefone;
     if (!telefone) {
@@ -97,7 +100,10 @@ export function EnviarOrcamentoDialog({
   };
 
   const handleEnviarEmail = () => {
-    if (!orcamento) return;
+    if (!orcamento) {
+      onOpenChange(false);
+      return;
+    }
 
     const clienteEmail = orcamento.clientes?.email;
     if (!clienteEmail) {
@@ -154,7 +160,10 @@ export function EnviarOrcamentoDialog({
   };
 
   const handleEnviarAmbos = () => {
-    if (!orcamento) return;
+    if (!orcamento) {
+      onOpenChange(false);
+      return;
+    }
 
     const telefone = orcamento.clientes?.telefone;
     const clienteEmail = orcamento.clientes?.email;
@@ -215,46 +224,48 @@ export function EnviarOrcamentoDialog({
     }, 100);
   };
 
-  if (!orcamento) return null;
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Enviar Orçamento</DialogTitle>
-          <DialogDescription>
-            Escolha como deseja enviar o orçamento para {orcamento.clientes?.nome}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3">
-          <Button
-            onClick={handleEnviarWhatsApp}
-            className="w-full gap-2"
-            variant="default"
-            disabled={!orcamento.clientes?.telefone}
-          >
-            <MessageCircle className="h-4 w-4" />
-            Enviar por WhatsApp
-          </Button>
-          <Button
-            onClick={handleEnviarEmail}
-            className="w-full gap-2"
-            variant="outline"
-            disabled={!orcamento.clientes?.email}
-          >
-            <Mail className="h-4 w-4" />
-            Enviar por Email
-          </Button>
-          <Button
-            onClick={handleEnviarAmbos}
-            className="w-full gap-2"
-            variant="secondary"
-            disabled={!orcamento.clientes?.telefone && !orcamento.clientes?.email}
-          >
-            <Send className="h-4 w-4" />
-            Enviar por Ambos
-          </Button>
-        </div>
+        {orcamento ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>Enviar Orçamento</DialogTitle>
+              <DialogDescription>
+                Escolha como deseja enviar o orçamento para {orcamento.clientes?.nome}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <Button
+                onClick={handleEnviarWhatsApp}
+                className="w-full gap-2"
+                variant="default"
+                disabled={!orcamento.clientes?.telefone}
+              >
+                <MessageCircle className="h-4 w-4" />
+                Enviar por WhatsApp
+              </Button>
+              <Button
+                onClick={handleEnviarEmail}
+                className="w-full gap-2"
+                variant="outline"
+                disabled={!orcamento.clientes?.email}
+              >
+                <Mail className="h-4 w-4" />
+                Enviar por Email
+              </Button>
+              <Button
+                onClick={handleEnviarAmbos}
+                className="w-full gap-2"
+                variant="secondary"
+                disabled={!orcamento.clientes?.telefone && !orcamento.clientes?.email}
+              >
+                <Send className="h-4 w-4" />
+                Enviar por Ambos
+              </Button>
+            </div>
+          </>
+        ) : null}
       </DialogContent>
     </Dialog>
   );
