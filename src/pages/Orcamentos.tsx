@@ -6,9 +6,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { FileText, Send, Eye, MoreVertical, Plus, Search, DollarSign, CheckCircle2, FileCheck, Trash2 } from "lucide-react";
 import { format } from "date-fns";
@@ -17,7 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { PDFViewer } from "@/components/orcamento/PDFViewer";
-import { WhatsAppMessageDialog } from "@/components/shared/WhatsAppMessageDialog";
+import { EnviarOrcamentoDialog } from "@/components/orcamento/EnviarOrcamentoDialog";
 
 interface Orcamento {
   id: string;
@@ -98,112 +95,6 @@ export function Orcamentos() {
 
   const handleAbrirEnvio = (orcamento: Orcamento) => {
     setOrcamentoEnviar(orcamento);
-  };
-
-  const handleEnviarWhatsApp = (orcamento: Orcamento) => {
-    const telefone = orcamento.clientes?.telefone;
-    if (!telefone) {
-      toast.error("Cliente sem telefone cadastrado");
-      return;
-    }
-    
-    const mensagem = `Olá ${orcamento.clientes?.nome}! Segue o orçamento solicitado.\n\nOrçamento #${orcamento.id.slice(0, 8)}\nValor Total: ${formatCurrency(orcamento.valor_total || 0)}`;
-    const url = `https://wa.me/${telefone.replace(/\D/g, '')}?text=${encodeURIComponent(mensagem)}`;
-    
-    window.open(url, '_blank');
-    toast.success("WhatsApp aberto!");
-    
-    // Operações em background
-    setTimeout(() => {
-      supabase.from('logs_envio').insert({
-        orcamento_id: orcamento.id,
-        empresa_id: user!.empresa_id,
-        enviado_por: user!.id,
-        destinatario: telefone,
-        tipo_envio: 'whatsapp',
-        status: 'enviado'
-      });
-
-      supabase
-        .from('orcamentos')
-        .update({ status: 'Enviado', data_envio: new Date().toISOString() })
-        .eq('id', orcamento.id)
-        .then(() => fetchOrcamentos());
-    }, 100);
-  };
-
-  const handleEnviarEmail = (orcamento: Orcamento) => {
-    if (!orcamento.clientes?.email) {
-      toast.error("Cliente sem email cadastrado");
-      return;
-    }
-    
-    toast.info("Enviando orçamento...");
-    
-    // Operações em background
-    setTimeout(() => {
-      supabase.functions.invoke('enviar-orcamento', {
-        body: {
-          orcamento_id: orcamento.id,
-          email_destinatario: orcamento.clientes!.email,
-          mensagem_adicional: `Olá ${orcamento.clientes!.nome}! Segue o orçamento solicitado.`,
-        }
-      }).then(({ data, error }) => {
-        if (error) {
-          console.error("Erro ao enviar email:", error);
-          toast.error("Erro ao enviar orçamento");
-        } else if (data?.error) {
-          console.error("Erro da edge function:", data.error);
-          toast.error(data.error);
-        } else {
-          toast.success("Orçamento enviado por email!");
-          fetchOrcamentos();
-        }
-      }).catch((error: any) => {
-        console.error("Erro ao enviar email:", error);
-        toast.error("Erro ao enviar orçamento");
-      });
-    }, 100);
-  };
-
-  const handleEnviarAmbos = (orcamento: Orcamento) => {
-    const telefone = orcamento.clientes?.telefone;
-    const clienteEmail = orcamento.clientes?.email;
-    
-    // WhatsApp
-    if (telefone) {
-      const mensagem = `Olá ${orcamento.clientes?.nome}! Segue o orçamento solicitado.\n\nOrçamento #${orcamento.id.slice(0, 8)}\nValor Total: ${formatCurrency(orcamento.valor_total || 0)}`;
-      const url = `https://wa.me/${telefone.replace(/\D/g, '')}?text=${encodeURIComponent(mensagem)}`;
-      window.open(url, '_blank');
-    }
-    
-    // Email
-    if (clienteEmail) {
-      toast.info("Enviando orçamento...");
-    }
-    
-    // Operações em background
-    setTimeout(() => {
-      if (clienteEmail) {
-        supabase.functions.invoke('enviar-orcamento', {
-          body: {
-            orcamento_id: orcamento.id,
-            email_destinatario: clienteEmail,
-            mensagem_adicional: `Olá ${orcamento.clientes?.nome}! Segue o orçamento solicitado.`,
-          }
-        }).then(() => {
-          toast.success("Orçamento enviado!");
-        }).catch((error) => {
-          console.error("Erro ao enviar:", error);
-        });
-      }
-      
-      supabase
-        .from('orcamentos')
-        .update({ status: 'Enviado', data_envio: new Date().toISOString() })
-        .eq('id', orcamento.id)
-        .then(() => fetchOrcamentos());
-    }, 100);
   };
 
   const handleAbrirExcluir = (orcamentoId: string) => {
@@ -492,77 +383,15 @@ export function Orcamentos() {
         </CardContent>
       </Card>
 
-      {/* Dialog de Envio - Modal Centralizado */}
-      <Dialog 
-        open={!!orcamentoEnviar} 
+      {/* Dialog de Envio - Componente Separado */}
+      <EnviarOrcamentoDialog
+        open={!!orcamentoEnviar}
         onOpenChange={(open) => {
-          if (!open) {
-            setOrcamentoEnviar(null);
-            // Atualização imperceptível da lista
-            setTimeout(() => fetchOrcamentos(), 50);
-          }
+          if (!open) setOrcamentoEnviar(null);
         }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Enviar Orçamento</DialogTitle>
-            <DialogDescription>
-              Como deseja enviar o orçamento para {orcamentoEnviar?.clientes?.nome}?
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="flex flex-col gap-3">
-              <Button 
-                onClick={() => {
-                  const orc = orcamentoEnviar!;
-                  setOrcamentoEnviar(null);
-                  handleEnviarWhatsApp(orc);
-                }}
-                className="w-full"
-                disabled={!orcamentoEnviar?.clientes?.telefone}
-              >
-                <Send className="h-4 w-4 mr-2" />
-                Enviar por WhatsApp
-              </Button>
-              
-              <Button 
-                onClick={() => {
-                  const orc = orcamentoEnviar!;
-                  setOrcamentoEnviar(null);
-                  handleEnviarEmail(orc);
-                }}
-                variant="secondary"
-                className="w-full"
-                disabled={!orcamentoEnviar?.clientes?.email}
-              >
-                <Send className="h-4 w-4 mr-2" />
-                Enviar por Email
-              </Button>
-              
-              <Button 
-                onClick={() => {
-                  const orc = orcamentoEnviar!;
-                  setOrcamentoEnviar(null);
-                  handleEnviarAmbos(orc);
-                }}
-                variant="outline"
-                className="w-full"
-                disabled={!orcamentoEnviar?.clientes?.telefone || !orcamentoEnviar?.clientes?.email}
-              >
-                <Send className="h-4 w-4 mr-2" />
-                Enviar WhatsApp e Email
-              </Button>
-            </div>
-            
-            {(!orcamentoEnviar?.clientes?.telefone || !orcamentoEnviar?.clientes?.email) && (
-              <p className="text-xs text-amber-600 mt-2">
-                ⚠️ Algumas opções estão desabilitadas porque o cliente não possui todos os contatos cadastrados.
-              </p>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+        orcamento={orcamentoEnviar}
+        onSent={fetchOrcamentos}
+      />
     </div>
   );
 }
