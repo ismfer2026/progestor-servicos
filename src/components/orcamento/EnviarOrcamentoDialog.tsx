@@ -74,6 +74,10 @@ Qualquer dúvida, estou à disposição!`;
   };
 
   const handleEnviarWhatsApp = () => {
+    if (!orcamento) {
+      onOpenChange(false);
+      return;
+    }
     if (!orcamento.clientes?.telefone) {
       toast.error("Cliente não possui telefone cadastrado");
       return;
@@ -82,6 +86,10 @@ Qualquer dúvida, estou à disposição!`;
   };
 
   const handleEnviarEmail = async () => {
+    if (!orcamento) {
+      onOpenChange(false);
+      return;
+    }
     const sucesso = await enviarEmail();
     if (sucesso) {
       onOpenChange(false);
@@ -89,6 +97,10 @@ Qualquer dúvida, estou à disposição!`;
   };
 
   const handleEnviarAmbos = async () => {
+    if (!orcamento) {
+      onOpenChange(false);
+      return;
+    }
     if (!orcamento.clientes?.telefone) {
       toast.error("Cliente não possui telefone cadastrado");
       return;
@@ -108,67 +120,69 @@ Qualquer dúvida, estou à disposição!`;
     onOpenChange(false);
   };
 
-  if (!orcamento) {
-    return null;
-  }
-
   return (
     <>
       <Dialog open={open && !showWhatsApp} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Enviar Orçamento</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="text-sm text-muted-foreground mb-4">
-              <p>
-                <strong>Cliente:</strong> {orcamento.clientes?.nome || "N/A"}
-              </p>
-              {orcamento.clientes?.email && (
-                <p>
-                  <strong>E-mail:</strong> {orcamento.clientes.email}
-                </p>
-              )}
-              {orcamento.clientes?.telefone && (
-                <p>
-                  <strong>Telefone:</strong> {orcamento.clientes.telefone}
-                </p>
-              )}
-            </div>
+          {orcamento ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Enviar Orçamento</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
+                <div className="text-sm text-muted-foreground mb-4">
+                  <p>
+                    <strong>Cliente:</strong> {orcamento.clientes?.nome || "N/A"}
+                  </p>
+                  {orcamento.clientes?.email && (
+                    <p>
+                      <strong>E-mail:</strong> {orcamento.clientes.email}
+                    </p>
+                  )}
+                  {orcamento.clientes?.telefone && (
+                    <p>
+                      <strong>Telefone:</strong> {orcamento.clientes.telefone}
+                    </p>
+                  )}
+                </div>
 
-            <Button
-              onClick={handleEnviarWhatsApp}
-              disabled={loading || !orcamento.clientes?.telefone}
-              className="w-full gap-2"
-              variant="outline"
-            >
-              <MessageCircle className="h-4 w-4" />
-              Enviar por WhatsApp
-            </Button>
+                <Button
+                  onClick={handleEnviarWhatsApp}
+                  disabled={loading || !orcamento.clientes?.telefone}
+                  className="w-full gap-2"
+                  variant="outline"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  Enviar por WhatsApp
+                </Button>
 
-            <Button
-              onClick={handleEnviarEmail}
-              disabled={loading || !orcamento.clientes?.email}
-              className="w-full gap-2"
-              variant="outline"
-            >
-              <Mail className="h-4 w-4" />
-              Enviar por E-mail
-            </Button>
+                <Button
+                  onClick={handleEnviarEmail}
+                  disabled={loading || !orcamento.clientes?.email}
+                  className="w-full gap-2"
+                  variant="outline"
+                >
+                  <Mail className="h-4 w-4" />
+                  Enviar por E-mail
+                </Button>
 
-            <Button
-              onClick={handleEnviarAmbos}
-              disabled={
-                loading ||
-                !orcamento.clientes?.telefone ||
-                !orcamento.clientes?.email
-              }
-              className="w-full gap-2"
-            >
-              <SendHorizontal className="h-4 w-4" />
-              Enviar por Ambos
-            </Button>
-          </div>
+                <Button
+                  onClick={handleEnviarAmbos}
+                  disabled={
+                    loading ||
+                    !orcamento.clientes?.telefone ||
+                    !orcamento.clientes?.email
+                  }
+                  className="w-full gap-2"
+                >
+                  <SendHorizontal className="h-4 w-4" />
+                  Enviar por Ambos
+                </Button>
+              </div>
+            </>
+          ) : (
+            <div className="p-4">Carregando...</div>
+          )}
         </DialogContent>
       </Dialog>
 
