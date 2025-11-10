@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef } from 'react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,43 +8,8 @@ interface PDFViewerProps {
   onClose: () => void;
 }
 
-interface EmpresaInfo {
-  nome_fantasia: string;
-  razao_social: string;
-  cnpj: string;
-  telefone: string;
-  email_admin: string;
-  endereco: string;
-  cidade: string;
-  estado: string;
-  cep: string;
-  website: string;
-  logo_url: string;
-}
-
 export function PDFViewer({ orcamento, onClose }: PDFViewerProps) {
   const contentRef = useRef<HTMLDivElement>(null);
-  const [empresaInfo, setEmpresaInfo] = useState<EmpresaInfo | null>(null);
-
-  useEffect(() => {
-    const fetchEmpresaInfo = async () => {
-      const { data, error } = await supabase
-        .from('empresas')
-        .select('*')
-        .eq('id', orcamento.empresa_id)
-        .maybeSingle();
-
-      if (!error && data) {
-        setEmpresaInfo(data);
-      } else if (error) {
-        console.error('Erro ao buscar info da empresa:', error);
-      }
-    };
-
-    if (orcamento.empresa_id) {
-      fetchEmpresaInfo();
-    }
-  }, [orcamento.empresa_id]);
 
   const generatePDF = async () => {
     if (!contentRef.current) return;
@@ -68,9 +33,36 @@ export function PDFViewer({ orcamento, onClose }: PDFViewerProps) {
 
     pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
 
-    // Faz o download do PDF
-    const nomeArquivo = `orcamento-${orcamento.id.slice(0, 6).toUpperCase()}.pdf`;
-    pdf.save(nomeArquivo);
+    // Converte PDF para Blob
+    const pdfBlob = pdf.output('blob');
+
+    const filePath = `${orcamento.empresa_id}/${orcamento.id}.pdf`;
+
+    // Verifica se já existe PDF
+    const { data: existingFiles } = await supabase.storage
+      .from('orcamentos-pdf')
+      .list(`${orcamento.empresa_id}/`);
+
+    const fileExists = existingFiles?.some(f => f.name === `${orcamento.id}.pdf`);
+
+    let proceed = true;
+    if (fileExists) {
+      proceed = confirm('Já existe um PDF para este orçamento. Deseja substituí-lo?');
+    }
+
+    if (!proceed) return;
+
+    // Faz upload
+    const { error } = await supabase.storage
+      .from('orcamentos-pdf')
+      .upload(filePath, pdfBlob, { contentType: 'application/pdf', upsert: true });
+
+    if (error) {
+      alert('Erro ao salvar PDF no Supabase: ' + error.message);
+      return;
+    }
+
+    alert('PDF salvo no Supabase com sucesso!');
   };
 
   const formatCurrency = (value: number) => {
@@ -109,7 +101,7 @@ export function PDFViewer({ orcamento, onClose }: PDFViewerProps) {
               onClick={generatePDF}
               className="px-4 py-2 bg-gray-900 text-white rounded hover:bg-gray-800 transition-colors font-medium"
             >
-              Baixar em PDF
+              Salvar PDF no Supabase
             </button>
             <button
               onClick={onClose}
@@ -126,35 +118,13 @@ export function PDFViewer({ orcamento, onClose }: PDFViewerProps) {
             <div className="flex justify-between items-start mb-8 pb-6">
               <div>
                 <div className="flex items-center gap-3 mb-2">
-                  {empresaInfo?.logo_url ? (
-                    <img 
-                      src={empresaInfo.logo_url} 
-                      alt="Logo da Empresa" 
-                      style={{ width: '150px', height: '150px', objectFit: 'contain' }}
-                      crossOrigin="anonymous"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-xl">
-                      {empresaInfo?.nome_fantasia?.charAt(0) || 'E'}
-                    </div>
-                  )}
+                  <div className="w-12 h-12 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-xl">
+                    P
+                  </div>
                   <div>
-                    <h1 className="text-2xl font-bold text-gray-900">
-                      {empresaInfo?.nome_fantasia || 'Empresa'}
-                    </h1>
-                    {empresaInfo?.razao_social && (
-                      <p className="text-xs text-gray-500">{empresaInfo.razao_social}</p>
-                    )}
-                    <p className="text-sm text-gray-600">{empresaInfo?.email_admin || ''}</p>
-                    <p className="text-sm text-gray-600">{empresaInfo?.telefone || ''}</p>
-                    {empresaInfo?.endereco && (
-                      <p className="text-xs text-gray-500">
-                        {empresaInfo.endereco}
-                        {empresaInfo.cidade && `, ${empresaInfo.cidade}`}
-                        {empresaInfo.estado && `-${empresaInfo.estado}`}
-                        {empresaInfo.cep && ` - ${empresaInfo.cep}`}
-                      </p>
-                    )}
+                    <h1 className="text-2xl font-bold text-gray-900">Synca Gestão Serviços Inc.</h1>
+                    <p className="text-sm text-gray-600">contato@syncagestao.com</p>
+                    <p className="text-sm text-gray-600">(11) 98765-4321</p>
                   </div>
                 </div>
               </div>

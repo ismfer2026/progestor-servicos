@@ -14,7 +14,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { PDFViewer } from "@/components/orcamento/PDFViewer";
-import { EnviarOrcamentoDialog } from "@/components/orcamento/EnviarOrcamentoDialog";
 
 interface Orcamento {
   id: string;
@@ -53,7 +52,6 @@ export function Orcamentos() {
   
   // Estados simplificados
   const [orcamentoExcluir, setOrcamentoExcluir] = useState<string | null>(null);
-  const [orcamentoEnviar, setOrcamentoEnviar] = useState<Orcamento | null>(null);
 
   useEffect(() => {
     fetchOrcamentos();
@@ -91,10 +89,6 @@ export function Orcamentos() {
 
   const handleVisualizar = (id: string) => {
     window.open(`/orcamentos/visualizar/${id}`, '_blank');
-  };
-
-  const handleAbrirEnvio = (orcamento: Orcamento) => {
-    setOrcamentoEnviar(orcamento);
   };
 
   const handleAbrirExcluir = (orcamentoId: string) => {
@@ -286,10 +280,9 @@ export function Orcamentos() {
                   orcamentosFiltrados.map((orcamento) => {
                     const statusInfo = statusMap[orcamento.status as keyof typeof statusMap] || statusMap["Aguardando"];
                     const isExcluindo = orcamentoExcluir === orcamento.id;
-                    const isEnviando = orcamentoEnviar?.id === orcamento.id;
                     
                     return (
-                      <TableRow key={orcamento.id} className={isExcluindo ? "bg-destructive/10" : isEnviando ? "bg-primary/10" : ""}>
+                      <TableRow key={orcamento.id} className={isExcluindo ? "bg-destructive/10" : ""}>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <FileText className="h-4 w-4 text-primary" />
@@ -354,10 +347,6 @@ export function Orcamentos() {
                                   <Eye className="h-4 w-4 mr-2" />
                                   Visualizar
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleAbrirEnvio(orcamento)}>
-                                  <Send className="h-4 w-4 mr-2" />
-                                  Enviar
-                                </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleGerarContrato(orcamento)}>
                                   <FileCheck className="h-4 w-4 mr-2" />
                                   Gerar Contrato
@@ -383,15 +372,6 @@ export function Orcamentos() {
         </CardContent>
       </Card>
 
-      {/* Dialog de Envio - Componente Separado */}
-      <EnviarOrcamentoDialog
-        open={!!orcamentoEnviar}
-        onOpenChange={(open) => {
-          if (!open) setOrcamentoEnviar(null);
-        }}
-        orcamento={orcamentoEnviar}
-        onSent={fetchOrcamentos}
-      />
     </div>
   );
 }
