@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { PDFViewer } from "@/components/orcamento/PDFViewer";
+import { EnviarOrcamentoDialog } from "@/components/orcamento/EnviarOrcamentoDialog";
 
 interface Orcamento {
   id: string;
@@ -52,6 +53,7 @@ export function Orcamentos() {
   
   // Estados simplificados
   const [orcamentoExcluir, setOrcamentoExcluir] = useState<string | null>(null);
+  const [orcamentoEnviar, setOrcamentoEnviar] = useState<Orcamento | null>(null);
 
   useEffect(() => {
     fetchOrcamentos();
@@ -93,6 +95,10 @@ export function Orcamentos() {
 
   const handleAbrirExcluir = (orcamentoId: string) => {
     setOrcamentoExcluir(orcamentoId);
+  };
+
+  const handleAbrirEnvio = (orcamento: Orcamento) => {
+    setOrcamentoEnviar(orcamento);
   };
 
   const handleExcluir = async (id: string) => {
@@ -347,6 +353,10 @@ export function Orcamentos() {
                                   <Eye className="h-4 w-4 mr-2" />
                                   Visualizar
                                 </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleAbrirEnvio(orcamento)}>
+                                  <Send className="h-4 w-4 mr-2" />
+                                  Enviar
+                                </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleGerarContrato(orcamento)}>
                                   <FileCheck className="h-4 w-4 mr-2" />
                                   Gerar Contrato
@@ -372,6 +382,14 @@ export function Orcamentos() {
         </CardContent>
       </Card>
 
+      {/* Dialog de Envio */}
+      {orcamentoEnviar && (
+        <EnviarOrcamentoDialog
+          open={!!orcamentoEnviar}
+          onOpenChange={(open) => !open && setOrcamentoEnviar(null)}
+          orcamento={orcamentoEnviar}
+        />
+      )}
     </div>
   );
 }
