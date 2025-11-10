@@ -1,7 +1,7 @@
-import { useRef } from 'react';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
-import { supabase } from '@/integrations/supabase/client';
+import { useRef } from "react";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
+import { createClient } from "@supabase/supabase-js";
 
 interface PDFViewerProps {
   orcamento: any;
@@ -18,11 +18,11 @@ export function PDFViewer({ orcamento, onClose }: PDFViewerProps) {
       scale: 2,
       useCORS: true,
       logging: false,
-      backgroundColor: '#ffffff',
+      backgroundColor: "#ffffff",
     });
 
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF('p', 'mm', 'a4');
+    const imgData = canvas.toDataURL("image/png");
+    const pdf = new jsPDF("p", "mm", "a4");
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = pdf.internal.pageSize.getHeight();
     const imgWidth = canvas.width;
@@ -31,53 +31,54 @@ export function PDFViewer({ orcamento, onClose }: PDFViewerProps) {
     const imgX = (pdfWidth - imgWidth * ratio) / 2;
     const imgY = 0;
 
-    pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
+    pdf.addImage(imgData, "PNG", imgX, imgY, imgWidth * ratio, imgHeight * ratio);
 
     // Converte PDF para Blob
-    const pdfBlob = pdf.output('blob');
+    const pdfBlob = pdf.output("blob");
+
+    // Cria cliente Supabase
+    const supabase = createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY);
 
     const filePath = `${orcamento.empresa_id}/${orcamento.id}.pdf`;
 
     // Verifica se já existe PDF
-    const { data: existingFiles } = await supabase.storage
-      .from('orcamentos-pdf')
-      .list(`${orcamento.empresa_id}/`);
+    const { data: existingFiles } = await supabase.storage.from("orcamentos-pdf").list(`${orcamento.empresa_id}/`);
 
-    const fileExists = existingFiles?.some(f => f.name === `${orcamento.id}.pdf`);
+    const fileExists = existingFiles?.some((f) => f.name === `${orcamento.id}.pdf`);
 
     let proceed = true;
     if (fileExists) {
-      proceed = confirm('Já existe um PDF para este orçamento. Deseja substituí-lo?');
+      proceed = confirm("Já existe um PDF para este orçamento. Deseja substituí-lo?");
     }
 
     if (!proceed) return;
 
     // Faz upload
     const { error } = await supabase.storage
-      .from('orcamentos-pdf')
-      .upload(filePath, pdfBlob, { contentType: 'application/pdf', upsert: true });
+      .from("orcamentos-pdf")
+      .upload(filePath, pdfBlob, { contentType: "application/pdf", upsert: true });
 
     if (error) {
-      alert('Erro ao salvar PDF no Supabase: ' + error.message);
+      alert("Erro ao salvar PDF no Supabase: " + error.message);
       return;
     }
 
-    alert('PDF salvo no Supabase com sucesso!');
+    alert("PDF salvo no Supabase com sucesso!");
   };
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
     }).format(value);
   };
 
   const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('pt-BR');
+    return new Date(date).toLocaleDateString("pt-BR");
   };
 
   const formatTime = (time: string) => {
-    if (!time) return '';
+    if (!time) return "";
     return time.substring(0, 5);
   };
 
@@ -130,9 +131,7 @@ export function PDFViewer({ orcamento, onClose }: PDFViewerProps) {
               </div>
               <div className="text-right">
                 <h2 className="text-3xl font-bold text-gray-400 mb-2">ORÇAMENTO</h2>
-                <p className="text-sm text-gray-600">
-                  # ORC-DRAFT-{orcamento.id.slice(0, 6).toUpperCase()}
-                </p>
+                <p className="text-sm text-gray-600"># ORC-DRAFT-{orcamento.id.slice(0, 6).toUpperCase()}</p>
                 <p className="text-sm text-gray-600">
                   Data: {formatDate(orcamento.criado_em || new Date().toISOString())}
                 </p>
@@ -144,9 +143,9 @@ export function PDFViewer({ orcamento, onClose }: PDFViewerProps) {
               <div>
                 <h3 className="text-sm font-bold text-gray-900 mb-3 uppercase">Cliente</h3>
                 <div className="space-y-1 text-sm">
-                  <p className="font-bold text-gray-900">{orcamento.clientes?.nome || 'N/A'}</p>
-                  <p className="text-blue-600">{orcamento.clientes?.email || 'N/A'}</p>
-                  <p className="text-gray-600">{orcamento.clientes?.telefone || 'N/A'}</p>
+                  <p className="font-bold text-gray-900">{orcamento.clientes?.nome || "N/A"}</p>
+                  <p className="text-blue-600">{orcamento.clientes?.email || "N/A"}</p>
+                  <p className="text-gray-600">{orcamento.clientes?.telefone || "N/A"}</p>
                 </div>
               </div>
 
@@ -154,15 +153,20 @@ export function PDFViewer({ orcamento, onClose }: PDFViewerProps) {
                 <h3 className="text-sm font-bold text-gray-900 mb-3 uppercase">Detalhes do Serviço</h3>
                 <div className="space-y-1 text-sm text-gray-600">
                   {orcamento.data_servico && (
-                    <p><span className="font-medium">Data:</span> {formatDate(orcamento.data_servico)}</p>
+                    <p>
+                      <span className="font-medium">Data:</span> {formatDate(orcamento.data_servico)}
+                    </p>
                   )}
                   {(orcamento.horario_inicio || orcamento.horario_fim) && (
                     <p>
-                      <span className="font-medium">Horário:</span> {formatTime(orcamento.horario_inicio)} às {formatTime(orcamento.horario_fim)}
+                      <span className="font-medium">Horário:</span> {formatTime(orcamento.horario_inicio)} às{" "}
+                      {formatTime(orcamento.horario_fim)}
                     </p>
                   )}
                   {orcamento.local_servico && (
-                    <p><span className="font-medium">Local:</span> {orcamento.local_servico}</p>
+                    <p>
+                      <span className="font-medium">Local:</span> {orcamento.local_servico}
+                    </p>
                   )}
                 </div>
               </div>
@@ -180,37 +184,41 @@ export function PDFViewer({ orcamento, onClose }: PDFViewerProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {Array.isArray(orcamento.servicos) && orcamento.servicos.map((servico: any, index: number) => (
-                    <tr key={index} className="border-b border-gray-200">
-                      <td className="py-4 px-4">
-                        <div className="flex items-start gap-3">
-                          {servico.imagem_url && (
-                            <img 
-                              src={servico.imagem_url} 
-                              alt={servico.nome}
-                              className="w-12 h-12 object-cover rounded"
-                            />
-                          )}
-                          <div className="flex-1">
-                            <p className="font-medium text-gray-900">{servico.nome}</p>
-                            {servico.descricao && (
-                              <p className="text-sm text-gray-500 mt-1">{servico.descricao}</p>
+                  {Array.isArray(orcamento.servicos) &&
+                    orcamento.servicos.map((servico: any, index: number) => (
+                      <tr key={index} className="border-b border-gray-200">
+                        <td className="py-4 px-4">
+                          <div className="flex items-start gap-3">
+                            {servico.imagem_url && (
+                              <img
+                                src={servico.imagem_url}
+                                alt={servico.nome}
+                                className="w-12 h-12 object-cover rounded"
+                              />
                             )}
-                            {servico.desconto > 0 && (
-                              <p className="text-sm text-green-600 mt-1">
-                                Desconto: {servico.tipo_desconto === 'percentual' 
-                                  ? `${servico.desconto}%` 
-                                  : formatCurrency(servico.desconto)}
-                              </p>
-                            )}
+                            <div className="flex-1">
+                              <p className="font-medium text-gray-900">{servico.nome}</p>
+                              {servico.descricao && <p className="text-sm text-gray-500 mt-1">{servico.descricao}</p>}
+                              {servico.desconto > 0 && (
+                                <p className="text-sm text-green-600 mt-1">
+                                  Desconto:{" "}
+                                  {servico.tipo_desconto === "percentual"
+                                    ? `${servico.desconto}%`
+                                    : formatCurrency(servico.desconto)}
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="py-4 px-4 text-center text-gray-900">{servico.quantidade || 1}</td>
-                      <td className="py-4 px-4 text-right text-gray-900">{formatCurrency(servico.preco_unitario || 0)}</td>
-                      <td className="py-4 px-4 text-right font-medium text-gray-900">{formatCurrency(servico.preco_total || 0)}</td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="py-4 px-4 text-center text-gray-900">{servico.quantidade || 1}</td>
+                        <td className="py-4 px-4 text-right text-gray-900">
+                          {formatCurrency(servico.preco_unitario || 0)}
+                        </td>
+                        <td className="py-4 px-4 text-right font-medium text-gray-900">
+                          {formatCurrency(servico.preco_total || 0)}
+                        </td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
             </div>
@@ -240,7 +248,10 @@ export function PDFViewer({ orcamento, onClose }: PDFViewerProps) {
             {/* Validity */}
             <div className="text-sm text-gray-600 border-t border-gray-200 pt-4">
               {orcamento.data_validade ? (
-                <p>Este orçamento é válido até: <span className="font-medium">{formatDate(orcamento.data_validade)}</span></p>
+                <p>
+                  Este orçamento é válido até:{" "}
+                  <span className="font-medium">{formatDate(orcamento.data_validade)}</span>
+                </p>
               ) : (
                 <p>Este orçamento é válido por 30 dias a partir da data de emissão.</p>
               )}
