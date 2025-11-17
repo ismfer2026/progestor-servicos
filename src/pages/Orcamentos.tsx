@@ -87,8 +87,51 @@ export function Orcamentos() {
     navigate(`/orcamentos/editar/${id}`);
   };
 
-  const handleVisualizar = (id: string) => {
-    window.open(`/orcamentos/visualizar/${id}`, '_blank');
+  const handleVisualizar = async (id: string) => {
+    try {
+      toast.loading("Gerando PDF...");
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Usuário não autenticado");
+
+      // Fazer requisição direta para obter o PDF
+      const response = await fetch(
+        `https://txxadrpsnkotlavovnea.supabase.co/functions/v1/gerar-pdf-orcamento`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ orcamento_id: id }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Erro ao gerar PDF' }));
+        throw new Error(error.error || 'Erro ao gerar PDF');
+      }
+
+      // Obter o PDF como blob
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      
+      // Abrir PDF em nova aba
+      const newWindow = window.open(url, '_blank');
+      if (!newWindow) {
+        toast.error("Popup bloqueado! Permita popups para visualizar o PDF");
+      }
+      
+      // Limpar URL após alguns segundos
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      
+      toast.dismiss();
+      toast.success("PDF gerado!");
+    } catch (error: any) {
+      console.error("Erro ao visualizar orçamento:", error);
+      toast.dismiss();
+      toast.error(error.message || "Erro ao gerar PDF");
+    }
   };
 
   const handleAbrirExcluir = (orcamentoId: string) => {
