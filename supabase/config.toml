@@ -1,8 +1,5 @@
 project_id = "txxadrpsnkotlavovnea"
 
-[functions.gerar-pdf-orcamento]
-verify_jwt = true
-
 [functions.enviar-orcamento]
 verify_jwt = true
 
