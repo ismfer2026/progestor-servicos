@@ -14,7 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { PDFViewer } from "@/components/orcamento/PDFViewer";
-import { EnviarOrcamentoDialog } from "@/components/orcamento/EnviarOrcamentoDialog";
+import { EnviarOrcamentoSheet } from "@/components/orcamento/EnviarOrcamentoSheet";
 
 interface Orcamento {
   id: string;
@@ -382,9 +382,9 @@ export function Orcamentos() {
         </CardContent>
       </Card>
 
-      {/* Dialog de Envio */}
+      {/* Sheet de Envio */}
       {orcamentoEnviar && (
-        <EnviarOrcamentoDialog
+        <EnviarOrcamentoSheet
           open={!!orcamentoEnviar}
           onOpenChange={(open) => !open && setOrcamentoEnviar(null)}
           orcamento={orcamentoEnviar}
