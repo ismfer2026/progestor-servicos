@@ -52,6 +52,8 @@ export function Orcamentos() {
   
   // Estados simplificados
   const [orcamentoExcluir, setOrcamentoExcluir] = useState<string | null>(null);
+  const [orcamentoVisualizar, setOrcamentoVisualizar] = useState<any>(null);
+  const [mostrarPDF, setMostrarPDF] = useState(false);
 
   useEffect(() => {
     fetchOrcamentos();
@@ -89,7 +91,7 @@ export function Orcamentos() {
 
   const handleVisualizar = async (id: string) => {
     try {
-      toast.loading("Gerando PDF...");
+      toast.loading("Carregando orçamento...");
       
       // Buscar dados completos do orçamento
       const { data: orcamento, error: orcamentoError } = await supabase
@@ -107,154 +109,14 @@ export function Orcamentos() {
         throw new Error('Orçamento não encontrado');
       }
 
-      // Criar PDF usando jsPDF
-      const { jsPDF } = await import('jspdf');
-      const doc = new jsPDF();
-      let y = 20;
-
-      // Logo e dados da empresa
-      doc.setFontSize(18);
-      doc.setFont('helvetica', 'bold');
-      doc.text(orcamento.empresas?.nome_fantasia || 'Empresa', 20, y);
-      
-      y += 10;
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      if (orcamento.empresas?.cnpj) doc.text(`CNPJ: ${orcamento.empresas.cnpj}`, 20, y);
-      y += 5;
-      if (orcamento.empresas?.telefone) doc.text(`Tel: ${orcamento.empresas.telefone}`, 20, y);
-      y += 5;
-      if (orcamento.empresas?.email_admin) doc.text(`Email: ${orcamento.empresas.email_admin}`, 20, y);
-
-      y += 15;
-      doc.setDrawColor(200, 200, 200);
-      doc.line(20, y, 190, y);
-
-      // Título do Orçamento
-      y += 10;
-      doc.setFontSize(16);
-      doc.setFont('helvetica', 'bold');
-      doc.text('ORÇAMENTO', 105, y, { align: 'center' });
-
-      y += 10;
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Número: ${getNumeroOrcamento(orcamento.id)}`, 20, y);
-      y += 5;
-      doc.text(`Data: ${new Date(orcamento.criado_em).toLocaleDateString('pt-BR')}`, 20, y);
-      
-      if (orcamento.data_validade) {
-        y += 5;
-        doc.text(`Validade: ${new Date(orcamento.data_validade).toLocaleDateString('pt-BR')}`, 20, y);
-      }
-
-      // Dados do Cliente
-      y += 15;
-      doc.setFont('helvetica', 'bold');
-      doc.text('CLIENTE', 20, y);
-      y += 7;
-      doc.setFont('helvetica', 'normal');
-      doc.text(orcamento.clientes?.nome || 'N/A', 20, y);
-      y += 5;
-      if (orcamento.clientes?.documento) {
-        doc.text(`Documento: ${orcamento.clientes.documento}`, 20, y);
-        y += 5;
-      }
-      if (orcamento.clientes?.telefone) {
-        doc.text(`Telefone: ${orcamento.clientes.telefone}`, 20, y);
-        y += 5;
-      }
-      if (orcamento.clientes?.email) {
-        doc.text(`Email: ${orcamento.clientes.email}`, 20, y);
-        y += 5;
-      }
-
-      // Serviços
-      y += 10;
-      doc.setFont('helvetica', 'bold');
-      doc.text('SERVIÇOS', 20, y);
-      y += 7;
-
-      // Cabeçalho da tabela
-      doc.setFillColor(240, 240, 240);
-      doc.rect(20, y, 170, 7, 'F');
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.text('Descrição', 22, y + 5);
-      doc.text('Qtd', 120, y + 5);
-      doc.text('Valor Unit.', 140, y + 5);
-      doc.text('Total', 170, y + 5);
-      y += 7;
-
-      // Itens dos serviços
-      doc.setFont('helvetica', 'normal');
-      const servicos = (orcamento.servicos as any[]) || [];
-      let subtotal = 0;
-
-      for (const servico of servicos) {
-        const valorUnitario = servico.preco_unitario || servico.valor_unitario || 0;
-        const quantidade = servico.quantidade || 1;
-        const total = valorUnitario * quantidade;
-        subtotal += total;
-
-        if (y > 250) {
-          doc.addPage();
-          y = 20;
-        }
-
-        const descricaoTexto = servico.descricao || servico.nome || '';
-        doc.text(descricaoTexto, 22, y + 4, { maxWidth: 95 });
-        doc.text(quantidade.toString(), 120, y + 4);
-        doc.text(valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 140, y + 4);
-        doc.text(total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 170, y + 4);
-        y += 8;
-      }
-
-      // Total
-      y += 5;
-      doc.setDrawColor(200, 200, 200);
-      doc.line(20, y, 190, y);
-      y += 7;
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.text('VALOR TOTAL:', 120, y);
-      doc.text(
-        (orcamento.valor_total || subtotal).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
-        170,
-        y
-      );
-
-      // Observações
-      if (orcamento.observacoes) {
-        y += 15;
-        doc.setFontSize(10);
-        doc.text('OBSERVAÇÕES:', 20, y);
-        y += 7;
-        doc.setFont('helvetica', 'normal');
-        const observacoes = doc.splitTextToSize(orcamento.observacoes, 170);
-        doc.text(observacoes, 20, y);
-      }
-
-      // Gerar e fazer download do PDF
-      const pdfBlob = doc.output('blob');
-      const url = URL.createObjectURL(pdfBlob);
-      
-      // Criar link temporário para download
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `Orcamento_${getNumeroOrcamento(orcamento.id)}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setOrcamentoVisualizar(orcamento);
+      setMostrarPDF(true);
       
       toast.dismiss();
-      toast.success("PDF gerado!");
     } catch (error: any) {
       console.error("Erro ao visualizar orçamento:", error);
       toast.dismiss();
-      toast.error(error.message || "Erro ao gerar PDF");
+      toast.error(error.message || "Erro ao carregar orçamento");
     }
   };
 
@@ -339,7 +201,18 @@ export function Orcamentos() {
   const valorTotal = orcamentos.reduce((sum, o) => sum + (o.valor_total || 0), 0);
 
   return (
-    <div className="space-y-6 p-6">
+    <>
+      {mostrarPDF && orcamentoVisualizar && (
+        <PDFViewer 
+          orcamento={orcamentoVisualizar} 
+          onClose={() => {
+            setMostrarPDF(false);
+            setOrcamentoVisualizar(null);
+          }} 
+        />
+      )}
+      
+      <div className="space-y-6 p-6">
       {/* Cabeçalho */}
       <div className="flex items-center justify-between">
         <div>
@@ -553,6 +426,7 @@ export function Orcamentos() {
           </div>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </>
   );
 }
