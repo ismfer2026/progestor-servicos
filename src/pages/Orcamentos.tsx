@@ -91,38 +91,155 @@ export function Orcamentos() {
     try {
       toast.loading("Gerando PDF...");
       
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Usuário não autenticado");
+      // Buscar dados completos do orçamento
+      const { data: orcamento, error: orcamentoError } = await supabase
+        .from('orcamentos')
+        .select(`
+          *,
+          clientes (nome, telefone, email, documento),
+          usuarios (nome),
+          empresas:empresa_id (nome_fantasia, cnpj, telefone, email_admin)
+        `)
+        .eq('id', id)
+        .single();
 
-      // Fazer requisição direta para obter o PDF
-      const response = await fetch(
-        `https://txxadrpsnkotlavovnea.supabase.co/functions/v1/gerar-pdf-orcamento`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ orcamento_id: id }),
+      if (orcamentoError || !orcamento) {
+        throw new Error('Orçamento não encontrado');
+      }
+
+      // Criar PDF usando jsPDF
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF();
+      let y = 20;
+
+      // Logo e dados da empresa
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.text(orcamento.empresas?.nome_fantasia || 'Empresa', 20, y);
+      
+      y += 10;
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      if (orcamento.empresas?.cnpj) doc.text(`CNPJ: ${orcamento.empresas.cnpj}`, 20, y);
+      y += 5;
+      if (orcamento.empresas?.telefone) doc.text(`Tel: ${orcamento.empresas.telefone}`, 20, y);
+      y += 5;
+      if (orcamento.empresas?.email_admin) doc.text(`Email: ${orcamento.empresas.email_admin}`, 20, y);
+
+      y += 15;
+      doc.setDrawColor(200, 200, 200);
+      doc.line(20, y, 190, y);
+
+      // Título do Orçamento
+      y += 10;
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('ORÇAMENTO', 105, y, { align: 'center' });
+
+      y += 10;
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Número: ${getNumeroOrcamento(orcamento.id)}`, 20, y);
+      y += 5;
+      doc.text(`Data: ${new Date(orcamento.criado_em).toLocaleDateString('pt-BR')}`, 20, y);
+      
+      if (orcamento.data_validade) {
+        y += 5;
+        doc.text(`Validade: ${new Date(orcamento.data_validade).toLocaleDateString('pt-BR')}`, 20, y);
+      }
+
+      // Dados do Cliente
+      y += 15;
+      doc.setFont('helvetica', 'bold');
+      doc.text('CLIENTE', 20, y);
+      y += 7;
+      doc.setFont('helvetica', 'normal');
+      doc.text(orcamento.clientes?.nome || 'N/A', 20, y);
+      y += 5;
+      if (orcamento.clientes?.documento) {
+        doc.text(`Documento: ${orcamento.clientes.documento}`, 20, y);
+        y += 5;
+      }
+      if (orcamento.clientes?.telefone) {
+        doc.text(`Telefone: ${orcamento.clientes.telefone}`, 20, y);
+        y += 5;
+      }
+      if (orcamento.clientes?.email) {
+        doc.text(`Email: ${orcamento.clientes.email}`, 20, y);
+        y += 5;
+      }
+
+      // Serviços
+      y += 10;
+      doc.setFont('helvetica', 'bold');
+      doc.text('SERVIÇOS', 20, y);
+      y += 7;
+
+      // Cabeçalho da tabela
+      doc.setFillColor(240, 240, 240);
+      doc.rect(20, y, 170, 7, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.text('Descrição', 22, y + 5);
+      doc.text('Qtd', 120, y + 5);
+      doc.text('Valor Unit.', 140, y + 5);
+      doc.text('Total', 170, y + 5);
+      y += 7;
+
+      // Itens dos serviços
+      doc.setFont('helvetica', 'normal');
+      const servicos = (orcamento.servicos as any[]) || [];
+      let subtotal = 0;
+
+      for (const servico of servicos) {
+        const valorUnitario = servico.preco_unitario || servico.valor_unitario || 0;
+        const quantidade = servico.quantidade || 1;
+        const total = valorUnitario * quantidade;
+        subtotal += total;
+
+        if (y > 250) {
+          doc.addPage();
+          y = 20;
         }
+
+        const descricaoTexto = servico.descricao || servico.nome || '';
+        doc.text(descricaoTexto, 22, y + 4, { maxWidth: 95 });
+        doc.text(quantidade.toString(), 120, y + 4);
+        doc.text(valorUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 140, y + 4);
+        doc.text(total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 170, y + 4);
+        y += 8;
+      }
+
+      // Total
+      y += 5;
+      doc.setDrawColor(200, 200, 200);
+      doc.line(20, y, 190, y);
+      y += 7;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.text('VALOR TOTAL:', 120, y);
+      doc.text(
+        (orcamento.valor_total || subtotal).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+        170,
+        y
       );
 
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Erro ao gerar PDF' }));
-        throw new Error(error.error || 'Erro ao gerar PDF');
+      // Observações
+      if (orcamento.observacoes) {
+        y += 15;
+        doc.setFontSize(10);
+        doc.text('OBSERVAÇÕES:', 20, y);
+        y += 7;
+        doc.setFont('helvetica', 'normal');
+        const observacoes = doc.splitTextToSize(orcamento.observacoes, 170);
+        doc.text(observacoes, 20, y);
       }
 
-      // Obter o PDF como blob
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
+      // Gerar e abrir PDF
+      const pdfBlob = doc.output('blob');
+      const url = URL.createObjectURL(pdfBlob);
+      window.open(url, '_blank');
       
-      // Abrir PDF em nova aba
-      const newWindow = window.open(url, '_blank');
-      if (!newWindow) {
-        toast.error("Popup bloqueado! Permita popups para visualizar o PDF");
-      }
-      
-      // Limpar URL após alguns segundos
       setTimeout(() => URL.revokeObjectURL(url), 10000);
       
       toast.dismiss();
