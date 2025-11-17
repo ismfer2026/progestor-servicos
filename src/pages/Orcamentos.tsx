@@ -114,11 +114,11 @@ export function Orcamentos() {
     // Formatar telefone (remover caracteres não numéricos)
     const telefoneFormatado = telefone.replace(/\D/g, '');
     
-    // Abrir WhatsApp
-    const whatsappUrl = `https://wa.me/55${telefoneFormatado}?text=${encodeURIComponent(mensagem)}`;
+    // Abrir WhatsApp Web diretamente
+    const whatsappUrl = `https://web.whatsapp.com/send?phone=55${telefoneFormatado}&text=${encodeURIComponent(mensagem)}`;
     window.open(whatsappUrl, '_blank');
     
-    toast.success("Abrindo WhatsApp...");
+    toast.success("Abrindo WhatsApp Web...");
   };
 
   const handleExcluir = async (id: string) => {
