@@ -235,12 +235,19 @@ export function Orcamentos() {
         doc.text(observacoes, 20, y);
       }
 
-      // Gerar e abrir PDF
+      // Gerar e fazer download do PDF
       const pdfBlob = doc.output('blob');
       const url = URL.createObjectURL(pdfBlob);
-      window.open(url, '_blank');
       
-      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      // Criar link temporário para download
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Orcamento_${getNumeroOrcamento(orcamento.id)}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
       
       toast.dismiss();
       toast.success("PDF gerado!");
