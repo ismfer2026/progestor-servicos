@@ -7,14 +7,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { FileText, Send, Eye, MoreVertical, Plus, Search, DollarSign, CheckCircle2, FileCheck, Trash2 } from "lucide-react";
+import { FileText, Eye, MoreVertical, Plus, Search, DollarSign, CheckCircle2, FileCheck, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { PDFViewer } from "@/components/orcamento/PDFViewer";
-import { EnviarOrcamentoSheet } from "@/components/orcamento/EnviarOrcamentoSheet";
 
 interface Orcamento {
   id: string;
@@ -53,7 +52,6 @@ export function Orcamentos() {
   
   // Estados simplificados
   const [orcamentoExcluir, setOrcamentoExcluir] = useState<string | null>(null);
-  const [orcamentoEnviar, setOrcamentoEnviar] = useState<Orcamento | null>(null);
 
   useEffect(() => {
     fetchOrcamentos();
@@ -95,10 +93,6 @@ export function Orcamentos() {
 
   const handleAbrirExcluir = (orcamentoId: string) => {
     setOrcamentoExcluir(orcamentoId);
-  };
-
-  const handleAbrirEnvio = (orcamento: Orcamento) => {
-    setOrcamentoEnviar(orcamento);
   };
 
   const handleExcluir = async (id: string) => {
@@ -148,7 +142,6 @@ export function Orcamentos() {
 
   // Estatísticas
   const totalOrcamentos = orcamentos.length;
-  const totalEnviados = orcamentos.filter(o => o.status === "Enviado").length;
   const totalAprovados = orcamentos.filter(o => o.status === "Aprovado").length;
   const valorTotal = orcamentos.reduce((sum, o) => sum + (o.valor_total || 0), 0);
 
@@ -177,20 +170,6 @@ export function Orcamentos() {
               </div>
               <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
                 <FileText className="h-6 w-6 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Enviados</p>
-                <p className="text-3xl font-bold text-foreground">{totalEnviados}</p>
-              </div>
-              <div className="h-12 w-12 rounded-lg bg-purple-500/10 flex items-center justify-center">
-                <Send className="h-6 w-6 text-purple-500" />
               </div>
             </div>
           </CardContent>
@@ -353,10 +332,6 @@ export function Orcamentos() {
                                   <Eye className="h-4 w-4 mr-2" />
                                   Visualizar
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleAbrirEnvio(orcamento)}>
-                                  <Send className="h-4 w-4 mr-2" />
-                                  Enviar
-                                </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleGerarContrato(orcamento)}>
                                   <FileCheck className="h-4 w-4 mr-2" />
                                   Gerar Contrato
@@ -381,15 +356,6 @@ export function Orcamentos() {
           </div>
         </CardContent>
       </Card>
-
-      {/* Sheet de Envio */}
-      {orcamentoEnviar && (
-        <EnviarOrcamentoSheet
-          open={!!orcamentoEnviar}
-          onOpenChange={(open) => !open && setOrcamentoEnviar(null)}
-          orcamento={orcamentoEnviar}
-        />
-      )}
     </div>
   );
 }
