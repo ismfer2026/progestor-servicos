@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { FileText, Eye, MoreVertical, Plus, Search, DollarSign, CheckCircle2, FileCheck, Trash2 } from "lucide-react";
+import { FileText, Eye, MoreVertical, Plus, Search, DollarSign, CheckCircle2, FileCheck, Trash2, MessageSquare } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
@@ -93,6 +93,32 @@ export function Orcamentos() {
 
   const handleAbrirExcluir = (orcamentoId: string) => {
     setOrcamentoExcluir(orcamentoId);
+  };
+
+  const handleEnviarWhatsApp = (orcamento: Orcamento) => {
+    const telefone = orcamento.clientes?.telefone;
+    
+    if (!telefone) {
+      toast.error("Cliente não possui telefone cadastrado");
+      return;
+    }
+
+    const numero = getNumeroOrcamento(orcamento.id);
+    const valorFormatado = new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(orcamento.valor_total || 0);
+
+    const mensagem = `Olá! Segue o orçamento ${numero} no valor de ${valorFormatado}. Qualquer dúvida estou à disposição!`;
+    
+    // Formatar telefone (remover caracteres não numéricos)
+    const telefoneFormatado = telefone.replace(/\D/g, '');
+    
+    // Abrir WhatsApp
+    const whatsappUrl = `https://wa.me/55${telefoneFormatado}?text=${encodeURIComponent(mensagem)}`;
+    window.open(whatsappUrl, '_blank');
+    
+    toast.success("Abrindo WhatsApp...");
   };
 
   const handleExcluir = async (id: string) => {
@@ -331,6 +357,10 @@ export function Orcamentos() {
                                 <DropdownMenuItem onClick={() => handleVisualizar(orcamento.id)}>
                                   <Eye className="h-4 w-4 mr-2" />
                                   Visualizar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleEnviarWhatsApp(orcamento)}>
+                                  <MessageSquare className="h-4 w-4 mr-2" />
+                                  Enviar WhatsApp
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleGerarContrato(orcamento)}>
                                   <FileCheck className="h-4 w-4 mr-2" />
