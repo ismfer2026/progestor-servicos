@@ -4,7 +4,6 @@ import {
   BarChart3, 
   Calendar, 
   Users, 
-  FileText, 
   DollarSign, 
   Settings, 
   Home,
@@ -14,8 +13,6 @@ import {
   ChevronRight,
   Wrench,
   ChevronDown,
-  RefreshCw,
-  FileCheck,
   Shield
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -24,15 +21,13 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { useAuth } from '@/contexts/AuthContext';
 
 const navigation = [
-  { name: 'Tela Principal', href: '/dashboard', icon: Home },
-  { name: 'Orçamentos', href: '/orcamentos', icon: FileText },
-  { name: 'Serviços/Produtos', href: '/servicos', icon: Wrench },
+  { name: 'Dashboard', href: '/dashboard', icon: Home },
+  { name: 'Clientes', href: '/clientes', icon: Users },
   { name: 'Funil de Vendas', href: '/funil', icon: TrendingUp },
   { name: 'Agenda', href: '/agenda', icon: Calendar },
-  { name: 'Clientes', href: '/clientes', icon: Users },
-  { name: 'Estoque', href: '/estoque', icon: Package },
+  { name: 'Sessões', href: '/servicos', icon: Wrench },
+  { name: 'Produtos', href: '/estoque', icon: Package },
   { name: 'Financeiro', href: '/financeiro', icon: DollarSign },
-  { name: 'Contratos', href: '/contratos', icon: FileText },
   { name: 'Relatórios', href: '/relatorios', icon: BarChart3 },
   { name: 'Configurações', href: '/configuracoes', icon: Settings },
   { name: 'ADM', href: '/adm', icon: Shield, adminOnly: true },
@@ -61,12 +56,12 @@ export function Sidebar() {
       <div className="p-6 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
-            <span className="text-white font-bold text-sm">P</span>
+            <span className="text-white font-bold text-sm">ia</span>
           </div>
           {!collapsed && (
             <div className="animate-fade-in">
-              <h1 className="text-xl font-bold text-sidebar-foreground">Synca Gestão</h1>
-              <p className="text-xs text-muted-foreground">Gestão Completa</p>
+              <h1 className="text-xl font-bold text-sidebar-foreground">iaprafaturar</h1>
+              <p className="text-xs text-muted-foreground">CRM Clínico</p>
             </div>
           )}
         </div>

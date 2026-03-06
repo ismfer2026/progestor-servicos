@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Synca Gestão Design System - Cores, gradientes, fontes e animações */
+/* iaprafaturar Design System - CRM Clínico para Profissionais de Saúde e Estética */
 
 @layer base {
   :root {
@@ -16,25 +16,25 @@
     --popover: 0 0% 100%;
     --popover-foreground: 215 25% 20%;
 
-    /* Primary Brand (Azul Corporativo) */
-    --primary: 217 91% 55%;
+    /* Primary Brand (Teal Clínico #0D6E6E) */
+    --primary: 175 83% 25%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 217 91% 50%;
-    --primary-light: 217 91% 95%;
+    --primary-hover: 175 83% 20%;
+    --primary-light: 175 67% 94%;
 
     /* Success (Verde) */
     --success: 142 76% 36%;
     --success-foreground: 0 0% 100%;
     --success-light: 142 76% 95%;
 
-    /* Warning (Laranja) */
-    --warning: 38 92% 50%;
+    /* Warning (Acento #F4A623) */
+    --warning: 30 96% 56%;
     --warning-foreground: 0 0% 100%;
-    --warning-light: 38 92% 95%;
+    --warning-light: 30 96% 95%;
 
-    /* Secondary */
-    --secondary: 215 15% 96%;
-    --secondary-foreground: 215 25% 25%;
+    /* Secondary (Fundo Claro #E8F5F5) */
+    --secondary: 175 67% 94%;
+    --secondary-foreground: 175 83% 25%;
 
     --muted: 215 15% 96%;
     --muted-foreground: 215 15% 55%;
@@ -47,7 +47,7 @@
 
     --border: 215 15% 88%;
     --input: 215 15% 88%;
-    --ring: 217 91% 55%;
+    --ring: 175 83% 25%;
 
     --radius: 0.75rem;
 
@@ -67,17 +67,17 @@
     --sidebar-ring: 217 91% 55%;
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(217 91% 55%), hsl(217 91% 45%));
+    --gradient-primary: linear-gradient(135deg, hsl(175 83% 25%), hsl(175 83% 20%));
     --gradient-success: linear-gradient(135deg, hsl(142 76% 36%), hsl(142 76% 30%));
-    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(215 15% 99%));
-    --gradient-sidebar: linear-gradient(180deg, hsl(0 0% 100%), hsl(215 15% 98%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(175 67% 97%));
+    --gradient-sidebar: linear-gradient(180deg, hsl(0 0% 100%), hsl(175 67% 96%));
 
     /* Shadows */
     --shadow-sm: 0 1px 2px 0 hsl(215 15% 15% / 0.05);
     --shadow-md: 0 4px 6px -1px hsl(215 15% 15% / 0.1), 0 2px 4px -1px hsl(215 15% 15% / 0.06);
     --shadow-lg: 0 10px 15px -3px hsl(215 15% 15% / 0.1), 0 4px 6px -2px hsl(215 15% 15% / 0.05);
     --shadow-xl: 0 20px 25px -5px hsl(215 15% 15% / 0.1), 0 10px 10px -5px hsl(215 15% 15% / 0.04);
-    --shadow-primary: 0 10px 30px -10px hsl(217 91% 55% / 0.3);
+    --shadow-primary: 0 10px 30px -10px hsl(175 83% 25% / 0.3);
 
     /* Animations */
     --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
@@ -96,11 +96,11 @@
     --popover: 215 28% 10%;
     --popover-foreground: 215 15% 92%;
 
-    /* Primary Brand (Azul mais suave no dark) */
-    --primary: 217 91% 60%;
+    /* Primary Brand (Teal Clínico mais claro no dark) */
+    --primary: 175 83% 35%;
     --primary-foreground: 215 28% 8%;
-    --primary-hover: 217 91% 65%;
-    --primary-light: 217 91% 15%;
+    --primary-hover: 175 83% 40%;
+    --primary-light: 175 83% 15%;
 
     /* Success Dark */
     --success: 142 76% 45%;
@@ -108,12 +108,12 @@
     --success-light: 142 76% 15%;
 
     /* Warning Dark */
-    --warning: 38 92% 55%;
+    --warning: 30 96% 56%;
     --warning-foreground: 215 28% 8%;
-    --warning-light: 38 92% 15%;
+    --warning-light: 30 96% 15%;
 
-    --secondary: 215 28% 15%;
-    --secondary-foreground: 215 15% 85%;
+    --secondary: 175 83% 15%;
+    --secondary-foreground: 175 67% 90%;
 
     --muted: 215 28% 15%;
     --muted-foreground: 215 15% 65%;
@@ -126,7 +126,7 @@
 
     --border: 215 28% 20%;
     --input: 215 28% 20%;
-    --ring: 217 91% 60%;
+    --ring: 175 83% 35%;
 
     /* Trial Banner Dark */
     --trial-bg: 38 92% 15%;
@@ -135,16 +135,16 @@
 
     /* Sidebar Dark */
     --sidebar-background: 215 28% 10%;
-    --sidebar-foreground: 215 15% 85%;
-    --sidebar-primary: 217 91% 60%;
+    --sidebar-foreground: 175 67% 90%;
+    --sidebar-primary: 175 83% 35%;
     --sidebar-primary-foreground: 215 28% 8%;
     --sidebar-accent: 215 28% 15%;
-    --sidebar-accent-foreground: 215 15% 85%;
+    --sidebar-accent-foreground: 175 67% 90%;
     --sidebar-border: 215 28% 20%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-ring: 175 83% 35%;
 
     /* Dark Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%), hsl(217 91% 50%));
+    --gradient-primary: linear-gradient(135deg, hsl(175 83% 35%), hsl(175 83% 25%));
     --gradient-success: linear-gradient(135deg, hsl(142 76% 45%), hsl(142 76% 35%));
     --gradient-card: linear-gradient(145deg, hsl(215 28% 10%), hsl(215 28% 12%));
     --gradient-sidebar: linear-gradient(180deg, hsl(215 28% 10%), hsl(215 28% 8%));
@@ -154,7 +154,7 @@
     --shadow-md: 0 4px 6px -1px hsl(215 28% 5% / 0.4), 0 2px 4px -1px hsl(215 28% 5% / 0.3);
     --shadow-lg: 0 10px 15px -3px hsl(215 28% 5% / 0.4), 0 4px 6px -2px hsl(215 28% 5% / 0.3);
     --shadow-xl: 0 20px 25px -5px hsl(215 28% 5% / 0.5), 0 10px 10px -5px hsl(215 28% 5% / 0.3);
-    --shadow-primary: 0 10px 30px -10px hsl(217 91% 60% / 0.4);
+    --shadow-primary: 0 10px 30px -10px hsl(175 83% 35% / 0.4);
   }
 }
 
